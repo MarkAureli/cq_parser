@@ -1,4 +1,5 @@
-int a = 5;
-int c = 19;
-int b = 6;
-bool d = true;
+/* a test file
+
+*/
+@
+

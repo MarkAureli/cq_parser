@@ -3,12 +3,22 @@
 #include <stdbool.h>
 %}
 
+%x COMMENT
+
 /* Declare tokens */
 IDENTIFIER    [a-zA-Z_][a-zA-Z0-9_]*
 NUMBER        [0-9]+
 WHITESPACE    [ \t\n]+
 
 %%
+
+%{ /* comments */
+%}
+
+"/*"		{ BEGIN(COMMENT); }
+<COMMENT>"*/"	{ BEGIN(INITIAL); }
+<COMMENT>[^\*]*	{ }
+<COMMENT>\*+([^*/][^*\n]*)? { }
 
 bool		{ printf("TYPE: %s\n", yytext); }
 int		{ printf("TYPE: %s\n", yytext); }
