@@ -1,0 +1,1 @@
+quantum unsigned u = 4 & 12 - (9 * 3);

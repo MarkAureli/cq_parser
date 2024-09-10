@@ -57,7 +57,7 @@ declaration:
 
 function_definition:
 	QUANTUM type_specifier declarator LPAREN parameter_list RPAREN statement
-	| type_specifier declarator IDENTIFIER LPAREN parameter_list RPAREN statement
+	| type_specifier declarator LPAREN parameter_list RPAREN statement
 	;
 
 parameter_list:
@@ -79,6 +79,7 @@ variable_declaration:
 variable_definition:
 	QUANTUM type_specifier declarator ASSIGN logical_or_expr SEMICOLON
 	| QUANTUM type_specifier declarator ASSIGN LBRACKET initializer_list RBRACKET SEMICOLON
+	| QUANTUM type_specifier declarator ASSIGN LBRACE initializer_list RBRACE SEMICOLON
 	| CONST type_specifier declarator ASSIGN logical_or_expr SEMICOLON
 	| CONST type_specifier declarator ASSIGN LBRACE initializer_list RBRACE SEMICOLON
 	| type_specifier declarator ASSIGN logical_or_expr SEMICOLON
@@ -285,9 +286,9 @@ int yyerror(const char *msg) {
 }
 
 int main(int argc, char **argv) {
-#ifdef YYDEBUG
-    yydebug = 1;
-#endif
+//#ifdef YYDEBUG
+//    yydebug = 1;
+//#endif
 
     if (argc > 1) {
         FILE *file = fopen(argv[1], "r");
@@ -299,7 +300,7 @@ int main(int argc, char **argv) {
     }
     yyparse();
     if (success == 1) {
-        printf("Parsing successful\n");
+//        printf("Parsing successful\n");
 	return 0;
     } else {
         return 1;	    

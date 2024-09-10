@@ -1,0 +1,1 @@
+quantum bool b = true && true || false;

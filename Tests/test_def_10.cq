@@ -1,0 +1,1 @@
+quantum int i = 5 + 2 << 3;
