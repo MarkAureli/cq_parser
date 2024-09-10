@@ -1,3 +1,5 @@
+%option yylineno
+
 %{
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,7 +14,8 @@ int line_num = 1;
 %{ /* tokens */
 %}
 IDENTIFIER	[a-zA-Z_][a-zA-Z0-9_]*
-NUMBER		[0-9]+
+INT_CONST	[0-9]+
+FLOAT_CONST	[0-9]+"."[0-9]+	
 WHITESPACE	[ \t\n]+
 
 %%
@@ -120,6 +123,8 @@ phase				{ return PHASE; }
 
 %{ /* delimiters */
 %}
+":"				{ return COLON; }
+","				{ return COMMA; }
 "{"				{ return LBRACE; }
 "["				{ return LBRACKET; }
 "("				{ return LPAREN; }
@@ -131,7 +136,8 @@ phase				{ return PHASE; }
 %{ /* token actions */
 %}
 {IDENTIFIER}			{ yylval.str = strdup(yytext); return IDENTIFIER; }
-{NUMBER}			{ yylval.num = atoi(yytext); return NUMBER; }
+{INT_CONST}			{ yylval.int_const = atoi(yytext); return INT_CONST; }
+{FLOAT_CONST}			{ yylval.float_const = atoi(yytext); return FLOAT_CONST; }
 {WHITESPACE}			{ /* Ignore whitespace */ }
 
 %{ /* match not found */
