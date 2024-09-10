@@ -1,4 +1,4 @@
-q_parser
-example_parser
+cq_parser
 *.tab.*
 *.yy.*
+*.output
