@@ -1,0 +1,1 @@
+quantum int i_array[7 / 3] = {3 - var_a / 2, 2 * var_b};

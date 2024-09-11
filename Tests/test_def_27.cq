@@ -1,0 +1,1 @@
+const bool b_array[2] = {true, false || false && true};

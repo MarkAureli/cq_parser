@@ -1,1 +1,1 @@
-int i_array[] = {6 ^ 5 >> 3, 3 | 2 / 9};
+quantum unsigned u = [func];

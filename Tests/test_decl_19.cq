@@ -1,1 +1,1 @@
-quantum int i_array[6 / 3];
+quantum bool b_array[1 + 2];

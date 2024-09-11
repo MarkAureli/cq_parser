@@ -1,1 +1,1 @@
-const bool b_array[] = {4 <= 3, 2 > 1};
+float f_array[] = {0.922 * var_a};

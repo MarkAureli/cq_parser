@@ -1,1 +1,1 @@
-quantum unsigned u_array[20 + (-5 * 2) & 2];
+quantum int i_array[6 / 3];

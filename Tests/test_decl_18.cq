@@ -1,1 +1,1 @@
-quantum bool b_array[1 + 2];
+quantum unsigned u_array[];

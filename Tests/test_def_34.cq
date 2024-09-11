@@ -1,0 +1,1 @@
+quantum bool b_array[3 - 2] = {true};
