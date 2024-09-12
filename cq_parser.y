@@ -1,9 +1,12 @@
 %{
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "symtab.h"
 
-int yylex(void);
+extern int yylex(void);
+extern int yylineno;
 int yyerror(const char *s);
 int success = 1;
 extern FILE *yyin;
@@ -13,26 +16,29 @@ extern FILE *yyout;
 
 /* Union to define yylval's types */
 %union {
-    char *str;
-    int iconst;
+    bool bconst;
     double fconst;
+    int iconst;
+    unsigned uconst;
+    list_t *symtab_item;
 }
 
 %token <str> ID
-%token <iconst> ICONST
+%token <bconst> BCONST
 %token <fconst> FCONST
-%token BOOL FLOAT INT UNSIGNED VOID
-%token CONST QUANTUM
-%token BREAK CONTINUE DO FOR RETURN WHILE
-%token CASE DEFAULT ELSE IF SWITCH
-%token TRUE FALSE
-%token MEASURE
-%token PHASE
-%token ADD DIV MOD MUL SUB
-%token BIT_AND BIT_LSHIFT BIT_OR BIT_RSHIFT BIT_XOR
-%token AND EQ GE GEQ LE LEQ NEQ NOT NOT_OP OR XOR
-%token ASSIGN ASSIGN_ADD ASSIGN_AND ASSIGN_DIV ASSIGN_LSHIFT ASSIGN_MOD ASSIGN_MUL ASSIGN_OR ASSIGN_RSHIFT ASSIGN_SUB ASSIGN_XOR
-%token COLON COMMA LBRACE LBRACKET LPAREN RBRACE RBRACKET RPAREN SEMICOLON
+%token <iconst> ICONST
+%token <uconst> UCONST
+%token <uconst> BOOL FLOAT INT UNSIGNED VOID
+%token <uconst> CONST QUANTUM
+%token <uconst> BREAK CONTINUE DO FOR RETURN WHILE
+%token <uconst> CASE DEFAULT ELSE IF SWITCH
+%token <uconst> MEASURE
+%token <uconst> PHASE
+%token <uconst> ADD DIV MOD MUL SUB
+%token <uconst> BIT_AND BIT_LSHIFT BIT_OR BIT_RSHIFT BIT_XOR
+%token <uconst> AND EQ GE GEQ LE LEQ NEQ NOT NOT_OP OR XOR
+%token <uconst> ASSIGN ASSIGN_ADD ASSIGN_AND ASSIGN_DIV ASSIGN_LSHIFT ASSIGN_MOD ASSIGN_MUL ASSIGN_OR ASSIGN_RSHIFT ASSIGN_SUB ASSIGN_XOR
+%token <uconst> COLON COMMA LBRACE LBRACKET LPAREN RBRACE RBRACKET RPAREN SEMICOLON
 %left ADD SUB
 %left MUL DIV MOD
 %nonassoc "then"
@@ -272,16 +278,15 @@ argument_expr_list:
 	;
 
 consts:
-	ICONST
-	| FCONST
-	| FALSE
-	| TRUE
+    BCONST
+    | FCONST
+    | ICONST
+    | UCONST
 	;
 
 %%
 
 int yyerror(const char *msg) {
-    extern int yylineno;
     fprintf(stderr, "Parsing failed in line %d: %s\n", yylineno, msg);
     success = 0;
     return 0;
@@ -293,7 +298,7 @@ int main(int argc, char **argv) {
 //#endif
 
     // determine and open input file
-    if (argc > 1) {
+    if (argc > 1 && strncmp(argv[1], "--dump", 7) != 0) {
         yyin = fopen(argv[1], "r");
         if (!yyin) {
             fprintf(stderr, "Could not open %s\n", argv[1]);
@@ -312,13 +317,15 @@ int main(int argc, char **argv) {
     }
 
     // symbol table dump
-    yyout = fopen("symtab_dump.out", "w");
-    if (!yyout) {
-        fprintf(stderr, "Could not open symtab_dump.out\n");
-        return 1;
+    if ((argc == 2 && strncmp(argv[1], "--dump", 7) == 0) || (argc == 3 && strncmp(argv[2], "--dump", 7) == 0)) {
+        yyout = fopen("symtab_dump.out", "w");
+        if (!yyout) {
+            fprintf(stderr, "Could not open symtab_dump.out\n");
+            return 1;
+        }
+        symtab_dump(yyout);
+        fclose(yyout);
     }
-    symtab_dump(yyout);
-    fclose(yyout);
 
     // set return value
     if (success == 1) {

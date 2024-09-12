@@ -40,8 +40,7 @@ void insert(char *name, unsigned length, type_t type, unsigned line_num) {
         l->lines->line_num = line_num;
         l->lines->next = NULL;
         l->next = hash_table[hashval];
-        hash_table[hashval] = l; 
-        printf("Inserted %s for the first time with line number %u!\n", name, line_num); // error checking
+        hash_table[hashval] = l;
     } /* found in table, so just add line number */ else {
         l->scope = cur_scope;
         ref_list_t *t = l->lines;
@@ -52,7 +51,6 @@ void insert(char *name, unsigned length, type_t type, unsigned line_num) {
         t->next = malloc(sizeof(ref_list_t));
         t->next->line_num = line_num;
         t->next->next = NULL;
-        printf("Found %s again at line %u!\n", name, line_num);
     }
 }
 
@@ -216,7 +214,7 @@ void symtab_dump(FILE * of){
                 }
                 fprintf(of,"\n");
                 l = l->next;
-	    }
+	        }
         }
     }
 }
