@@ -137,11 +137,12 @@ phase				    { return PHASE; }
 
 %{ /* token actions */
 %}
-{ID}				    { insert(yytext, strlen(yytext), UNDEFINED_T, yylineno);  yylval.symtab_item = lookup(yytext); return ID; }
+
 {BCONST}                { yylval.bconst = strtob(yytext, NULL); return BCONST; }
-{FCONST}			    { yylval.fconst = strtod(yytext, NULL); return FCONST; }
-{ICONST}			    { yylval.iconst = (int) strtol(yytext, NULL, 10); return ICONST; }
+{ID}				    { insert(yytext, strlen(yytext), UNDEFINED_T, yylineno);  yylval.symtab_item = lookup(yytext); return ID; }
 {UCONST}			    { yylval.uconst = (unsigned) strtoul(yytext, NULL, 10); return UCONST; }
+{ICONST}			    { yylval.iconst = (int) strtol(yytext, NULL, 10); return ICONST; }
+{FCONST}			    { yylval.fconst = strtod(yytext, NULL); return FCONST; }
 
 %{ /* match not found */
 %}
