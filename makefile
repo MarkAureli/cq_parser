@@ -6,7 +6,8 @@ EXECUTABLE := ./cq_parser
 cq_parser: cq_lexer.l cq_parser.y
 	bison -d cq_parser.y
 	flex -o cq_lex.yy.c cq_lexer.l
-	clang -o $@ cq_parser.tab.c cq_lex.yy.c -ll
+	clang -o $@ cq_parser.tab.c symtab.c cq_lex.yy.c -ll
+	@rm cq_lex.yy.c
 
 test:
 	@echo "Running tests..."; \

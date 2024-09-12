@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "cq_parser.tab.h"
+#include "symtab.h"
 
 unsigned line_num = 1;
 %}
@@ -136,7 +137,7 @@ phase				{ return PHASE; }
 
 %{ /* token actions */
 %}
-{ID}				{ yylval.str = strdup(yytext); return ID; }
+{ID}				{ insert(yytext, strlen(yytext), UNDEFINED_T, line_num);  yylval.str = strdup(yytext); return ID; }
 {ICONST}			{ yylval.iconst = atoi(yytext); return ICONST; }
 {FCONST}			{ yylval.fconst = atoi(yytext); return FCONST; }
 

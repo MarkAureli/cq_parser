@@ -1,11 +1,13 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
+#include "symtab.h"
 
 int yylex(void);
 int yyerror(const char *s);
 int success = 1;
 extern FILE *yyin;
+extern FILE *yyout;
 
 %}
 
@@ -290,19 +292,38 @@ int main(int argc, char **argv) {
 //    yydebug = 1;
 //#endif
 
+    // determine and open input file
     if (argc > 1) {
-        FILE *file = fopen(argv[1], "r");
-        if (!file) {
+        yyin = fopen(argv[1], "r");
+        if (!yyin) {
             fprintf(stderr, "Could not open %s\n", argv[1]);
             return 1;
         }
-        yyin = file;
     }
+
+    init_hash_table();
+
+    // parsing
     yyparse();
+
+    // close input file
+    if (argc > 1) {
+        fclose(yyin);
+    }
+
+    // symbol table dump
+    yyout = fopen("symtab_dump.out", "w");
+    if (!yyout) {
+        fprintf(stderr, "Could not open symtab_dump.out\n");
+        return 1;
+    }
+    symtab_dump(yyout);
+    fclose(yyout);
+
+    // set return value
     if (success == 1) {
-//        printf("Parsing successful\n");
 	return 0;
     } else {
-        return 1;	    
+        return 2;	    
     }
 }
