@@ -12,13 +12,13 @@ extern FILE *yyin;
 /* Union to define yylval's types */
 %union {
     char *str;
-    int int_const;
-    double float_const;
+    int iconst;
+    double fconst;
 }
 
-%token <str> IDENTIFIER
-%token <int_const> INT_CONST
-%token <float_const> FLOAT_CONST
+%token <str> ID
+%token <iconst> ICONST
+%token <fconst> FCONST
 %token BOOL FLOAT INT UNSIGNED VOID
 %token CONST QUANTUM
 %token BREAK CONTINUE DO FOR RETURN WHILE
@@ -86,7 +86,7 @@ variable_definition:
 	| type_specifier declarator ASSIGN LBRACE initializer_list RBRACE SEMICOLON
 
 declarator:
-	IDENTIFIER
+	ID
 	| declarator LBRACKET logical_or_expr RBRACKET
 	| declarator LBRACKET RBRACKET
 
@@ -259,7 +259,7 @@ postfix_expr:
 	;
 
 primary_expr:
-	IDENTIFIER
+	ID
 	| consts
 	| LPAREN logical_or_expr RPAREN
 	;
@@ -270,8 +270,8 @@ argument_expr_list:
 	;
 
 consts:
-	INT_CONST
-	| FLOAT_CONST
+	ICONST
+	| FCONST
 	| FALSE
 	| TRUE
 	;

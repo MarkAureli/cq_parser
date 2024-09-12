@@ -1,4 +1,5 @@
 %option yylineno
+%option noyywrap
 
 %{
 #include <stdio.h>
@@ -6,23 +7,23 @@
 #include <string.h>
 #include "cq_parser.tab.h"
 
-int line_num = 1;
+unsigned line_num = 1;
 %}
 
 %x COMMENT
 
 %{ /* tokens */
 %}
-IDENTIFIER	[a-zA-Z_][a-zA-Z0-9_]*
-INT_CONST	[0-9]+
-FLOAT_CONST	[0-9]+"."[0-9]+	
-WHITESPACE	[ \t\n]+
+ID				[a-zA-Z_][a-zA-Z0-9_]*
+ICONST				[0-9]+
+FCONST				[0-9]+"."[0-9]+	
 
 %%
 
 %{ /* increase line count */
 %}
-\n				{ ++line_num; }
+"\n"				{ ++line_num; }
+[ \t\r\f]+			/* ignore whitespace */
 
 %{ /* comments */
 %}
@@ -135,18 +136,13 @@ phase				{ return PHASE; }
 
 %{ /* token actions */
 %}
-{IDENTIFIER}			{ yylval.str = strdup(yytext); return IDENTIFIER; }
-{INT_CONST}			{ yylval.int_const = atoi(yytext); return INT_CONST; }
-{FLOAT_CONST}			{ yylval.float_const = atoi(yytext); return FLOAT_CONST; }
-{WHITESPACE}			{ /* Ignore whitespace */ }
+{ID}				{ yylval.str = strdup(yytext); return ID; }
+{ICONST}			{ yylval.iconst = atoi(yytext); return ICONST; }
+{FCONST}			{ yylval.fconst = atoi(yytext); return FCONST; }
 
 %{ /* match not found */
 %}
-.				{ fprintf(stderr, "%d: error: %s \n", line_num, yytext); }
+.				{ fprintf(stderr, "%u: error: %s \n", line_num, yytext); }
 
 %%
-
-int yywrap() {
-    return 1;
-}
 
