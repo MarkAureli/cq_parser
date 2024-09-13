@@ -69,7 +69,7 @@ declaration_list:
 	;
 
 declaration:
-	 variable_declaration
+    variable_declaration
 	| variable_definition
 	| function_definition
 	;
@@ -137,6 +137,27 @@ statement_list:
 	;
 
 statement:
+    decl_statement
+	| expr_statement
+	| if_statement
+	| switch_statement
+	| do_statement
+	| while_statement
+	| for_statement
+	| jump_statement
+	;
+
+decl_statement:
+    variable_declaration
+    | variable_definition
+    ;
+
+res_statement_list:
+	res_statement
+	| res_statement_list res_statement
+	;
+
+res_statement:
 	expr_statement
 	| if_statement
 	| switch_statement
@@ -152,8 +173,8 @@ expr_statement:
 	;
 
 if_statement:
-	IF LPAREN logical_or_expr RPAREN LBRACE statement_list RBRACE	%prec "then"
-	| IF LPAREN logical_or_expr RPAREN LBRACE statement_list RBRACE ELSE LBRACE statement_list RBRACE
+	IF LPAREN logical_or_expr RPAREN LBRACE res_statement_list RBRACE	%prec "then"
+	| IF LPAREN logical_or_expr RPAREN LBRACE res_statement_list RBRACE ELSE LBRACE statement_list RBRACE
 
 switch_statement:
 	SWITCH LPAREN logical_or_expr RPAREN LBRACE case_statement_list RBRACE
@@ -165,8 +186,8 @@ case_statement_list:
     ;
 
 case_statement:
-	CASE logical_or_expr COLON statement_list
-	| DEFAULT COLON statement_list
+	CASE logical_or_expr COLON res_statement_list
+	| DEFAULT COLON res_statement_list
 	;
 
 do_statement:
