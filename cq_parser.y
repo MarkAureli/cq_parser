@@ -170,15 +170,15 @@ case_statement:
 	;
 
 do_statement:
-	DO LBRACE statement_list RBRACE WHILE LPAREN expr RPAREN SEMICOLON
+	DO { incr_scope(); } LBRACE statement_list RBRACE { hide_scope(); } WHILE LPAREN expr RPAREN SEMICOLON
     ;
 
 while_statement:
-    WHILE LPAREN expr RPAREN LBRACE statement_list RBRACE
+    WHILE LPAREN expr RPAREN { incr_scope(); } LBRACE statement_list RBRACE { hide_scope(); }
     ;
 
 for_statement:
-    FOR LPAREN expr_statement expr_statement expr RPAREN LBRACE statement_list RBRACE
+    FOR LPAREN expr_statement expr_statement expr RPAREN { incr_scope(); } LBRACE statement_list RBRACE { hide_scope(); }
     ;
 
 jump_statement:
