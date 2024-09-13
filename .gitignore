@@ -2,3 +2,6 @@ cq_parser
 *.tab.*
 *.yy.*
 *.output
+*.out
+*.idea
+example.cq

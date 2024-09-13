@@ -22,7 +22,7 @@ unsigned hash(char *key) {
     return hashval % SIZE;
 }
 
-void insert(char *name, unsigned length, type_t type, unsigned line_num) {
+void insert(char *name, unsigned length, type_t type, unsigned line_num, bool declaration) {
     unsigned hashval = hash(name);
     list_t *l = hash_table[hashval];
 	
@@ -43,9 +43,9 @@ void insert(char *name, unsigned length, type_t type, unsigned line_num) {
         l->next = hash_table[hashval];
         hash_table[hashval] = l;
     } else {
-        if (declaring == true) {
+        if (declaration == true) {
             if (l->scope == cur_scope) {
-                fprintf(stderr, "Multiple declaration of variable %s at line %u\n", name, line_num);
+                fprintf(stderr, "Multiple declaration of variable %s at line %u (previous declaration in line %u)\n", name, line_num, l->lines->line_num);
                 exit(1);
             } else {
                 l = malloc(sizeof (list_t));
@@ -161,7 +161,6 @@ void symtab_dump(FILE * of){
                         break;
                     }
                     case FUNCTION_T: {
-                        fprintf(of, "function returns ");
                         switch (l->inf_type) {
                             case UNDEFINED_T: {
                                 fprintf(of, "%-15s", "-> undefined");

@@ -12,9 +12,6 @@
 /* current scope */
 static unsigned cur_scope = 0;
 
-/* declaration mode */
-static bool declaring = false;
-
 /* token types */
 typedef enum type {
     UNDEFINED_T,
@@ -63,7 +60,7 @@ void init_hash_table();
 
 unsigned hash(char *key);
 
-void insert(char *name, unsigned length, type_t type, unsigned line_num);
+void insert(char *name, unsigned length, type_t type, unsigned line_num, bool declaration);
 
 list_t *lookup(char *name);
 

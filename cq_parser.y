@@ -7,7 +7,6 @@
 
 extern int yylex(void);
 extern int yylineno;
-extern bool declaring;
 int yyerror(const char *s);
 int success = 1;
 extern FILE *yyin;
@@ -17,6 +16,7 @@ extern FILE *yyout;
 
 /* Union to define yylval's types */
 %union {
+    char *str;
     bool bconst;
     double fconst;
     int iconst;
@@ -75,9 +75,9 @@ declaration:
 	;
 
 function_definition:
-	QUANTUM type_specifier declarator function_head function_tail
-	| type_specifier declarator function_head function_tail
-	| VOID ID function_head function_tail
+	QUANTUM type_specifier declarator { incr_scope(); } function_head function_tail { hide_scope(); }
+	| type_specifier declarator { incr_scope(); } function_head function_tail { hide_scope(); }
+	| VOID ID { insert($2, strlen($2), FUNCTION_T, yylineno, true); incr_scope(); } function_head function_tail { hide_scope(); }
 	;
 
 function_head:
@@ -115,7 +115,7 @@ variable_definition:
 	;
 
 declarator:
-	ID
+	ID { insert($1, strlen($1), UNDEFINED_T, yylineno, true); }
 	| declarator LBRACKET logical_or_expr RBRACKET
 	| declarator LBRACKET RBRACKET
 	;
