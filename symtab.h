@@ -24,8 +24,8 @@ typedef enum type {
 
 /* parameter struct */
 typedef struct param {
-    int par_type;
-    char param_name[MAXTOKENLEN];
+    type_t type;
+    char name[MAXTOKENLEN];
     bool bval; int ival; unsigned uval;
 } param_t;
 
@@ -47,7 +47,7 @@ typedef struct list {
     type_t inf_type; // for arrays (info type) and functions (return type)
     bool *b_vals; int *i_vals; unsigned *u_vals;
     unsigned array_size;
-    param_t *parameters;
+    param_t *pars;
     unsigned num_of_pars;
     struct list *next;
 } list_t;
@@ -59,19 +59,25 @@ char *type_to_string(type_t type);
 
 void init_hash_table();
 
-unsigned hash(char *key);
+unsigned hash(const char *key);
 
-void insert(char *name, unsigned length, type_t type, unsigned line_num, bool declaration);
+void insert(const char *name, unsigned length, type_t type, unsigned line_num, bool declaration);
 
-list_t *lookup(char *name);
+list_t *lookup(const char *name);
 
 void hide_scope();
 
 void incr_scope();
 
-void set_type(char *name, type_t st_type, type_t inf_type);
+void set_type(const char *name, type_t st_type, type_t inf_type);
 
-type_t get_type(char *name);
+type_t get_type(const char *name);
+
+param_t def_param(const char *name, type_t type);
+
+void decl_function(const char *name, type_t ret_type, unsigned num_of_pars, param_t *pars);
+
+void check_function_pars(const char *name, unsigned num_of_pars, param_t *pars);
 
 void symtab_dump(FILE *of);
 

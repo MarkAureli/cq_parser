@@ -31,7 +31,7 @@ void init_hash_table() {
     hash_table = calloc(SIZE, sizeof(list_t*));
 }
 
-unsigned hash(char *key) {
+unsigned hash(const char *key) {
     if (key == NULL) {
         return -1;
     }
@@ -45,7 +45,7 @@ unsigned hash(char *key) {
     return hashval % SIZE;
 }
 
-void insert(char *name, unsigned length, type_t type, unsigned line_num, bool declaration) {
+void insert(const char *name, unsigned length, type_t type, unsigned line_num, bool declaration) {
     unsigned hashval = hash(name);
     list_t *l = hash_table[hashval];
 	
@@ -94,7 +94,7 @@ void insert(char *name, unsigned length, type_t type, unsigned line_num, bool de
     }
 }
 
-list_t *lookup(char *name) { /* return symbol if found or NULL if not found */
+list_t *lookup(const char *name) { /* return symbol if found or NULL if not found */
     unsigned hashval = hash(name);
     list_t *l = hash_table[hashval];
     while ((l != NULL) && (strcmp(name,l->st_name) != 0)) {
@@ -122,7 +122,7 @@ void incr_scope() { /* go to next scope */
     ++cur_scope;
 }
 
-void set_type(char *name, type_t st_type, type_t inf_type) {
+void set_type(const char *name, type_t st_type, type_t inf_type) {
     list_t *l = lookup(name);
     l->st_type = st_type;
     if (inf_type != UNDEFINED_T) {
@@ -130,7 +130,7 @@ void set_type(char *name, type_t st_type, type_t inf_type) {
     }
 }
 
-type_t get_type(char *name) {
+type_t get_type(const char *name) {
     list_t *l = lookup(name);
     switch (l->st_type) {
         case UNDEFINED_T: case BOOL_T: case INT_T: case UNSIGNED_T: {
@@ -138,6 +138,40 @@ type_t get_type(char *name) {
         }
         case ARRAY_T: case FUNCTION_T: {
             return l->inf_type;
+        }
+    }
+}
+
+param_t def_param(const char *name, type_t type) {
+    param_t param;
+    param.type = type;
+    strncpy(param.name, name, MAXTOKENLEN);
+    return param;
+}
+
+void decl_function(const char *name, type_t ret_type, unsigned num_of_pars, param_t *pars) {
+    list_t *l = lookup(name);
+    if (l->st_type == UNDEFINED_T) {
+        l->st_type = FUNCTION_T;
+        l->inf_type = ret_type;
+        l->num_of_pars = num_of_pars;
+        l->pars = pars;
+    } else {
+        fprintf(stderr, "Function %s is already declared\n", name);
+        exit(1);
+    }
+}
+
+void check_function_pars(const char *name, unsigned num_of_pars, param_t *pars) {
+    list_t *l = lookup(name);
+    if (l->num_of_pars != num_of_pars) {
+        fprintf(stderr, "Function call of %s has wrong number of parameters\n", name);
+        exit(1);
+    }
+    for (unsigned i = 0; i < num_of_pars; ++i) {
+        if (l->pars[i].type != pars[i].type) {
+            fprintf(stderr, "%u-th parameter in function call of %s has wrong type\n", i, name);
+            exit(1);
         }
     }
 }

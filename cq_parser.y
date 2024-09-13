@@ -75,7 +75,7 @@ declaration:
 function_definition:
 	QUANTUM type_specifier declarator { incr_scope(); } function_head function_tail { hide_scope(); }
 	| type_specifier declarator { incr_scope(); } function_head function_tail { hide_scope(); }
-	| VOID ID { insert($2, strlen($2), FUNCTION_T, yylineno, true); incr_scope(); } function_head function_tail { hide_scope(); }
+	| VOID declarator { incr_scope(); } function_head function_tail { hide_scope(); }
 	;
 
 function_head:
@@ -114,8 +114,6 @@ variable_definition:
 
 declarator:
 	ID { insert($1, strlen($1), UNDEFINED_T, yylineno, true); }
-	| declarator LBRACKET logical_or_expr RBRACKET
-	| declarator LBRACKET RBRACKET
 	;
 
 initializer_list:
@@ -127,6 +125,8 @@ type_specifier:
 	BOOL
 	| INT
 	| UNSIGNED
+	| type_specifier LBRACKET logical_or_expr RBRACKET
+	| type_specifier LBRACKET RBRACKET
 	;
 
 statement:
