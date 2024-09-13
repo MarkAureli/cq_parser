@@ -85,7 +85,7 @@ function_head:
     ;
 
 function_tail:
-    LBRACE statement RBRACE
+    LBRACE statement_list RBRACE
     ;
 
 parameter_list:
@@ -131,9 +131,13 @@ type_specifier:
 	| type_specifier LBRACKET RBRACKET
 	;
 
+statement_list:
+	statement
+	| statement_list statement
+	;
+
 statement:
 	expr_statement
-	| compound_statement
 	| if_statement
 	| switch_statement
 	| iteration_statement
@@ -145,21 +149,9 @@ expr_statement:
 	| SEMICOLON
 	;
 
-compound_statement:
-	LBRACE declaration_list statement_list RBRACE
-	| LBRACE statement_list RBRACE
-	| LBRACE declaration_list RBRACE
-	| LBRACE RBRACE
-	;
-
-statement_list:
-	statement
-	| statement_list statement
-	;
-
 if_statement:
-	IF LPAREN logical_or_expr RPAREN statement	%prec "then"
-	| IF LPAREN logical_or_expr RPAREN statement ELSE statement
+	IF LPAREN logical_or_expr RPAREN LBRACE statement_list RBRACE	%prec "then"
+	| IF LPAREN logical_or_expr RPAREN LBRACE statement_list RBRACE ELSE LBRACE statement_list RBRACE
 
 switch_statement:
 	SWITCH LPAREN logical_or_expr RPAREN LBRACE case_statement_list RBRACE
@@ -171,14 +163,14 @@ case_statement_list:
     ;
 
 case_statement:
-	CASE logical_or_expr COLON statement
-	| DEFAULT COLON statement
+	CASE logical_or_expr COLON statement_list
+	| DEFAULT COLON statement_list
 	;
 
 iteration_statement:
-	DO statement WHILE LPAREN expr RPAREN SEMICOLON
-	| WHILE LPAREN expr RPAREN statement
-	| FOR LPAREN expr_statement expr_statement expr RPAREN statement
+	DO LBRACE statement_list RBRACE WHILE LPAREN expr RPAREN SEMICOLON
+	| WHILE LPAREN expr RPAREN LBRACE statement_list RBRACE
+	| FOR LPAREN expr_statement expr_statement expr RPAREN LBRACE statement_list RBRACE
 	;
 
 jump_statement:
