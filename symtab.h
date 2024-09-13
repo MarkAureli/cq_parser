@@ -16,7 +16,6 @@ static unsigned cur_scope = 0;
 typedef enum type {
     UNDEFINED_T,
     BOOL_T,
-    FLOAT_T,
     INT_T,
     UNSIGNED_T,
     ARRAY_T,
@@ -27,7 +26,7 @@ typedef enum type {
 typedef struct param {
     int par_type;
     char param_name[MAXTOKENLEN];
-    bool bval; double fval; int ival; unsigned uval;
+    bool bval; int ival; unsigned uval;
 } param_t;
 
 /* a linked list of references (lineno's) for each variable */
@@ -43,10 +42,10 @@ typedef struct list {
     unsigned st_size;
     unsigned scope;
     ref_list_t *lines;
-    bool st_bval; double st_fval; int st_ival;  unsigned st_uval;
+    bool st_bval; int st_ival;  unsigned st_uval;
     type_t st_type;
-    int inf_type; // for arrays (info type) and functions (return type)
-    bool *b_vals; double *f_vals; int *i_vals; unsigned *u_vals;
+    type_t inf_type; // for arrays (info type) and functions (return type)
+    bool *b_vals; int *i_vals; unsigned *u_vals;
     unsigned array_size;
     param_t *parameters;
     unsigned num_of_pars;
@@ -55,6 +54,8 @@ typedef struct list {
 
 /* the hash table */
 static list_t **hash_table;
+
+char *type_to_string(type_t type);
 
 void init_hash_table();
 
@@ -67,6 +68,10 @@ list_t *lookup(char *name);
 void hide_scope();
 
 void incr_scope();
+
+void set_type(char *name, type_t st_type, type_t inf_type);
+
+type_t get_type(char *name);
 
 void symtab_dump(FILE *of);
 

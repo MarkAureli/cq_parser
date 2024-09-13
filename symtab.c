@@ -4,6 +4,29 @@
 #include <string.h>
 #include "symtab.h"
 
+char *type_to_string(type_t type) {
+    switch (type) {
+        case UNDEFINED_T: {
+            return "UNDEFINED_T";
+        }
+        case BOOL_T: {
+            return "BOOL_T";
+        }
+        case INT_T: {
+            return "INT_T";
+        }
+        case UNSIGNED_T: {
+            return "UNSIGNED_T";
+        }
+        case ARRAY_T: {
+            return "ARRAY_T";
+        }
+        case FUNCTION_T: {
+            return "FUNCTION_T";
+        }
+    }
+}
+
 void init_hash_table() {
     hash_table = calloc(SIZE, sizeof(list_t*));
 }
@@ -99,6 +122,26 @@ void incr_scope() { /* go to next scope */
     ++cur_scope;
 }
 
+void set_type(char *name, type_t st_type, type_t inf_type) {
+    list_t *l = lookup(name);
+    l->st_type = st_type;
+    if (inf_type != UNDEFINED_T) {
+        l->inf_type = inf_type;
+    }
+}
+
+type_t get_type(char *name) {
+    list_t *l = lookup(name);
+    switch (l->st_type) {
+        case UNDEFINED_T: case BOOL_T: case INT_T: case UNSIGNED_T: {
+            return l->st_type;
+        }
+        case ARRAY_T: case FUNCTION_T: {
+            return l->inf_type;
+        }
+    }
+}
+
 /* print to stdout by default */ 
 void symtab_dump(FILE * of){  
     fprintf(of,"---------------------------------------- -------------- ------ -------------\n");
@@ -119,10 +162,6 @@ void symtab_dump(FILE * of){
                         fprintf(of, "%-15s", "bool");
                         break;
                     }
-                    case FLOAT_T: {
-                        fprintf(of, "%-15s", "float");
-                        break;
-                    }
                     case INT_T: {
                         fprintf(of, "%-15s", "int");
                         break;
@@ -139,10 +178,6 @@ void symtab_dump(FILE * of){
                             }
                             case BOOL_T: {
                                 fprintf(of, "%-15s", "bool[]");
-                                break;
-                            }
-                            case FLOAT_T: {
-                                fprintf(of, "%-15s", "float[]");
                                 break;
                             }
                             case INT_T: {
@@ -170,10 +205,6 @@ void symtab_dump(FILE * of){
                                 fprintf(of, "%-15s", "-> bool");
                                 break;
                             }
-                            case FLOAT_T: {
-                                fprintf(of, "%-15s", "-> float");
-                                break;
-                            }
                             case INT_T: {
                                 fprintf(of, "%-15s", "-> int");
                                 break;
@@ -190,10 +221,6 @@ void symtab_dump(FILE * of){
                                     }
                                     case BOOL_T: {
                                         fprintf(of, "%-15s", "-> bool[]");
-                                        break;
-                                    }
-                                    case FLOAT_T: {
-                                        fprintf(of, "%-15s", "-> float[]");
                                         break;
                                     }
                                     case INT_T: {
