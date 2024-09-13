@@ -1,1 +1,1 @@
-unsigned u_array[18 & 3 / 2];
+quantum unsigned[] u_array;

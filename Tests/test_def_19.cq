@@ -1,1 +1,1 @@
-const bool b_array[] = {4 <= 3, 2 > 1};
+bool[18 - (3 * 5)] b_array = {true || (4 >= 3), 1 != 2, false};

@@ -1,1 +1,1 @@
-const unsigned u_array[1] = {10000};
+quantum unsigned[3 * 3 - 2 * 2 - 4] u_array = {18 + var_a};

@@ -1,1 +1,1 @@
-unsigned u_array[] = {12 % (var_a + 3), 3, 2 << 3};
+const unsigned[] u_array = {(4 >> (3 - 1)), 11 & 1};

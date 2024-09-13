@@ -1,1 +1,1 @@
-unsigned u_array[5 % 3] = {17 >> 7, var_a + var_b};
+quantum int[] i_array = {1 - var_a, var_b % 12};

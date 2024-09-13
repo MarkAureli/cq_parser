@@ -1,1 +1,1 @@
-quantum bool b;
+quantum int i;

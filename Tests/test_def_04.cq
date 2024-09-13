@@ -1,1 +1,1 @@
-unsigned u = 8 & 7 | 5 ^ 4;
+const bool b = true ^^ false;

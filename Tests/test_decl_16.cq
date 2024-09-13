@@ -1,1 +1,1 @@
-quantum bool b_array[];
+quantum bool[1 + 2] b_array;

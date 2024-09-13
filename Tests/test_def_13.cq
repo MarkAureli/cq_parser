@@ -1,1 +1,1 @@
-quantum int i = {-3, -2, -1, 5, 29 / 3};
+bool[] b_array = {true == false, false && var_a};

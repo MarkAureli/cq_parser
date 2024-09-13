@@ -1,1 +1,1 @@
-const int i_array[] = {-10, 29 - 10 * 2 / 3};
+unsigned[5 % 3] u_array = {17 >> 7, var_a + var_b};

@@ -1,1 +1,1 @@
-quantum unsigned u_array[];
+quantum unsigned[20 + (-5 * 2) & 2] u_array;

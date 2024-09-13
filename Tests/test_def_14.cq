@@ -1,1 +1,1 @@
-quantum unsigned u = [func];
+int[] i_array = {6 ^ 5 >> 3, 3 | (2 << var_a) / 9};

@@ -1,1 +1,1 @@
-int i_array[] = {6 ^ 5 >> 3, 3 | (2 << var_a) / 9};
+const int[] i_array = {-10, 29 - 10 * 2 / 3};

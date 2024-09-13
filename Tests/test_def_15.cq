@@ -1,1 +1,1 @@
-bool b_array[] = {true == false, false && var_a};
+unsigned[] u_array = {12 % (var_a + 3), 3, 2 << 3};

@@ -1,1 +1,1 @@
-quantum int i_array[];
+quantum int[6 / 3] i_array;

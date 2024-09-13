@@ -1,1 +1,1 @@
-bool b_array[];
+int[] i_array;

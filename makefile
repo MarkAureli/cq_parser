@@ -15,7 +15,7 @@ test:
 
 	@for file in $(TEST_DIR)/test_decl_*.cq; do \
 		./$(PARSER) $$file; \
-		if [ $$? -eq 1 ]; then \
+		if [ $$? -ne 0 ]; then \
 			echo "$(PARSER) returned 1 for file $$(basename $$file)"; \
 			exit 1; \
 		fi; \
@@ -24,7 +24,7 @@ test:
 
 	@for file in $(TEST_DIR)/test_def_*.cq; do \
 		./$(PARSER) $$file; \
-		if [ $$? -eq 1 ]; then \
+		if [ $$? -ne 0 ]; then \
 			echo "$(PARSER) returned 1 for file $$(basename $$file)"; \
 			exit 1; \
 		fi; \
