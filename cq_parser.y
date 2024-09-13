@@ -60,66 +60,66 @@ extern FILE *yyout;
 %%
 
 program:
-	declaration_list
+	decl_l
 	;
 
-declaration_list:
-	declaration declaration_list
-	| declaration
+decl_l:
+	decl decl_l
+	| decl
 	;
 
-declaration:
-    variable_declaration
-	| variable_definition
-	| function_definition
+decl:
+    variable_decl
+	| variable_def
+	| function_def
 	;
 
-function_definition:
+function_def:
 	QUANTUM type_specifier declarator { incr_scope(); } function_head function_tail { hide_scope(); }
 	| type_specifier declarator { incr_scope(); } function_head function_tail { hide_scope(); }
 	| VOID declarator { incr_scope(); } function_head function_tail { hide_scope(); }
 	;
 
 function_head:
-    LPAREN parameter_list RPAREN
+    LPAREN par_l RPAREN
     ;
 
 function_tail:
-    LBRACE statement_list RBRACE
+    LBRACE stmt_l RBRACE
     ;
 
-parameter_list:
-	parameter_list COMMA parameter
-	| parameter
+par_l:
+	par_l COMMA par
+	| par
 	| /* empty */
 	;
 
-parameter:
+par:
 	QUANTUM type_specifier declarator
 	| type_specifier declarator
 	;
 
-variable_declaration:
+variable_decl:
     QUANTUM type_specifier declarator SEMICOLON
     | type_specifier declarator SEMICOLON
     ;
 
-variable_definition:
+variable_def:
 	QUANTUM type_specifier declarator ASSIGN logical_or_expr SEMICOLON
-	| QUANTUM type_specifier declarator ASSIGN LBRACE initializer_list RBRACE SEMICOLON
-	| QUANTUM type_specifier declarator ASSIGN LBRACKET initializer_list RBRACKET SEMICOLON
+	| QUANTUM type_specifier declarator ASSIGN LBRACE initializer_l RBRACE SEMICOLON
+	| QUANTUM type_specifier declarator ASSIGN LBRACKET initializer_l RBRACKET SEMICOLON
 	| CONST type_specifier declarator ASSIGN logical_or_expr SEMICOLON
-	| CONST type_specifier declarator ASSIGN LBRACE initializer_list RBRACE SEMICOLON
+	| CONST type_specifier declarator ASSIGN LBRACE initializer_l RBRACE SEMICOLON
 	| type_specifier declarator ASSIGN logical_or_expr SEMICOLON
-	| type_specifier declarator ASSIGN LBRACE initializer_list RBRACE SEMICOLON
+	| type_specifier declarator ASSIGN LBRACE initializer_l RBRACE SEMICOLON
 	;
 
 declarator:
 	ID { insert($1, strlen($1), UNDEFINED_T, yylineno, true); }
 	;
 
-initializer_list:
-	initializer_list COMMA logical_or_expr
+initializer_l:
+	initializer_l COMMA logical_or_expr
 	| logical_or_expr
 	;
 
@@ -131,78 +131,83 @@ type_specifier:
 	| type_specifier LBRACKET RBRACKET
 	;
 
-statement_list:
-	statement
-	| statement_list statement
+stmt_l:
+	stmt
+	| stmt_l stmt
 	;
 
-statement:
-    decl_statement
-	| expr_statement
-	| if_statement
-	| switch_statement
-	| do_statement
-	| while_statement
-	| for_statement
-	| jump_statement
+stmt:
+    decl_stmt
+	| expr_stmt
+	| if_stmt
+	| switch_stmt
+	| do_stmt
+	| while_stmt
+	| for_stmt
+	| jump_stmt
 	;
 
-decl_statement:
-    variable_declaration
-    | variable_definition
+decl_stmt:
+    variable_decl
+    | variable_def
     ;
 
-res_statement_list:
-	res_statement
-	| res_statement_list res_statement
+res_stmt_l:
+	res_stmt
+	| res_stmt_l res_stmt
 	;
 
-res_statement:
-	expr_statement
-	| if_statement
-	| switch_statement
-	| do_statement
-	| while_statement
-	| for_statement
-	| jump_statement
+res_stmt:
+	expr_stmt
+	| if_stmt
+	| switch_stmt
+	| do_stmt
+	| while_stmt
+	| for_stmt
+	| jump_stmt
 	;
 
-expr_statement:
+expr_stmt:
 	expr SEMICOLON
 	| SEMICOLON
 	;
 
-if_statement:
-	IF LPAREN logical_or_expr RPAREN LBRACE res_statement_list RBRACE	%prec "then"
-	| IF LPAREN logical_or_expr RPAREN LBRACE res_statement_list RBRACE ELSE LBRACE statement_list RBRACE
+if_stmt:
+	IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE	%prec "then"
+	| IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE ELSE LBRACE stmt_l RBRACE
 
-switch_statement:
-	SWITCH LPAREN logical_or_expr RPAREN LBRACE case_statement_list RBRACE
+switch_stmt:
+	SWITCH LPAREN logical_or_expr RPAREN LBRACE case_stmt_l RBRACE
 	;
 
-case_statement_list:
-    case_statement
-    | case_statement_list case_statement
+case_stmt_l:
+    case_stmt
+    | case_stmt_l case_stmt
     ;
 
-case_statement:
-	CASE logical_or_expr COLON res_statement_list
-	| DEFAULT COLON res_statement_list
+case_stmt:
+	CASE logical_or_expr COLON res_stmt_l
+	| DEFAULT COLON res_stmt_l
 	;
 
-do_statement:
-	DO { incr_scope(); } LBRACE statement_list RBRACE { hide_scope(); } WHILE LPAREN expr RPAREN SEMICOLON
+do_stmt:
+	DO { incr_scope(); } LBRACE stmt_l RBRACE { hide_scope(); } WHILE LPAREN expr RPAREN SEMICOLON
     ;
 
-while_statement:
-    WHILE LPAREN expr RPAREN { incr_scope(); } LBRACE statement_list RBRACE { hide_scope(); }
+while_stmt:
+    WHILE LPAREN expr RPAREN { incr_scope(); } LBRACE stmt_l RBRACE { hide_scope(); }
     ;
 
-for_statement:
-    FOR LPAREN expr_statement expr_statement expr RPAREN { incr_scope(); } LBRACE statement_list RBRACE { hide_scope(); }
+for_stmt:
+    FOR { incr_scope(); } LPAREN for_first_stmt expr_stmt expr RPAREN LBRACE stmt_l RBRACE { hide_scope(); }
     ;
 
-jump_statement:
+for_first_stmt:
+    type_specifier declarator ASSIGN logical_or_expr SEMICOLON
+    | expr_stmt
+    ;
+
+jump_stmt:
 	CONTINUE SEMICOLON
 	| BREAK SEMICOLON
 	| RETURN logical_or_expr SEMICOLON
@@ -310,19 +315,19 @@ unary_op:
 postfix_expr:
 	primary_expr
 	| postfix_expr LBRACKET logical_or_expr RBRACKET
-	| postfix_expr LPAREN argument_expr_list RPAREN
+	| postfix_expr LPAREN argument_expr_l RPAREN
 	| postfix_expr LPAREN RPAREN
 	;
 
 primary_expr:
-	ID
+	ID { insert($1, strlen($1), UNDEFINED_T, yylineno, false); }
 	| consts
 	| LPAREN logical_or_expr RPAREN
 	;
 
-argument_expr_list:
+argument_expr_l:
 	logical_or_expr
-	| argument_expr_list COMMA logical_or_expr
+	| argument_expr_l COMMA logical_or_expr
 	;
 
 consts:
