@@ -132,17 +132,12 @@ type_specifier:
 	;
 
 statement:
-	case_statement
-	| expr_statement
+	expr_statement
 	| compound_statement
-	| selection_statement
+	| if_statement
+	| switch_statement
 	| iteration_statement
 	| jump_statement
-	;
-
-case_statement:
-	CASE logical_or_expr COLON statement
-	| DEFAULT COLON statement
 	;
 
 expr_statement:
@@ -162,10 +157,22 @@ statement_list:
 	| statement_list statement
 	;
 
-selection_statement:
+if_statement:
 	IF LPAREN logical_or_expr RPAREN statement	%prec "then"
 	| IF LPAREN logical_or_expr RPAREN statement ELSE statement
-	| SWITCH LPAREN logical_or_expr RPAREN statement
+
+switch_statement:
+	SWITCH LPAREN logical_or_expr RPAREN LBRACE case_statement_list RBRACE
+	;
+
+case_statement_list:
+    case_statement
+    | case_statement_list case_statement
+    ;
+
+case_statement:
+	CASE logical_or_expr COLON statement
+	| DEFAULT COLON statement
 	;
 
 iteration_statement:
