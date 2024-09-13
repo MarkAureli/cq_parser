@@ -7,6 +7,7 @@
 
 extern int yylex(void);
 extern int yylineno;
+extern bool declaring;
 int yyerror(const char *s);
 int success = 1;
 extern FILE *yyin;
@@ -68,15 +69,24 @@ declaration_list:
 	;
 
 declaration:
-	variable_declaration
+	 variable_declaration
 	| variable_definition
 	| function_definition
 	;
 
 function_definition:
-	QUANTUM type_specifier declarator LPAREN parameter_list RPAREN statement
-	| type_specifier declarator LPAREN parameter_list RPAREN statement
+	QUANTUM type_specifier declarator function_head function_tail
+	| type_specifier declarator function_head function_tail
+	| VOID ID function_head function_tail
 	;
+
+function_head:
+    LPAREN parameter_list RPAREN
+    ;
+
+function_tail:
+    LBRACE statement RBRACE
+    ;
 
 parameter_list:
 	parameter_list COMMA parameter
@@ -90,23 +100,25 @@ parameter:
 	;
 
 variable_declaration:
-	QUANTUM type_specifier declarator SEMICOLON
-	| type_specifier declarator SEMICOLON
-	;
+    QUANTUM type_specifier declarator SEMICOLON
+    | type_specifier declarator SEMICOLON
+    ;
 
 variable_definition:
 	QUANTUM type_specifier declarator ASSIGN logical_or_expr SEMICOLON
-	| QUANTUM type_specifier declarator ASSIGN LBRACKET initializer_list RBRACKET SEMICOLON
 	| QUANTUM type_specifier declarator ASSIGN LBRACE initializer_list RBRACE SEMICOLON
+	| QUANTUM type_specifier declarator ASSIGN LBRACKET initializer_list RBRACKET SEMICOLON
 	| CONST type_specifier declarator ASSIGN logical_or_expr SEMICOLON
 	| CONST type_specifier declarator ASSIGN LBRACE initializer_list RBRACE SEMICOLON
 	| type_specifier declarator ASSIGN logical_or_expr SEMICOLON
 	| type_specifier declarator ASSIGN LBRACE initializer_list RBRACE SEMICOLON
+	;
 
 declarator:
 	ID
 	| declarator LBRACKET logical_or_expr RBRACKET
 	| declarator LBRACKET RBRACKET
+	;
 
 initializer_list:
 	initializer_list COMMA logical_or_expr
@@ -118,7 +130,6 @@ type_specifier:
 	| FLOAT
 	| INT
 	| UNSIGNED
-	| VOID
 	;
 
 statement:

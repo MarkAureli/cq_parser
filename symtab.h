@@ -12,6 +12,9 @@
 /* current scope */
 static unsigned cur_scope = 0;
 
+/* declaration mode */
+static bool declaring = false;
+
 /* token types */
 typedef enum type {
     UNDEFINED_T,
@@ -63,8 +66,6 @@ unsigned hash(char *key);
 void insert(char *name, unsigned length, type_t type, unsigned line_num);
 
 list_t *lookup(char *name);
-
-list_t *lookup_scope(char *name, unsigned scope);
 
 void hide_scope();
 

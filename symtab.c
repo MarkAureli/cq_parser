@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,26 +32,42 @@ void insert(char *name, unsigned length, type_t type, unsigned line_num) {
 
     /* variable not yet in table */
     if (l == NULL) {
-        l = (list_t*) malloc(sizeof(list_t));
+        l = (list_t*) malloc(sizeof (list_t));
         strncpy(l->st_name, name, length);  
         /* add to hashtable */
         l->st_type = type;
         l->scope = cur_scope;
-        l->lines = malloc(sizeof(ref_list_t));
+        l->lines = malloc(sizeof (ref_list_t));
         l->lines->line_num = line_num;
         l->lines->next = NULL;
         l->next = hash_table[hashval];
         hash_table[hashval] = l;
-    } /* found in table, so just add line number */ else {
-        l->scope = cur_scope;
-        ref_list_t *t = l->lines;
-        while (t->next != NULL) {
-            t = t->next;
+    } else {
+        if (declaring == true) {
+            if (l->scope == cur_scope) {
+                fprintf(stderr, "Multiple declaration of variable %s at line %u\n", name, line_num);
+                exit(1);
+            } else {
+                l = malloc(sizeof (list_t));
+                strncpy(l->st_name, name, length);
+                l->st_type = type;
+                l->scope = cur_scope;
+                l->lines = malloc(sizeof (ref_list_t));
+                l->lines->line_num = line_num;
+                l->lines->next = NULL;
+                l->next = hash_table[hashval];
+                hash_table[hashval] = l;
+            }
+        } else {
+            ref_list_t *t = l->lines;
+            while (t->next != NULL) {
+                t = t->next;
+            }
+            /* add line number to reference list */
+            t->next = malloc(sizeof (ref_list_t));
+            t->next->line_num = line_num;
+            t->next->next = NULL;
         }
-        /* add line number to reference list */
-        t->next = malloc(sizeof(ref_list_t));
-        t->next->line_num = line_num;
-        t->next->next = NULL;
     }
 }
 
@@ -63,16 +80,16 @@ list_t *lookup(char *name) { /* return symbol if found or NULL if not found */
     return l; // NULL is not found
 }
 
-list_t *lookup_scope(char *name, unsigned scope) { /* return symbol if found or NULL if not found */
-    unsigned int hashval = hash(name);
-    list_t *l = hash_table[hashval];
-    while ((l != NULL) && (strcmp(name,l->st_name) != 0) && (scope != l->scope)) {
-        l = l->next;
-    }
-    return l; // NULL is not found
-}
-
 void hide_scope() { /* hide the current scope */
+    for (unsigned i = 0; i < SIZE; ++i) {
+        if (hash_table[i] != NULL) {
+            list_t *l = hash_table[i];
+            while (l != NULL && l->scope == cur_scope) {
+                l = l->next;
+            }
+            hash_table[i] = l;
+        }
+    }
     if(cur_scope > 0) {
         --cur_scope;
     }
@@ -84,9 +101,9 @@ void incr_scope() { /* go to next scope */
 
 /* print to stdout by default */ 
 void symtab_dump(FILE * of){  
-    fprintf(of,"---------------------------------------- -------------- -------------\n");
-    fprintf(of,"Name                                     Type           Line Numbers \n");
-    fprintf(of,"---------------------------------------- -------------- -------------\n");
+    fprintf(of,"---------------------------------------- -------------- ------ -------------\n");
+    fprintf(of,"Name                                     Type           Scope  Line Numbers \n");
+    fprintf(of,"---------------------------------------- -------------- ------ -------------\n");
     for (unsigned i = 0; i < SIZE; ++i) { 
         if (hash_table[i] != NULL) { 
             list_t *l = hash_table[i];
@@ -207,7 +224,7 @@ void symtab_dump(FILE * of){
                         break;
                     }
                 }
-
+                fprintf(of, "%-7u", l->scope);
                 while (t != NULL) {
                     fprintf(of, "%-4u ", t->line_num);
                     t = t->next;
