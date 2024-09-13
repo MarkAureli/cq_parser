@@ -140,7 +140,9 @@ statement:
 	expr_statement
 	| if_statement
 	| switch_statement
-	| iteration_statement
+	| do_statement
+	| while_statement
+	| for_statement
 	| jump_statement
 	;
 
@@ -167,11 +169,17 @@ case_statement:
 	| DEFAULT COLON statement_list
 	;
 
-iteration_statement:
+do_statement:
 	DO LBRACE statement_list RBRACE WHILE LPAREN expr RPAREN SEMICOLON
-	| WHILE LPAREN expr RPAREN LBRACE statement_list RBRACE
-	| FOR LPAREN expr_statement expr_statement expr RPAREN LBRACE statement_list RBRACE
-	;
+    ;
+
+while_statement:
+    WHILE LPAREN expr RPAREN LBRACE statement_list RBRACE
+    ;
+
+for_statement:
+    FOR LPAREN expr_statement expr_statement expr RPAREN LBRACE statement_list RBRACE
+    ;
 
 jump_statement:
 	CONTINUE SEMICOLON
