@@ -20,7 +20,6 @@ bool strtob(const char *str, const char **endptr);
 %}
 ID				        [a-zA-Z_][a-zA-Z0-9_]*
 BCONST                  "false"|"true"
-FCONST				    "-"?[0-9]+"."[0-9]+
 ICONST				    "-"?[0-9]+
 UCONST				    [0-9]+
 
@@ -44,7 +43,6 @@ UCONST				    [0-9]+
 %{ /* types */
 %}
 bool				    { return BOOL; }
-float				    { return FLOAT; }
 int				        { return INT; }
 unsigned			    { return UNSIGNED; }
 void				    { return VOID; }
@@ -142,7 +140,6 @@ phase				    { return PHASE; }
 {ID}				    { yylval.str = malloc(yyleng * sizeof (char)); strcpy(yylval.str, yytext); return ID; }
 {UCONST}			    { yylval.uconst = (unsigned) strtoul(yytext, NULL, 10); return UCONST; }
 {ICONST}			    { yylval.iconst = (int) strtol(yytext, NULL, 10); return ICONST; }
-{FCONST}			    { yylval.fconst = strtod(yytext, NULL); return FCONST; }
 
 %{ /* match not found */
 %}

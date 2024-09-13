@@ -18,7 +18,6 @@ extern FILE *yyout;
 %union {
     char *str;
     bool bconst;
-    double fconst;
     int iconst;
     unsigned uconst;
     list_t *symtab_item;
@@ -26,10 +25,9 @@ extern FILE *yyout;
 
 %token <str> ID
 %token <bconst> BCONST
-%token <fconst> FCONST
 %token <iconst> ICONST
 %token <uconst> UCONST
-%token <uconst> BOOL FLOAT INT UNSIGNED VOID
+%token <uconst> BOOL INT UNSIGNED VOID
 %token <uconst> CONST QUANTUM
 %token <uconst> BREAK CONTINUE DO FOR RETURN WHILE
 %token <uconst> CASE DEFAULT ELSE IF SWITCH
@@ -127,7 +125,6 @@ initializer_list:
 
 type_specifier:
 	BOOL
-	| FLOAT
 	| INT
 	| UNSIGNED
 	;
@@ -300,7 +297,6 @@ argument_expr_list:
 
 consts:
     BCONST
-    | FCONST
     | ICONST
     | UCONST
 	;
