@@ -9,8 +9,17 @@
 /* maximum size of tokens-identifiers */
 #define MAXTOKENLEN 40
 
+/* control scope hide for visual debugging via --dump */
+static bool no_hide = false;
+
 /* current scope */
 static unsigned cur_scope = 0;
+
+typedef union value {
+    bool bval;
+    int ival;
+    unsigned uval;
+} value_t;
 
 /* token types */
 typedef enum type {
@@ -18,6 +27,7 @@ typedef enum type {
     BOOL_T,
     INT_T,
     UNSIGNED_T,
+    VOID_T,
     ARRAY_T,
     FUNCTION_T
 } type_t;
@@ -26,14 +36,14 @@ typedef enum type {
 typedef struct param {
     type_t type;
     char name[MAXTOKENLEN];
-    bool bval; int ival; unsigned uval;
+    value_t value;
 } param_t;
 
 /* a linked list of references (lineno's) for each variable */
 typedef struct ref_list { 
-    int line_num;
+    unsigned line_num;
     struct ref_list *next;
-    int type;
+    type_t type;
 } ref_list_t;
 
 // struct that represents a list node
@@ -42,10 +52,10 @@ typedef struct list {
     unsigned st_size;
     unsigned scope;
     ref_list_t *lines;
-    bool st_bval; int st_ival;  unsigned st_uval;
+    value_t value;
     type_t st_type;
     type_t inf_type; // for arrays (info type) and functions (return type)
-    bool *b_vals; int *i_vals; unsigned *u_vals;
+    value_t *values;
     unsigned array_size;
     param_t *pars;
     unsigned num_of_pars;
@@ -61,7 +71,7 @@ void init_hash_table();
 
 unsigned hash(const char *key);
 
-void insert(const char *name, unsigned length, type_t type, unsigned line_num, bool declaration);
+list_t *insert(const char *name, unsigned length, type_t type, unsigned line_num, bool declaration);
 
 list_t *lookup(const char *name);
 

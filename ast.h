@@ -3,12 +3,6 @@
 #include <stdbool.h>
 #include "symtab.h"
 
-typedef union value {
-    bool bval;
-    int ival;
-    unsigned uval;
-} value_t;
-
 typedef enum arithm_op {
     ADD_OP,
     DIV_OP,

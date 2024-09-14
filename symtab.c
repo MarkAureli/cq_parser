@@ -18,6 +18,9 @@ char *type_to_str(type_t type) {
         case UNSIGNED_T: {
             return "UNSIGNED_T";
         }
+        case VOID_T: {
+            return "VOID_T";
+        }
         case ARRAY_T: {
             return "ARRAY_T";
         }
@@ -45,7 +48,7 @@ unsigned hash(const char *key) {
     return hashval % SIZE;
 }
 
-void insert(const char *name, unsigned length, type_t type, unsigned line_num, bool declaration) {
+list_t *insert(const char *name, unsigned length, type_t type, unsigned line_num, bool declaration) {
     unsigned hashval = hash(name);
     list_t *l = hash_table[hashval];
 	
@@ -92,6 +95,7 @@ void insert(const char *name, unsigned length, type_t type, unsigned line_num, b
             t->next->next = NULL;
         }
     }
+    return l;
 }
 
 list_t *lookup(const char *name) { /* return symbol if found or NULL if not found */
@@ -104,13 +108,15 @@ list_t *lookup(const char *name) { /* return symbol if found or NULL if not foun
 }
 
 void hide_scope() { /* hide the current scope */
-    for (unsigned i = 0; i < SIZE; ++i) {
-        if (hash_table[i] != NULL) {
-            list_t *l = hash_table[i];
-            while (l != NULL && l->scope == cur_scope) {
-                l = l->next;
+    if (no_hide) {
+        for (unsigned i = 0; i < SIZE; ++i) {
+            if (hash_table[i] != NULL) {
+                list_t *l = hash_table[i];
+                while (l != NULL && l->scope == cur_scope) {
+                    l = l->next;
+                }
+                hash_table[i] = l;
             }
-            hash_table[i] = l;
         }
     }
     if(cur_scope > 0) {
@@ -133,7 +139,7 @@ void set_type(const char *name, type_t st_type, type_t inf_type) {
 type_t get_type(const char *name) {
     list_t *l = lookup(name);
     switch (l->st_type) {
-        case UNDEFINED_T: case BOOL_T: case INT_T: case UNSIGNED_T: {
+        case UNDEFINED_T: case BOOL_T: case INT_T: case UNSIGNED_T: case VOID_T: {
             return l->st_type;
         }
         case ARRAY_T: case FUNCTION_T: {

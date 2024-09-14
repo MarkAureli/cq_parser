@@ -8,6 +8,7 @@
 
 extern int yylex(void);
 extern int yylineno;
+extern bool no_hide;
 int yyerror(const char *s);
 int success = 1;
 extern FILE *yyin;
@@ -17,29 +18,30 @@ extern FILE *yyout;
 
 /* Union to define yylval's types */
 %union {
-    char *str;
-    bool bconst;
-    int iconst;
-    unsigned uconst;
+    char *name;
+    value_t value;
     list_t *symtab_item;
     node_t *node;
+    type_t data_type;
+    type_t const_type;
+    unsigned array_size;
 }
 
-%token <str> ID
-%token <bconst> BCONST
-%token <iconst> ICONST
-%token <uconst> UCONST
-%token <uconst> BOOL INT UNSIGNED VOID
-%token <uconst> CONST QUANTUM
-%token <uconst> BREAK CONTINUE DO FOR RETURN WHILE
-%token <uconst> CASE DEFAULT ELSE IF SWITCH
-%token <uconst> MEASURE
-%token <uconst> PHASE
-%token <uconst> ADD DIV MOD MUL SUB
-%token <uconst> BIT_AND BIT_LSHIFT BIT_OR BIT_RSHIFT BIT_XOR
-%token <uconst> AND EQ GE GEQ LE LEQ NEQ NOT NOT_OP OR XOR
-%token <uconst> ASSIGN ASSIGN_ADD ASSIGN_AND ASSIGN_DIV ASSIGN_LSHIFT ASSIGN_MOD ASSIGN_MUL ASSIGN_OR ASSIGN_RSHIFT ASSIGN_SUB ASSIGN_XOR
-%token <uconst> COLON COMMA LBRACE LBRACKET LPAREN RBRACE RBRACKET RPAREN SEMICOLON
+%token <name> ID
+%token <value> BCONST
+%token <value> ICONST
+%token <value> UCONST
+%token <value> BOOL INT UNSIGNED VOID
+%token <value> CONST QUANTUM
+%token <value> BREAK CONTINUE DO FOR RETURN WHILE
+%token <value> CASE DEFAULT ELSE IF SWITCH
+%token <value> MEASURE
+%token <value> PHASE
+%token <value> ADD DIV MOD MUL SUB
+%token <value> BIT_AND BIT_LSHIFT BIT_OR BIT_RSHIFT BIT_XOR
+%token <value> AND EQ GE GEQ LE LEQ NEQ NOT NOT_OP OR XOR
+%token <value> ASSIGN ASSIGN_ADD ASSIGN_AND ASSIGN_DIV ASSIGN_LSHIFT ASSIGN_MOD ASSIGN_MUL ASSIGN_OR ASSIGN_RSHIFT ASSIGN_SUB ASSIGN_XOR
+%token <value> COLON COMMA LBRACE LBRACKET LPAREN RBRACE RBRACKET RPAREN SEMICOLON
 %left LPAREN RPAREN LBRACKET RBRACKET
 %left BIT_LSHIFT BIT_RSHIFT
 %left ADD SUB
@@ -54,8 +56,11 @@ extern FILE *yyout;
 %right NOT
 %nonassoc "then"
 %nonassoc ELSE
+
+%type <symtab_item> declarator
 %define parse.error verbose
 %start program
+
 
 %%
 
@@ -115,7 +120,7 @@ variable_def:
 	;
 
 declarator:
-	ID { insert($1, strlen($1), UNDEFINED_T, yylineno, true); }
+	ID { $$ = insert($1, strlen($1), UNDEFINED_T, yylineno, true); }
 	;
 
 initializer_l:
@@ -370,6 +375,7 @@ int main(int argc, char **argv) {
 
     // symbol table dump
     if ((argc == 2 && strncmp(argv[1], "--dump", 7) == 0) || (argc == 3 && strncmp(argv[2], "--dump", 7) == 0)) {
+        no_hide = true;
         yyout = fopen("symtab_dump.out", "w");
         if (!yyout) {
             fprintf(stderr, "Could not open symtab_dump.out\n");

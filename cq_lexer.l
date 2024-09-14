@@ -137,10 +137,10 @@ phase				    { return PHASE; }
 %{ /* token actions */
 %}
 
-{BCONST}                { yylval.bconst = strtob(yytext, NULL); return BCONST; }
-{ID}				    { yylval.str = malloc(yyleng * sizeof (char)); strcpy(yylval.str, yytext); return ID; }
-{UCONST}			    { yylval.uconst = (unsigned) strtoul(yytext, NULL, 10); return UCONST; }
-{ICONST}			    { yylval.iconst = (int) strtol(yytext, NULL, 10); return ICONST; }
+{BCONST}                { yylval.value.bval = strtob(yytext, NULL); return BCONST; }
+{ID}				    { yylval.name = malloc(yyleng * sizeof (char)); strcpy(yylval.name, yytext); return ID; }
+{UCONST}			    { yylval.value.uval = (unsigned) strtoul(yytext, NULL, 10); return UCONST; }
+{ICONST}			    { yylval.value.ival = (int) strtol(yytext, NULL, 10); return ICONST; }
 
 %{ /* match not found */
 %}

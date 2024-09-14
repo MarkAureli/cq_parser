@@ -395,3 +395,15 @@ void tree_traversal(const node_t *node) {
     }
     print_node(node);
 }
+
+// int main(int argc, const char *argv[]) {
+//     value_t val1, val2;
+//     val1.bval = true;
+//     val2.bval = false;
+//     node_t *const_node1 = new_const_node(BOOL_T, val1);
+//     node_t *const_node2 = new_const_node(BOOL_T, val2);
+//     node_t *logical_node = new_logical_node(LOR_OP, const_node1, const_node2);
+//     node_t *jump_node = new_jump_node(0);
+//     node_t *if_node = new_if_node(logical_node, jump_node, NULL, 0, NULL);
+//     tree_traversal(if_node);
+// }
