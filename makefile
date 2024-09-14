@@ -4,10 +4,10 @@ TEST_DIR := Tests
 LEXER := cq_lexer
 PARSER := cq_parser
 
-cq_parser: $(LEXER).l $(PARSER).y
+all: $(LEXER).l $(PARSER).y symtab.c
 	bison -d $(PARSER).y
 	flex -o $(LEXER).yy.c $(LEXER).l
-	clang -o $@ $(PARSER).tab.c symtab.c $(LEXER).yy.c -ll
+	clang -o $(PARSER) $(PARSER).tab.c symtab.c $(LEXER).yy.c -ll
 	@rm $(LEXER).yy.c $(PARSER).tab.c $(PARSER).tab.h
 
 test:
