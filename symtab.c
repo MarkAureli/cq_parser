@@ -4,7 +4,7 @@
 #include <string.h>
 #include "symtab.h"
 
-char *type_to_string(type_t type) {
+char *type_to_str(type_t type) {
     switch (type) {
         case UNDEFINED_T: {
             return "UNDEFINED_T";

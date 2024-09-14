@@ -1,5 +1,6 @@
 #ifndef SEMANTICS_H
 #define SEMANTICS_H
+#include "symtab.h"
 
 typedef enum op_type {
     NONE_OP,
@@ -12,7 +13,7 @@ typedef enum op_type {
     EQU_OP
 } op_type_t;
 
-char *op_type_to_string(op_type_t op_type);
+char *op_type_to_str(op_type_t op_type);
 
 type_t get_result_type(type_t type_1, type_t type_2, op_type_t op_type);
 

@@ -1,7 +1,6 @@
 #ifndef AST_H
 #define AST_H
 #include <stdbool.h>
-#include <stdlib.h>
 #include "symtab.h"
 
 typedef union value {
@@ -23,6 +22,11 @@ typedef enum bit_op {
     OR_OP,
     XOR_OP
 } bit_op_t;
+
+typedef enum shift_op {
+    LSHIFT_OP,
+    RSHIFT_OP
+} shift_op_t;
 
 typedef enum logical_op {
     LAND_OP,
@@ -87,6 +91,7 @@ typedef struct if_node {
     node_t *condition;
     node_t *if_branch;
     node_t **elseif_branches;
+    unsigned elseif_count;
     node_t *else_branch;
 } if_node_t;
 
@@ -131,6 +136,7 @@ typedef struct func_call_node {
     node_type_t type;
     list_t *entry;
     node_t **pars;
+    unsigned num_of_pars;
 } func_call_node_t;
 
 typedef struct arithm_node {
@@ -146,6 +152,13 @@ typedef struct bit_node {
     node_t *left;
     node_t *right;
 } bit_node_t;
+
+typedef struct shift_node {
+    node_type_t type;
+    shift_op_t op;
+    node_t *left;
+    node_t *right;
+} shift_node_t;
 
 typedef struct logical_node {
     node_type_t type;
@@ -180,10 +193,58 @@ typedef struct return_node {
     node_t *ret_val;
 } return_node_t;
 
+char *arithm_op_to_str(arithm_op_t arithm_op);
+
+char *bit_op_to_str(bit_op_t bit_op);
+
+char *shift_op_to_str(shift_op_t shift_op);
+
+char *logical_op_to_str(logical_op_t logical_op);
+
+char *rel_op_to_str(rel_op_t rel_op);
+
+char *equ_op_to_str(equ_op_t equ_op);
+
 node_t *new_node(node_type_t type, node_t *left, node_t *right);
 
 node_t *new_decl_node(type_t data_type, list_t *name);
 
 node_t *new_const_node(type_t data_type, value_t value);
+
+node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branches, unsigned elseif_count, node_t *else_branch);
+
+node_t *new_else_node(node_t *condition, node_t *elseif_branch);
+
+node_t *new_for_node(node_t *initialize, node_t *condition, node_t *increment, node_t *for_branch);
+
+node_t *new_do_node(node_t *do_branch, node_t *condition);
+
+node_t *new_while_node(node_t *condition, node_t *while_branch);
+
+node_t *new_assign_node(list_t *entry, node_t *assign_val);
+
+node_t *new_jump_node(int statement_type);
+
+node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars);
+
+node_t *new_arithm_node(arithm_op_t op, node_t *left, node_t *right);
+
+node_t *new_bit_node(bit_op_t op, node_t *left, node_t *right);
+
+node_t *new_shift_node(shift_op_t op, node_t *left, node_t *right);
+
+node_t *new_logical_node(logical_op_t op, node_t *left, node_t *right);
+
+node_t *new_rel_node(rel_op_t op, node_t *left, node_t *right);
+
+node_t *new_equ_node(equ_op_t op, node_t *left, node_t *right);
+
+node_t *new_func_decl_node(type_t ret_type, list_t *entry);
+
+node_t *new_return_node(type_t ret_type, node_t *ret_val);
+
+void print_node(const node_t *node);
+
+void tree_traversal(const node_t *node);
 
 #endif // AST_H

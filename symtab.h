@@ -55,7 +55,7 @@ typedef struct list {
 /* the hash table */
 static list_t **hash_table;
 
-char *type_to_string(type_t type);
+char *type_to_str(type_t type);
 
 void init_hash_table();
 
