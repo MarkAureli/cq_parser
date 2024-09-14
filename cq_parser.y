@@ -22,9 +22,8 @@ extern FILE *yyout;
     value_t value;
     list_t *symtab_item;
     node_t *node;
-    type_t data_type;
+    array_info_t type_info;
     type_t const_type;
-    unsigned array_size;
 }
 
 %token <name> ID
@@ -58,6 +57,8 @@ extern FILE *yyout;
 %nonassoc ELSE
 
 %type <symtab_item> declarator
+%type <type_info> type_specifier
+%type <node> variable_decl
 %define parse.error verbose
 %start program
 
@@ -80,9 +81,18 @@ decl:
 	;
 
 function_def:
-	QUANTUM type_specifier declarator { incr_scope(); } function_head function_tail { hide_scope(); }
-	| type_specifier declarator { incr_scope(); } function_head function_tail { hide_scope(); }
-	| VOID declarator { incr_scope(); } function_head function_tail { hide_scope(); }
+	QUANTUM type_specifier declarator { incr_scope(); } function_head function_tail {
+	    hide_scope();
+	    set_type_of_elem($3, QUANTUM_T, $2.type, true, $2.depth);
+	}
+	| type_specifier declarator { incr_scope(); } function_head function_tail {
+	    hide_scope();
+	    set_type_of_elem($2, NONE_T, $1.type, true, $1.depth);
+	}
+	| VOID declarator { incr_scope(); } function_head function_tail {
+	    hide_scope();
+	    set_type_of_elem($2, NONE_T, VOID_T, true, 0);
+	}
 	;
 
 function_head:
@@ -105,8 +115,14 @@ par:
 	;
 
 variable_decl:
-    QUANTUM type_specifier declarator SEMICOLON
-    | type_specifier declarator SEMICOLON
+    QUANTUM type_specifier declarator SEMICOLON {
+        $$ = new_decl_node($2.type, $3);
+        set_type_of_elem($3, QUANTUM_T, $2.type, false, $2.depth);
+    }
+    | type_specifier declarator SEMICOLON {
+        $$ = new_decl_node($1.type, $2);
+        set_type_of_elem($2, NONE_T, $1.type, false, $1.depth);
+    }
     ;
 
 variable_def:
@@ -129,11 +145,11 @@ initializer_l:
 	;
 
 type_specifier:
-	BOOL
-	| INT
-	| UNSIGNED
-	| type_specifier LBRACKET logical_or_expr RBRACKET
-	| type_specifier LBRACKET RBRACKET
+	BOOL { $$ = array_info_init(BOOL_T, 0); }
+	| INT { $$ = array_info_init(INT_T, 0); }
+	| UNSIGNED { $$ = array_info_init(UNSIGNED_T, 0); }
+	| type_specifier LBRACKET logical_or_expr RBRACKET { $$ = $1; ++($$.depth); }
+	| type_specifier LBRACKET RBRACKET { $$ = $1; ++($$.depth); }
 	;
 
 stmt_l:

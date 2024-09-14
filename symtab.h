@@ -22,14 +22,18 @@ typedef union value {
 } value_t;
 
 /* token types */
+typedef enum type_qualifier {
+    NONE_T,
+    CONST_T,
+    QUANTUM_T
+} type_qualifier_t;
+
 typedef enum type {
     UNDEFINED_T,
     BOOL_T,
     INT_T,
     UNSIGNED_T,
-    VOID_T,
-    ARRAY_T,
-    FUNCTION_T
+    VOID_T
 } type_t;
 
 /* parameter struct */
@@ -38,6 +42,16 @@ typedef struct param {
     char name[MAXTOKENLEN];
     value_t value;
 } param_t;
+
+typedef struct func_info {
+    param_t *pars;
+    unsigned num_of_pars;
+} func_info_t;
+
+typedef struct array_info {
+    type_t type;
+    unsigned depth;
+} array_info_t;
 
 /* a linked list of references (lineno's) for each variable */
 typedef struct ref_list { 
@@ -49,23 +63,28 @@ typedef struct ref_list {
 // struct that represents a list node
 typedef struct list {
     char st_name[MAXTOKENLEN];
-    unsigned st_size;
     unsigned scope;
     ref_list_t *lines;
-    value_t value;
-    type_t st_type;
-    type_t inf_type; // for arrays (info type) and functions (return type)
-    value_t *values;
-    unsigned array_size;
-    param_t *pars;
-    unsigned num_of_pars;
+    type_qualifier_t type_qualifier;
+    type_t type;
+    bool is_function;
+    unsigned *sizes;
+    unsigned depth;
+    union {
+        value_t *values;
+        func_info_t func_info;
+    };
     struct list *next;
 } list_t;
 
 /* the hash table */
 static list_t **hash_table;
 
+char *type_qualifier_to_str(type_qualifier_t type_qualifier);
+
 char *type_to_str(type_t type);
+
+array_info_t array_info_init(type_t type, unsigned depth);
 
 void init_hash_table();
 
@@ -79,15 +98,13 @@ void hide_scope();
 
 void incr_scope();
 
-void set_type(const char *name, type_t st_type, type_t inf_type);
+void set_type_of_elem(list_t *symtab_elem, type_qualifier_t type_qualifier, type_t type, bool is_function, unsigned depth);
+
+void set_type(const char *name, type_qualifier_t type_qualifier, type_t type, bool is_function, unsigned depth);
 
 type_t get_type(const char *name);
 
 param_t def_param(const char *name, type_t type);
-
-void decl_function(const char *name, type_t ret_type, unsigned num_of_pars, param_t *pars);
-
-void check_function_pars(const char *name, unsigned num_of_pars, param_t *pars);
 
 void symtab_dump(FILE *of);
 

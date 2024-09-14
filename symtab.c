@@ -4,6 +4,20 @@
 #include <string.h>
 #include "symtab.h"
 
+char *type_qualifier_to_str(type_qualifier_t type_qualifier) {
+    switch (type_qualifier) {
+        case NONE_T: {
+            return "NONE_T";
+        }
+        case CONST_T: {
+            return "CONST_T";
+        }
+        case QUANTUM_T: {
+            return "QUANTUM_T";
+        }
+    }
+}
+
 char *type_to_str(type_t type) {
     switch (type) {
         case UNDEFINED_T: {
@@ -21,13 +35,12 @@ char *type_to_str(type_t type) {
         case VOID_T: {
             return "VOID_T";
         }
-        case ARRAY_T: {
-            return "ARRAY_T";
-        }
-        case FUNCTION_T: {
-            return "FUNCTION_T";
-        }
     }
+}
+
+array_info_t array_info_init(type_t type, unsigned depth) {
+    array_info_t new_array_info = { .type = type, .depth = depth};
+    return new_array_info;
 }
 
 void init_hash_table() {
@@ -61,7 +74,7 @@ list_t *insert(const char *name, unsigned length, type_t type, unsigned line_num
         l = (list_t*) malloc(sizeof (list_t));
         strncpy(l->st_name, name, length);  
         /* add to hashtable */
-        l->st_type = type;
+        l->type = type;
         l->scope = cur_scope;
         l->lines = malloc(sizeof (ref_list_t));
         l->lines->line_num = line_num;
@@ -76,7 +89,7 @@ list_t *insert(const char *name, unsigned length, type_t type, unsigned line_num
             } else {
                 l = malloc(sizeof (list_t));
                 strncpy(l->st_name, name, length);
-                l->st_type = type;
+                l->type = type;
                 l->scope = cur_scope;
                 l->lines = malloc(sizeof (ref_list_t));
                 l->lines->line_num = line_num;
@@ -128,24 +141,21 @@ void incr_scope() { /* go to next scope */
     ++cur_scope;
 }
 
-void set_type(const char *name, type_t st_type, type_t inf_type) {
+void set_type_of_elem(list_t *symtab_elem, type_qualifier_t type_qualifier, type_t type, bool is_function, unsigned depth) {
+    symtab_elem->type_qualifier = type_qualifier;
+    symtab_elem->type = type;
+    symtab_elem->is_function = is_function;
+    symtab_elem->depth = depth;
+}
+
+void set_type(const char *name, type_qualifier_t type_qualifier, type_t type, bool is_function, unsigned depth) {
     list_t *l = lookup(name);
-    l->st_type = st_type;
-    if (inf_type != UNDEFINED_T) {
-        l->inf_type = inf_type;
-    }
+    set_type_of_elem(l, type_qualifier, type, is_function, depth);
 }
 
 type_t get_type(const char *name) {
     list_t *l = lookup(name);
-    switch (l->st_type) {
-        case UNDEFINED_T: case BOOL_T: case INT_T: case UNSIGNED_T: case VOID_T: {
-            return l->st_type;
-        }
-        case ARRAY_T: case FUNCTION_T: {
-            return l->inf_type;
-        }
-    }
+    return l->type;
 }
 
 param_t def_param(const char *name, type_t type) {
@@ -155,140 +165,69 @@ param_t def_param(const char *name, type_t type) {
     return param;
 }
 
-void decl_function(const char *name, type_t ret_type, unsigned num_of_pars, param_t *pars) {
-    list_t *l = lookup(name);
-    if (l->st_type == UNDEFINED_T) {
-        l->st_type = FUNCTION_T;
-        l->inf_type = ret_type;
-        l->num_of_pars = num_of_pars;
-        l->pars = pars;
-    } else {
-        fprintf(stderr, "Function %s is already declared\n", name);
-        exit(1);
-    }
-}
-
-void check_function_pars(const char *name, unsigned num_of_pars, param_t *pars) {
-    list_t *l = lookup(name);
-    if (l->num_of_pars != num_of_pars) {
-        fprintf(stderr, "Function call of %s has wrong number of parameters\n", name);
-        exit(1);
-    }
-    for (unsigned i = 0; i < num_of_pars; ++i) {
-        if (l->pars[i].type != pars[i].type) {
-            fprintf(stderr, "%u-th parameter in function call of %s has wrong type\n", i, name);
-            exit(1);
-        }
-    }
-}
-
 /* print to stdout by default */ 
 void symtab_dump(FILE * of){  
-    fprintf(of,"---------------------------------------- -------------- ------ -------------\n");
-    fprintf(of,"Name                                     Type           Scope  Line Numbers \n");
-    fprintf(of,"---------------------------------------- -------------- ------ -------------\n");
+    fprintf(of,"---------------------------------------- ---------- -------------- ------ -------------\n");
+    fprintf(of,"Name                                     Qualifier  Type           Scope  Line Numbers \n");
+    fprintf(of,"---------------------------------------- ---------- -------------- ------ -------------\n");
     for (unsigned i = 0; i < SIZE; ++i) { 
         if (hash_table[i] != NULL) { 
             list_t *l = hash_table[i];
             while (l != NULL) { 
                 ref_list_t *t = l->lines;
                 fprintf(of,"%-41s",l->st_name);
-                switch (l->st_type) {
+                switch (l->type_qualifier) {
+                    case NONE_T: {
+                        fprintf(of, "%-11s", "");
+                        break;
+                    }
+                    case CONST_T: {
+                        fprintf(of, "%-11s", "const");
+                        break;
+                    }
+                    case QUANTUM_T: {
+                        fprintf(of, "%-11s", "quantum");
+                        break;
+                    }
+                }
+                unsigned type_str_length = 0;
+                if (l->is_function) {
+                    fprintf(of, "-> ");
+                    type_str_length += 3;
+                }
+                switch (l->type) {
                     case UNDEFINED_T: {
-                        fprintf(of, "%-15s", "undefined");
+                        fprintf(of, "undefined");
+                        type_str_length += 9;
                         break;
                     }
                     case BOOL_T: {
-                        fprintf(of, "%-15s", "bool");
+                        fprintf(of, "bool");
+                        type_str_length += 4;
                         break;
                     }
                     case INT_T: {
-                        fprintf(of, "%-15s", "int");
+                        fprintf(of, "int");
+                        type_str_length += 3;
                         break;
                     }
                     case UNSIGNED_T: {
-                        fprintf(of, "%-15s", "unsigned");
+                        fprintf(of, "unsigned");
+                        type_str_length += 8;
                         break;
                     }
-                    case ARRAY_T: {
-                        switch (l->inf_type) {
-                            case UNDEFINED_T: {
-                                fprintf(of, "%-15s", "undefined[]");
-                                break;
-                            }
-                            case BOOL_T: {
-                                fprintf(of, "%-15s", "bool[]");
-                                break;
-                            }
-                            case INT_T: {
-                                fprintf(of, "%-15s", "int[]");
-                                break;
-                            }
-                            case UNSIGNED_T: {
-                                fprintf(of, "%-15s", "unsigned[]");
-                                break;
-                            }
-                            default: {
-                                fprintf(of, "%-15s", "ERROR[]");
-                                break;
-                            }
-                        }
+                    case VOID_T: {
+                        fprintf(of, "void");
+                        type_str_length += 4;
                         break;
                     }
-                    case FUNCTION_T: {
-                        switch (l->inf_type) {
-                            case UNDEFINED_T: {
-                                fprintf(of, "%-15s", "-> undefined");
-                                break;
-                            }
-                            case BOOL_T: {
-                                fprintf(of, "%-15s", "-> bool");
-                                break;
-                            }
-                            case INT_T: {
-                                fprintf(of, "%-15s", "-> int");
-                                break;
-                            }
-                            case UNSIGNED_T: {
-                                fprintf(of, "%-15s", "-> unsigned");
-                                break;
-                            }
-                            case ARRAY_T: {
-                                switch (l->inf_type) {
-                                    case UNDEFINED_T: {
-                                        fprintf(of, "%-15s", "-> undefined[]");
-                                        break;
-                                    }
-                                    case BOOL_T: {
-                                        fprintf(of, "%-15s", "-> bool[]");
-                                        break;
-                                    }
-                                    case INT_T: {
-                                        fprintf(of, "%-15s", "-> int[]");
-                                        break;
-                                    }
-                                    case UNSIGNED_T: {
-                                        fprintf(of, "%-15s", "-> unsigned[]");
-                                        break;
-                                    }
-                                    default: {
-                                        fprintf(of, "%-15s", "-> ERROR[]");
-                                        break;
-                                    }
-                                }
-                                break;
-                            }
-                            default: {
-                                fprintf(of, "%-15s", "-> ERROR");
-                                break;
-                            }
-                        }
-                        break;
-                    }
-                    default: {
-                        fprintf(of, "%-15s", "ERROR");
-                        break;
-                    }
+                }
+                for (unsigned j = 0; j < l->depth; ++j) {
+                    fprintf(of, "[]");
+                    type_str_length += 2;
+                }
+                for (unsigned k = type_str_length; k < 15; ++k) {
+                    fprintf(of, " ");
                 }
                 fprintf(of, "%-7u", l->scope);
                 while (t != NULL) {
