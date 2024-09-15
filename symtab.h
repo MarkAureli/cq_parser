@@ -61,7 +61,6 @@ typedef struct array_values {
 typedef struct ref_list { 
     unsigned line_num;
     struct ref_list *next;
-    type_t type;
 } ref_list_t;
 
 // struct that represents a list node
@@ -82,6 +81,12 @@ typedef struct list {
     struct list *next;
 } list_t;
 
+typedef struct array_access_info {
+    list_t *symtab_elem;
+    unsigned indices[MAXARRAYDEPTH];
+    unsigned depth;
+} array_access_info_t;
+
 /* the hash table */
 static list_t **hash_table;
 
@@ -91,13 +96,15 @@ char *type_to_str(type_t type);
 
 type_info_t type_info_init(type_t type, unsigned depth);
 
-array_values_t array_values_init(value_t *values, unsigned old_length, unsigned length);
+array_values_t array_values_init(const value_t *values, unsigned old_length, unsigned length);
 
 void init_hash_table();
 
+array_access_info_t array_access_info_init(list_t *symtab_elem);
+
 unsigned hash(const char *key);
 
-list_t *insert(const char *name, unsigned length, type_t type, unsigned line_num, bool declaration);
+list_t *insert(const char *name, unsigned length, unsigned line_num, bool declaration);
 
 list_t *lookup(const char *name);
 

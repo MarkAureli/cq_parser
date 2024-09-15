@@ -47,7 +47,8 @@ typedef enum equality_op {
 
 typedef enum node_type {
     BASIC_NODE_T,
-    DECL_NODE_T,
+    VAR_DECL_NODE_T,
+    FUNC_DECL_NODE_T,
     CONST_NODE_T,
     IF_NODE_T,
     ELSE_NODE_T,
@@ -57,13 +58,13 @@ typedef enum node_type {
     ASSIGN_NODE_T,
     JUMP_NODE_T,
     FUNC_CALL_NODE_T,
-    ARITHM_NODE_T,
-    BIT_NODE_T,
+    ARITHMETIC_NODE_T,
+    BITWISE_NODE_T,
     SHIFT_NODE_T,
     LOGICAL_NODE_T,
-    REL_NODE_T,
-    EQU_NODE_T,
-    FUNC_DECL_NODE_T,
+    RELATION_NODE_T,
+    EQUALITY_NODE_T,
+    REFERENCE_NODE_T,
     RETURN_NODE_T
 } node_type_t;
 
@@ -73,10 +74,15 @@ typedef struct node {
     struct node *right;
 } node_t;
 
-typedef struct decl_node {
+typedef struct var_decl_node {
     node_type_t type;
     list_t *symtab_elem;
-} decl_node_t;
+} var_decl_node_t;
+
+typedef struct func_decl_node {
+    node_type_t type;
+    list_t *symtab_elem;
+} func_decl_node_t;
 
 typedef struct const_node {
     node_type_t type;
@@ -137,12 +143,12 @@ typedef struct func_call_node {
     unsigned num_of_pars;
 } func_call_node_t;
 
-typedef struct arithm_node {
+typedef struct arithmetic_node {
     node_type_t type;
     arithmetic_op_t op;
     node_t *left;
     node_t *right;
-} arithm_node_t;
+} arithmetic_node_t;
 
 typedef struct bit_node {
     node_type_t type;
@@ -165,25 +171,26 @@ typedef struct logical_node {
     node_t *right;
 } logical_node_t;
 
-typedef struct rel_node {
+typedef struct relation_node {
     node_type_t type;
     relation_op_t op;
     node_t *left;
     node_t *right;
-} rel_node_t;
+} relation_node_t;
 
-typedef struct equ_node {
+typedef struct equality_node {
     node_type_t type;
     equality_op_t op;
     node_t *left;
     node_t *right;
-} equ_node_t;
+} equality_node_t;
 
-typedef struct func_decl_node {
+typedef struct reference_node {
     node_type_t type;
-    type_t ret_type;
     list_t *symtab_elem;
-} func_decl_node_t;
+    unsigned indices[MAXARRAYDEPTH];
+    unsigned depth;
+} reference_node_t;
 
 typedef struct return_node {
     node_type_t type;
@@ -207,7 +214,9 @@ char *equality_op_to_str(equality_op_t equality_op);
 
 node_t *new_node(node_type_t type, node_t *left, node_t *right);
 
-node_t *new_decl_node(list_t *symtab_elem);
+node_t *new_var_decl_node(list_t *symtab_elem);
+
+node_t *new_func_decl_node(list_t *symtab_elem);
 
 node_t *new_const_node(type_t data_type, value_t value);
 
@@ -227,19 +236,19 @@ node_t *new_jump_node(int statement_type);
 
 node_t *new_func_call_node(list_t *symtab_elem, node_t **pars, unsigned num_of_pars);
 
-node_t *new_arithm_node(arithmetic_op_t op, node_t *left, node_t *right);
+node_t *new_arithmetic_node(arithmetic_op_t op, node_t *left, node_t *right);
 
-node_t *new_bit_node(bitwise_op_t op, node_t *left, node_t *right);
+node_t *new_bitwise_node(bitwise_op_t op, node_t *left, node_t *right);
 
 node_t *new_shift_node(shift_op_t op, node_t *left, node_t *right);
 
 node_t *new_logical_node(logical_op_t op, node_t *left, node_t *right);
 
-node_t *new_rel_node(relation_op_t op, node_t *left, node_t *right);
+node_t *new_relation_node(relation_op_t op, node_t *left, node_t *right);
 
-node_t *new_equ_node(equality_op_t op, node_t *left, node_t *right);
+node_t *new_equality_node(equality_op_t op, node_t *left, node_t *right);
 
-node_t *new_func_decl_node(list_t *symtab_elem);
+node_t *new_reference_node(list_t *symtab_elem);
 
 node_t *new_return_node(type_t ret_type, node_t *ret_val);
 

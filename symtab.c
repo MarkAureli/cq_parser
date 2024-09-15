@@ -43,18 +43,21 @@ type_info_t type_info_init(type_t type, unsigned depth) {
     return new_type_info;
 }
 
-array_values_t array_values_init(value_t *values, unsigned old_length, unsigned length) {
+array_values_t array_values_init(const value_t *values, unsigned old_length, unsigned length) {
     array_values_t new_array_values = { .values = calloc(length, sizeof (value_t)), .length = length};
     if (values != NULL) {
-        for (unsigned i = 0; i < old_length; ++i) {
-            new_array_values.values[i] = values[i];
-        }
+        memcpy(new_array_values.values, values, old_length * sizeof (unsigned));
     }
     return new_array_values;
 }
 
 void init_hash_table() {
     hash_table = calloc(SIZE, sizeof(list_t*));
+}
+
+array_access_info_t array_access_info_init(list_t *symtab_elem) {
+    array_access_info_t new_array_access = { .symtab_elem=symtab_elem};
+    return new_array_access;
 }
 
 unsigned hash(const char *key) {
@@ -71,7 +74,7 @@ unsigned hash(const char *key) {
     return hashval % SIZE;
 }
 
-list_t *insert(const char *name, unsigned length, type_t type, unsigned line_num, bool declaration) {
+list_t *insert(const char *name, unsigned length, unsigned line_num, bool declaration) {
     unsigned hashval = hash(name);
     list_t *l = hash_table[hashval];
 	
@@ -88,7 +91,7 @@ list_t *insert(const char *name, unsigned length, type_t type, unsigned line_num
         l = (list_t*) malloc(sizeof (list_t));
         strncpy(l->name, name, length);
         /* add to hashtable */
-        l->type = type;
+        l->type = UNDEFINED_T;
         l->scope = cur_scope;
         l->lines = malloc(sizeof (ref_list_t));
         l->lines->line_num = line_num;
@@ -103,7 +106,7 @@ list_t *insert(const char *name, unsigned length, type_t type, unsigned line_num
             } else {
                 l = malloc(sizeof (list_t));
                 strncpy(l->name, name, length);
-                l->type = type;
+                l->type = UNDEFINED_T;
                 l->scope = cur_scope;
                 l->lines = malloc(sizeof (ref_list_t));
                 l->lines->line_num = line_num;

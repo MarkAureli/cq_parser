@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "ast.h"
 
 char *arithmetic_op_to_str(arithmetic_op_t arithmetic_op) {
@@ -108,9 +109,9 @@ node_t *new_node(node_type_t type, node_t *left, node_t *right) {
     return new_node;
 }
 
-node_t *new_decl_node(list_t *symtab_elem) {
-    decl_node_t *new_node = malloc(sizeof (decl_node_t));
-    new_node->type = DECL_NODE_T;
+node_t *new_var_decl_node(list_t *symtab_elem) {
+    var_decl_node_t *new_node = malloc(sizeof (var_decl_node_t));
+    new_node->type = VAR_DECL_NODE_T;
     new_node->symtab_elem = symtab_elem;
     return (node_t *) new_node;
 }
@@ -191,6 +192,9 @@ node_t *new_jump_node(int statement_type) {
 }
 
 node_t *new_func_call_node(list_t *symtab_elem, node_t **pars, unsigned num_of_pars) {
+    if (!symtab_elem->is_function) {
+        return NULL;
+    }
     func_call_node_t *new_node = malloc(sizeof (func_call_node_t));
     new_node->type = FUNC_CALL_NODE_T;
     new_node->symtab_elem = symtab_elem;
@@ -199,18 +203,18 @@ node_t *new_func_call_node(list_t *symtab_elem, node_t **pars, unsigned num_of_p
     return (node_t *) new_node;
 }
 
-node_t *new_arithm_node(arithmetic_op_t op, node_t *left, node_t *right) {
-    arithm_node_t *new_node = malloc(sizeof (arithm_node_t));
-    new_node->type = ARITHM_NODE_T;
+node_t *new_arithmetic_node(arithmetic_op_t op, node_t *left, node_t *right) {
+    arithmetic_node_t *new_node = malloc(sizeof (arithmetic_node_t));
+    new_node->type = ARITHMETIC_NODE_T;
     new_node->op = op;
     new_node->left = left;
     new_node->right = right;
     return (node_t *) new_node;
 }
 
-node_t *new_bit_node(bitwise_op_t op, node_t *left, node_t *right) {
+node_t *new_bitwise_node(bitwise_op_t op, node_t *left, node_t *right) {
     bit_node_t *new_node = malloc(sizeof (bit_node_t));
-    new_node->type = BIT_NODE_T;
+    new_node->type = BITWISE_NODE_T;
     new_node->op = op;
     new_node->left = left;
     new_node->right = right;
@@ -235,21 +239,28 @@ node_t *new_logical_node(logical_op_t op, node_t *left, node_t *right) {
     return (node_t *) new_node;
 }
 
-node_t *new_rel_node(relation_op_t op, node_t *left, node_t *right) {
-    rel_node_t *new_node = malloc(sizeof (rel_node_t));
-    new_node->type = REL_NODE_T;
+node_t *new_relation_node(relation_op_t op, node_t *left, node_t *right) {
+    relation_node_t *new_node = malloc(sizeof (relation_node_t));
+    new_node->type = RELATION_NODE_T;
     new_node->op = op;
     new_node->left = left;
     new_node->right = right;
     return (node_t *) new_node;
 }
 
-node_t *new_equ_node(equality_op_t op, node_t *left, node_t *right) {
-    equ_node_t *new_node = malloc(sizeof (equ_node_t));
-    new_node->type = EQU_NODE_T;
+node_t *new_equality_node(equality_op_t op, node_t *left, node_t *right) {
+    equality_node_t *new_node = malloc(sizeof (equality_node_t));
+    new_node->type = EQUALITY_NODE_T;
     new_node->op = op;
     new_node->left = left;
     new_node->right = right;
+    return (node_t *) new_node;
+}
+
+node_t *new_reference_node(list_t *symtab_elem) {
+    reference_node_t *new_node = calloc(1, sizeof (reference_node_t));
+    new_node->type = REFERENCE_NODE_T;
+    new_node->symtab_elem = symtab_elem;
     return (node_t *) new_node;
 }
 
@@ -267,8 +278,12 @@ void print_node(const node_t *node) {
             printf("Basic node\n");
             break;
         }
-        case DECL_NODE_T: {
-            printf("Declaration node for %s\n", ((decl_node_t *) node)->symtab_elem->name);
+        case VAR_DECL_NODE_T: {
+            printf("Variable declaration node for %s\n", ((var_decl_node_t *) node)->symtab_elem->name);
+            break;
+        }
+        case FUNC_DECL_NODE_T: {
+            printf("Function declaration node for %s\n", ((func_decl_node_t *) node)->symtab_elem->name);
             break;
         }
         case CONST_NODE_T: {
@@ -307,11 +322,11 @@ void print_node(const node_t *node) {
             printf("Function call node for %s with %u parameters\n", ((func_call_node_t *) node)->symtab_elem->name, ((func_call_node_t *) node)->num_of_pars);
             break;
         }
-        case ARITHM_NODE_T: {
-            printf("Arithmetic node of operator %s\n", arithmetic_op_to_str(((arithm_node_t *) node)->op));
+        case ARITHMETIC_NODE_T: {
+            printf("Arithmetic node of operator %s\n", arithmetic_op_to_str(((arithmetic_node_t *) node)->op));
             break;
         }
-        case BIT_NODE_T: {
+        case BITWISE_NODE_T: {
             printf("Bitwise node of operator %s\n", bitwise_op_to_str(((bit_node_t *) node)->op));
             break;
         }
@@ -323,16 +338,16 @@ void print_node(const node_t *node) {
             printf("Logical node of operator %s\n", logical_op_to_str(((logical_node_t *) node)->op));
             break;
         }
-        case REL_NODE_T: {
-            printf("Relation node of operator %s\n", relation_op_to_str(((rel_node_t *) node)->op));
+        case RELATION_NODE_T: {
+            printf("Relation node of operator %s\n", relation_op_to_str(((relation_node_t *) node)->op));
             break;
         }
-        case EQU_NODE_T: {
-            printf("Equation node of operator %s\n", equality_op_to_str(((equ_node_t *) node)->op));
+        case EQUALITY_NODE_T: {
+            printf("Equation node of operator %s\n", equality_op_to_str(((equality_node_t *) node)->op));
             break;
         }
-        case FUNC_DECL_NODE_T: {
-            printf("Function declaration node of %s with return tyupe %s\n", ((func_decl_node_t *) node)->symtab_elem->name, type_to_str(((func_decl_node_t *) node)->ret_type));
+        case REFERENCE_NODE_T: {
+            printf("Reference node for %s\n", ((reference_node_t *) node)->symtab_elem->name);
             break;
         }
         case RETURN_NODE_T: {
@@ -348,7 +363,7 @@ void tree_traversal(const node_t *node) {
     }
 
     switch (node->type) {
-        case BASIC_NODE_T: case ARITHM_NODE_T: case BIT_NODE_T: case SHIFT_NODE_T: case LOGICAL_NODE_T: case REL_NODE_T: case EQU_NODE_T: {
+        case BASIC_NODE_T: case ARITHMETIC_NODE_T: case BITWISE_NODE_T: case SHIFT_NODE_T: case LOGICAL_NODE_T: case RELATION_NODE_T: case EQUALITY_NODE_T: {
             tree_traversal(node->left);
             tree_traversal(node->right);
             break;
