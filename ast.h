@@ -3,19 +3,24 @@
 #include <stdbool.h>
 #include "symtab.h"
 
-typedef enum arithm_op {
+typedef enum arithmetic_op {
     ADD_OP,
     DIV_OP,
     MOD_OP,
     MUL_OP,
     SUB_OP
-} arithm_op_t;
+} arithmetic_op_t;
 
-typedef enum bit_op {
+typedef enum increment_op {
+    INCR_OP,
+    DECR_OP
+} increment_op_t;
+
+typedef enum bitwise_op {
     AND_OP,
     OR_OP,
     XOR_OP
-} bit_op_t;
+} bitwise_op_t;
 
 typedef enum shift_op {
     LSHIFT_OP,
@@ -28,17 +33,17 @@ typedef enum logical_op {
     LXOR_OP
 } logical_op_t;
 
-typedef enum rel_op {
+typedef enum relation_op {
     GE_OP,
     GEQ_OP,
     LE_OP,
     LEQ_OP
-} rel_op_t;
+} relation_op_t;
 
-typedef enum equ_op {
+typedef enum equality_op {
     EQ_OP,
     NEQ_OP
-} equ_op_t;
+} equality_op_t;
 
 typedef enum node_type {
     BASIC_NODE_T,
@@ -134,14 +139,14 @@ typedef struct func_call_node {
 
 typedef struct arithm_node {
     node_type_t type;
-    arithm_op_t op;
+    arithmetic_op_t op;
     node_t *left;
     node_t *right;
 } arithm_node_t;
 
 typedef struct bit_node {
     node_type_t type;
-    bit_op_t op;
+    bitwise_op_t op;
     node_t *left;
     node_t *right;
 } bit_node_t;
@@ -162,14 +167,14 @@ typedef struct logical_node {
 
 typedef struct rel_node {
     node_type_t type;
-    rel_op_t op;
+    relation_op_t op;
     node_t *left;
     node_t *right;
 } rel_node_t;
 
 typedef struct equ_node {
     node_type_t type;
-    equ_op_t op;
+    equality_op_t op;
     node_t *left;
     node_t *right;
 } equ_node_t;
@@ -186,17 +191,19 @@ typedef struct return_node {
     node_t *ret_val;
 } return_node_t;
 
-char *arithm_op_to_str(arithm_op_t arithm_op);
+char *arithmetic_op_to_str(arithmetic_op_t arithmetic_op);
 
-char *bit_op_to_str(bit_op_t bit_op);
+char *increment_op_to_str(increment_op_t increment_op);
+
+char *bitwise_op_to_str(bitwise_op_t bitwise_op);
 
 char *shift_op_to_str(shift_op_t shift_op);
 
 char *logical_op_to_str(logical_op_t logical_op);
 
-char *rel_op_to_str(rel_op_t rel_op);
+char *relation_op_to_str(relation_op_t relation_op);
 
-char *equ_op_to_str(equ_op_t equ_op);
+char *equality_op_to_str(equality_op_t equality_op);
 
 node_t *new_node(node_type_t type, node_t *left, node_t *right);
 
@@ -220,19 +227,19 @@ node_t *new_jump_node(int statement_type);
 
 node_t *new_func_call_node(list_t *symtab_elem, node_t **pars, unsigned num_of_pars);
 
-node_t *new_arithm_node(arithm_op_t op, node_t *left, node_t *right);
+node_t *new_arithm_node(arithmetic_op_t op, node_t *left, node_t *right);
 
-node_t *new_bit_node(bit_op_t op, node_t *left, node_t *right);
+node_t *new_bit_node(bitwise_op_t op, node_t *left, node_t *right);
 
 node_t *new_shift_node(shift_op_t op, node_t *left, node_t *right);
 
 node_t *new_logical_node(logical_op_t op, node_t *left, node_t *right);
 
-node_t *new_rel_node(rel_op_t op, node_t *left, node_t *right);
+node_t *new_rel_node(relation_op_t op, node_t *left, node_t *right);
 
-node_t *new_equ_node(equ_op_t op, node_t *left, node_t *right);
+node_t *new_equ_node(equality_op_t op, node_t *left, node_t *right);
 
-node_t *new_func_decl_node(type_t ret_type, list_t *symtab_elem);
+node_t *new_func_decl_node(list_t *symtab_elem);
 
 node_t *new_return_node(type_t ret_type, node_t *ret_val);
 

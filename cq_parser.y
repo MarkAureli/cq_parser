@@ -26,7 +26,13 @@ char error_msg[256];
     node_t *node;
     type_info_t type_info;
     array_values_t array_values;
-    type_t const_type;
+    arithmetic_op_t arithmetic_op;
+    increment_op_t increment_op;
+    bitwise_op_t bitwise_op;
+    shift_op_t shift_op;
+    logical_op_t logical_op;
+    relation_op_t relation_op;
+    equality_op_t equality_op;
 }
 
 %token <name> ID
@@ -40,28 +46,35 @@ char error_msg[256];
 %token <value> MEASURE
 %token <value> PHASE
 %token <value> ADD DIV MOD MUL SUB
-%token <value> BIT_AND BIT_LSHIFT BIT_OR BIT_RSHIFT BIT_XOR
-%token <value> AND EQ GE GEQ LE LEQ NEQ NOT NOT_OP OR XOR
+%token <value> INCR DECR
+%token <value> INV
+%token <value> AND OR XOR
+%token <value> LSHIFT RSHIFT
+%token <value> LAND LOR LXOR
+%token <value> NOT
+%token <value> GE GEQ LE LEQ
+%token <value> EQ NEQ
 %token <value> ASSIGN ASSIGN_ADD ASSIGN_AND ASSIGN_DIV ASSIGN_LSHIFT ASSIGN_MOD ASSIGN_MUL ASSIGN_OR ASSIGN_RSHIFT ASSIGN_SUB ASSIGN_XOR
 %token <value> COLON COMMA LBRACE LBRACKET LPAREN RBRACE RBRACKET RPAREN SEMICOLON
 %left LPAREN RPAREN LBRACKET RBRACKET
-%left BIT_LSHIFT BIT_RSHIFT
+%left LSHIFT RSHIFT
 %left ADD SUB
 %left MUL DIV MOD
-%left BIT_XOR
-%left BIT_OR
-%left BIT_AND
 %left XOR
 %left OR
 %left AND
-%right NOT_OP
+%left LXOR
+%left LOR
+%left LAND
+%right INCR DECR
+%right INV
 %right NOT
 %nonassoc "then"
 %nonassoc ELSE
 
 %type <symtab_item> declarator
 %type <type_info> type_specifier
-%type <node> variable_decl variable_def const
+%type <node> variable_decl variable_def function_def const
 %type <array_values> init init_elem_l
 %define parse.error verbose
 %start program
@@ -87,14 +100,17 @@ decl:
 function_def:
 	QUANTUM type_specifier declarator { incr_scope(); } function_head function_tail {
 	    hide_scope();
+	    $$ = new_func_decl_node($3);
 	    set_type_of_elem($3, QUANTUM_T, $2.type, true, $2.depth, $2.sizes);
 	}
 	| type_specifier declarator { incr_scope(); } function_head function_tail {
 	    hide_scope();
+	    $$ = new_func_decl_node($2);
 	    set_type_of_elem($2, NONE_T, $1.type, true, $1.depth, $1.sizes);
 	}
 	| VOID declarator { incr_scope(); } function_head function_tail {
 	    hide_scope();
+	    $$ = new_func_decl_node($2);
 	    set_type_of_elem($2, NONE_T, VOID_T, true, 0, NULL);
 	}
 	;
@@ -192,7 +208,7 @@ variable_def:
                 }
             }
         }
-    set_values_of_elem($2, $4.values, $4.length);
+        set_values_of_elem($2, $4.values, $4.length);
     }
 	;
 
@@ -345,32 +361,32 @@ assignment_operator:
 
 logical_or_expr:
 	logical_xor_expr
-	| logical_or_expr OR logical_xor_expr
+	| logical_or_expr LOR logical_xor_expr
 	;
 
 logical_xor_expr:
 	logical_and_expr
-	| logical_xor_expr XOR logical_and_expr
+	| logical_xor_expr LXOR logical_and_expr
 	;
 
 logical_and_expr:
 	bit_or_expr
-	| logical_and_expr AND bit_or_expr
+	| logical_and_expr LAND bit_or_expr
 	;
 
 bit_or_expr:
 	bit_xor_expr
-	| bit_or_expr BIT_OR bit_xor_expr
+	| bit_or_expr OR bit_xor_expr
 	;
 
 bit_xor_expr:
 	bit_and_expr
-	| bit_xor_expr BIT_XOR bit_and_expr
+	| bit_xor_expr XOR bit_and_expr
 	;
 
 bit_and_expr:
 	equality_expr
-	| bit_and_expr BIT_AND equality_expr
+	| bit_and_expr AND equality_expr
 	;
 
 equality_expr:
@@ -389,8 +405,8 @@ relational_expr:
 
 shift_expr:
 	add_expr
-	| shift_expr BIT_LSHIFT add_expr
-	| shift_expr BIT_RSHIFT add_expr
+	| shift_expr LSHIFT add_expr
+	| shift_expr RSHIFT add_expr
 	;
 
 add_expr:
@@ -414,11 +430,7 @@ unary_expr:
 	;
 
 unary_op:
-	BIT_AND
-	| MUL
-	| ADD
-	| SUB
-	| NOT_OP
+	INV
 	| NOT
 	;
 
@@ -454,10 +466,6 @@ int yyerror(const char *msg) {
 }
 
 int main(int argc, char **argv) {
-//#ifdef YYDEBUG
-//    yydebug = 1;
-//#endif
-
     // determine and open input file
     if (argc > 1 && strncmp(argv[1], "--dump", 7) != 0) {
         yyin = fopen(argv[1], "r");
@@ -489,6 +497,5 @@ int main(int argc, char **argv) {
         fclose(yyout);
     }
 
-    // set return value
     return 0;
 }

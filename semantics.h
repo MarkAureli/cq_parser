@@ -5,12 +5,14 @@
 typedef enum op_type {
     NONE_OP,
     ARITHMETIC_OP,
-    BIT_OP,
+    INCREMENT_OP,
+    INVERT_OP,
+    BITWISE_OP,
     SHIFT_OP,
     LOGICAL_OP,
-    NOT_OP,
-    REL_OP,
-    EQU_OP
+    LOGICAL_NOT_OP,
+    RELATION_OP,
+    EQUALITY_OP
 } op_type_t;
 
 char *op_type_to_str(op_type_t op_type);

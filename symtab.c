@@ -81,6 +81,10 @@ list_t *insert(const char *name, unsigned length, type_t type, unsigned line_num
 
     /* variable not yet in table */
     if (l == NULL) {
+        if (declaration == false) {
+            fprintf(stderr, "Undeclared identifier %s at line %u\n", name, line_num);
+            exit(1);
+        }
         l = (list_t*) malloc(sizeof (list_t));
         strncpy(l->name, name, length);
         /* add to hashtable */
@@ -94,7 +98,7 @@ list_t *insert(const char *name, unsigned length, type_t type, unsigned line_num
     } else {
         if (declaration == true) {
             if (l->scope == cur_scope) {
-                fprintf(stderr, "Multiple declaration of variable %s at line %u (previous declaration in line %u)\n", name, line_num, l->lines->line_num);
+                fprintf(stderr, "Multiple declaration of identifier %s at line %u (previous declaration in line %u)\n", name, line_num, l->lines->line_num);
                 exit(1);
             } else {
                 l = malloc(sizeof (list_t));

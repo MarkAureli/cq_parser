@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include "ast.h"
 
-char *arithm_op_to_str(arithm_op_t arithm_op) {
-    switch (arithm_op) {
+char *arithmetic_op_to_str(arithmetic_op_t arithmetic_op) {
+    switch (arithmetic_op) {
         case ADD_OP: {
             return "ADD_OP";
         }
@@ -22,8 +22,19 @@ char *arithm_op_to_str(arithm_op_t arithm_op) {
     }
 }
 
-char *bit_op_to_str(bit_op_t bit_op) {
-    switch (bit_op) {
+char *increment_op_to_str(increment_op_t increment_op) {
+    switch (increment_op) {
+        case INCR_OP: {
+            return "INCR_OP";
+        }
+        case DECR_OP: {
+            return "DECR_OP";
+        }
+    }
+}
+
+char *bitwise_op_to_str(bitwise_op_t bitwise_op) {
+    switch (bitwise_op) {
         case AND_OP: {
             return "AND_OP";
         }
@@ -61,8 +72,8 @@ char *logical_op_to_str(logical_op_t logical_op) {
     }
 }
 
-char *rel_op_to_str(rel_op_t rel_op) {
-    switch (rel_op) {
+char *relation_op_to_str(relation_op_t relation_op) {
+    switch (relation_op) {
         case GE_OP: {
             return "GE_OP";
         }
@@ -78,8 +89,8 @@ char *rel_op_to_str(rel_op_t rel_op) {
     }
 }
 
-char *equ_op_to_str(equ_op_t equ_op) {
-    switch (equ_op) {
+char *equality_op_to_str(equality_op_t equality_op) {
+    switch (equality_op) {
         case EQ_OP: {
             return "EQ_OP";
         }
@@ -100,6 +111,13 @@ node_t *new_node(node_type_t type, node_t *left, node_t *right) {
 node_t *new_decl_node(list_t *symtab_elem) {
     decl_node_t *new_node = malloc(sizeof (decl_node_t));
     new_node->type = DECL_NODE_T;
+    new_node->symtab_elem = symtab_elem;
+    return (node_t *) new_node;
+}
+
+node_t *new_func_decl_node(list_t *symtab_elem) {
+    func_decl_node_t *new_node = malloc(sizeof (func_decl_node_t));
+    new_node->type = FUNC_DECL_NODE_T;
     new_node->symtab_elem = symtab_elem;
     return (node_t *) new_node;
 }
@@ -181,7 +199,7 @@ node_t *new_func_call_node(list_t *symtab_elem, node_t **pars, unsigned num_of_p
     return (node_t *) new_node;
 }
 
-node_t *new_arithm_node(arithm_op_t op, node_t *left, node_t *right) {
+node_t *new_arithm_node(arithmetic_op_t op, node_t *left, node_t *right) {
     arithm_node_t *new_node = malloc(sizeof (arithm_node_t));
     new_node->type = ARITHM_NODE_T;
     new_node->op = op;
@@ -190,7 +208,7 @@ node_t *new_arithm_node(arithm_op_t op, node_t *left, node_t *right) {
     return (node_t *) new_node;
 }
 
-node_t *new_bit_node(bit_op_t op, node_t *left, node_t *right) {
+node_t *new_bit_node(bitwise_op_t op, node_t *left, node_t *right) {
     bit_node_t *new_node = malloc(sizeof (bit_node_t));
     new_node->type = BIT_NODE_T;
     new_node->op = op;
@@ -217,7 +235,7 @@ node_t *new_logical_node(logical_op_t op, node_t *left, node_t *right) {
     return (node_t *) new_node;
 }
 
-node_t *new_rel_node(rel_op_t op, node_t *left, node_t *right) {
+node_t *new_rel_node(relation_op_t op, node_t *left, node_t *right) {
     rel_node_t *new_node = malloc(sizeof (rel_node_t));
     new_node->type = REL_NODE_T;
     new_node->op = op;
@@ -226,20 +244,12 @@ node_t *new_rel_node(rel_op_t op, node_t *left, node_t *right) {
     return (node_t *) new_node;
 }
 
-node_t *new_equ_node(equ_op_t op, node_t *left, node_t *right) {
+node_t *new_equ_node(equality_op_t op, node_t *left, node_t *right) {
     equ_node_t *new_node = malloc(sizeof (equ_node_t));
     new_node->type = EQU_NODE_T;
     new_node->op = op;
     new_node->left = left;
     new_node->right = right;
-    return (node_t *) new_node;
-}
-
-node_t *new_func_decl_node(type_t ret_type, list_t *symtab_elem) {
-    func_decl_node_t *new_node = malloc(sizeof (func_decl_node_t));
-    new_node->type = FUNC_DECL_NODE_T;
-    new_node->ret_type = ret_type;
-    new_node->symtab_elem = symtab_elem;
     return (node_t *) new_node;
 }
 
@@ -298,11 +308,11 @@ void print_node(const node_t *node) {
             break;
         }
         case ARITHM_NODE_T: {
-            printf("Arithmetic node of operator %s\n", arithm_op_to_str(((arithm_node_t *) node)->op));
+            printf("Arithmetic node of operator %s\n", arithmetic_op_to_str(((arithm_node_t *) node)->op));
             break;
         }
         case BIT_NODE_T: {
-            printf("Bitwise node of operator %s\n", bit_op_to_str(((bit_node_t *) node)->op));
+            printf("Bitwise node of operator %s\n", bitwise_op_to_str(((bit_node_t *) node)->op));
             break;
         }
         case SHIFT_NODE_T: {
@@ -314,11 +324,11 @@ void print_node(const node_t *node) {
             break;
         }
         case REL_NODE_T: {
-            printf("Relation node of operator %s\n", rel_op_to_str(((rel_node_t *) node)->op));
+            printf("Relation node of operator %s\n", relation_op_to_str(((rel_node_t *) node)->op));
             break;
         }
         case EQU_NODE_T: {
-            printf("Equation node of operator %s\n", equ_op_to_str(((equ_node_t *) node)->op));
+            printf("Equation node of operator %s\n", equality_op_to_str(((equ_node_t *) node)->op));
             break;
         }
         case FUNC_DECL_NODE_T: {

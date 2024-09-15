@@ -80,33 +80,53 @@ phase				    { return PHASE; }
 
 %{ /* arithmetic operations */
 %}
-"+"				        { return ADD; }
-"/"				        { return DIV; }
-"%"				        { return MOD; }
-"*"				        { return MUL; }
-"-"				        { return SUB; }
+"+"				        { yylval.arithmetic_op = ADD_OP; return ADD; }
+"/"				        { yylval.arithmetic_op = DIV_OP; return DIV; }
+"%"				        { yylval.arithmetic_op = MOD_OP; return MOD; }
+"*"				        { yylval.arithmetic_op = MUL_OP; return MUL; }
+"-"				        { yylval.arithmetic_op = SUB_OP; return SUB; }
+
+%{ /* increment operations */
+%}
+"++"                    { yylval.increment_op = INCR_OP; return INCR; }
+"--"                    { yylval.increment_op = DECR_OP; return DECR; }
+
+%{ /* invert operation */
+%}
+"~"                     { return INV; }
 
 %{ /* bitwise operations */
 %}
-"&"				        { return BIT_AND; }
-"<<"				    { return BIT_LSHIFT; }
-"|"				        { return BIT_OR; }
-">>"				    { return BIT_RSHIFT; }
-"^"				        { return BIT_XOR; }
+"&"				        { yylval.bitwise_op = AND_OP; return AND; }
+"|"				        { yylval.bitwise_op = OR_OP; return OR; }
+"^"				        { yylval.bitwise_op = XOR_OP; return XOR; }
 
-%{ /* boolean operations */
+%{ /* shift operations */
 %}
-"&&"				    { return AND; }
-"=="				    { return EQ; }
-">"				        { return GE; }
-">="				    { return GEQ; }
-"<"				        { return LE; }
-"<="				    { return LEQ; }
-"!="				    { return NEQ; }
-"!"				        { return NOT; }
-"~"				        { return NOT_OP; }
-"||"				    { return OR; }
-"^^"				    { return XOR; }
+"<<"				    { yylval.shift_op = LSHIFT_OP; return LSHIFT; }
+">>"				    { yylval.shift_op = RSHIFT_OP; return RSHIFT; }
+
+%{ /* logical operations */
+%}
+"&&"				    { yylval.logical_op = LAND_OP; return LAND; }
+"||"				    { yylval.logical_op = LOR_OP; return LOR; }
+"^^"				    { yylval.logical_op = LXOR_OP; return LXOR; }
+
+%{ /* logical not operation */
+%}
+"!"                     { return NOT; }
+
+%{ /* relation operations */
+%}
+">"				        { yylval.relation_op = GE_OP; return GE; }
+">="				    { yylval.relation_op = GEQ_OP; return GEQ; }
+"<"				        { yylval.relation_op = LE_OP; return LE; }
+"<="				    { yylval.relation_op = LEQ_OP; return LEQ; }
+
+%{ /* equality operations */
+%}
+"=="				    { yylval.equality_op = EQ_OP; return EQ; }
+"!="				    { yylval.equality_op = NEQ_OP; return NEQ; }
 
 %{ /* assignments */
 %}
