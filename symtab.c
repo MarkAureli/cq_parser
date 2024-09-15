@@ -38,9 +38,19 @@ char *type_to_str(type_t type) {
     }
 }
 
-array_info_t array_info_init(type_t type, unsigned depth) {
-    array_info_t new_array_info = { .type = type, .depth = depth};
-    return new_array_info;
+type_info_t type_info_init(type_t type, unsigned depth) {
+    type_info_t new_type_info = { .type = type, .depth = depth};
+    return new_type_info;
+}
+
+array_values_t array_values_init(value_t *values, unsigned old_length, unsigned length) {
+    array_values_t new_array_values = { .values = calloc(length, sizeof (value_t)), .length = length};
+    if (values != NULL) {
+        for (unsigned i = 0; i < old_length; ++i) {
+            new_array_values.values[i] = values[i];
+        }
+    }
+    return new_array_values;
 }
 
 void init_hash_table() {
@@ -65,14 +75,14 @@ list_t *insert(const char *name, unsigned length, type_t type, unsigned line_num
     unsigned hashval = hash(name);
     list_t *l = hash_table[hashval];
 	
-    while ((l != NULL) && (strcmp(name,l->st_name) != 0)) {
+    while ((l != NULL) && (strcmp(name,l->name) != 0)) {
         l = l->next;
     }
 
     /* variable not yet in table */
     if (l == NULL) {
         l = (list_t*) malloc(sizeof (list_t));
-        strncpy(l->st_name, name, length);  
+        strncpy(l->name, name, length);
         /* add to hashtable */
         l->type = type;
         l->scope = cur_scope;
@@ -88,7 +98,7 @@ list_t *insert(const char *name, unsigned length, type_t type, unsigned line_num
                 exit(1);
             } else {
                 l = malloc(sizeof (list_t));
-                strncpy(l->st_name, name, length);
+                strncpy(l->name, name, length);
                 l->type = type;
                 l->scope = cur_scope;
                 l->lines = malloc(sizeof (ref_list_t));
@@ -114,7 +124,7 @@ list_t *insert(const char *name, unsigned length, type_t type, unsigned line_num
 list_t *lookup(const char *name) { /* return symbol if found or NULL if not found */
     unsigned hashval = hash(name);
     list_t *l = hash_table[hashval];
-    while ((l != NULL) && (strcmp(name,l->st_name) != 0)) {
+    while ((l != NULL) && (strcmp(name,l->name) != 0)) {
         l = l->next;
     }
     return l; // NULL is not found
@@ -141,16 +151,29 @@ void incr_scope() { /* go to next scope */
     ++cur_scope;
 }
 
-void set_type_of_elem(list_t *symtab_elem, type_qualifier_t type_qualifier, type_t type, bool is_function, unsigned depth) {
+void set_type_of_elem(list_t *symtab_elem, type_qualifier_t type_qualifier, type_t type, bool is_function, unsigned depth, const unsigned sizes[MAXARRAYDEPTH]) {
     symtab_elem->type_qualifier = type_qualifier;
     symtab_elem->type = type;
     symtab_elem->is_function = is_function;
     symtab_elem->depth = depth;
+    unsigned length = 1;
+    if (sizes != NULL) {
+        memcpy(symtab_elem->sizes, sizes, MAXARRAYDEPTH * sizeof (unsigned));
+        for (unsigned i = 0; i < depth; ++i) {
+            length *= sizes[i];
+        }
+    }
+    symtab_elem->length = length;
 }
 
-void set_type(const char *name, type_qualifier_t type_qualifier, type_t type, bool is_function, unsigned depth) {
+void set_type(const char *name, type_qualifier_t type_qualifier, type_t type, bool is_function, unsigned depth, const unsigned sizes[MAXARRAYDEPTH]) {
     list_t *l = lookup(name);
-    set_type_of_elem(l, type_qualifier, type, is_function, depth);
+    set_type_of_elem(l, type_qualifier, type, is_function, depth, sizes);
+}
+
+void set_values_of_elem(list_t *symtab_elem, value_t *values, unsigned length) {
+    symtab_elem->values = calloc(symtab_elem->length, sizeof (value_t));
+    memcpy(symtab_elem->values, values, length * sizeof (value_t));
 }
 
 type_t get_type(const char *name) {
@@ -166,16 +189,46 @@ param_t def_param(const char *name, type_t type) {
 }
 
 /* print to stdout by default */ 
-void symtab_dump(FILE * of){  
-    fprintf(of,"---------------------------------------- ---------- -------------- ------ -------------\n");
-    fprintf(of,"Name                                     Qualifier  Type           Scope  Line Numbers \n");
-    fprintf(of,"---------------------------------------- ---------- -------------- ------ -------------\n");
+void symtab_dump(FILE * of){
+    for (unsigned i = 0; i < MAXTOKENLEN; ++i) {
+        fputc('-', of);
+    }
+    fputc(' ', of);
+    fprintf(of, "---------- ");
+    for (unsigned i = 0; i < 11 + 2 * MAXARRAYDEPTH; ++i) {
+        fputc('-', of);
+    }
+    fputc(' ', of);
+    fprintf(of, "------ -------------\n");
+
+    fprintf(of, "Name");
+    for (unsigned i = 0; i < MAXTOKENLEN + 1- sizeof ("Name"); ++i) {
+        fputc(' ', of);
+    }
+    fputc(' ', of);
+    fprintf(of, "Qualifier  Type");
+    for (unsigned i = 0; i < 12 + 2 * MAXARRAYDEPTH - sizeof ("Type"); ++i) {
+        fputc(' ', of);
+    }
+    fputc(' ', of);
+    fprintf(of, "Scope  Line Numbers \n");
+
+    for (unsigned i = 0; i < MAXTOKENLEN; ++i) {
+        fputc('-', of);
+    }
+    fputc(' ', of);
+    fprintf(of, "---------- ");
+    for (unsigned i = 0; i < 11 + 2 * MAXARRAYDEPTH; ++i) {
+        fputc('-', of);
+    }
+    fputc(' ', of);
+    fprintf(of, "------ -------------\n");
     for (unsigned i = 0; i < SIZE; ++i) { 
         if (hash_table[i] != NULL) { 
             list_t *l = hash_table[i];
             while (l != NULL) { 
                 ref_list_t *t = l->lines;
-                fprintf(of,"%-41s",l->st_name);
+                fprintf(of,"%-*s", MAXTOKENLEN + 1, l->name);
                 switch (l->type_qualifier) {
                     case NONE_T: {
                         fprintf(of, "%-11s", "");
@@ -226,7 +279,7 @@ void symtab_dump(FILE * of){
                     fprintf(of, "[]");
                     type_str_length += 2;
                 }
-                for (unsigned k = type_str_length; k < 15; ++k) {
+                for (unsigned k = type_str_length; k < 12  + MAXARRAYDEPTH * 2; ++k) {
                     fprintf(of, " ");
                 }
                 fprintf(of, "%-7u", l->scope);

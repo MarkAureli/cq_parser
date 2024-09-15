@@ -97,11 +97,10 @@ node_t *new_node(node_type_t type, node_t *left, node_t *right) {
     return new_node;
 }
 
-node_t *new_decl_node(type_t data_type, list_t *name) {
+node_t *new_decl_node(list_t *symtab_elem) {
     decl_node_t *new_node = malloc(sizeof (decl_node_t));
     new_node->type = DECL_NODE_T;
-    new_node->data_type = data_type;
-    new_node->name = name;
+    new_node->symtab_elem = symtab_elem;
     return (node_t *) new_node;
 }
 
@@ -158,10 +157,10 @@ node_t *new_while_node(node_t *condition, node_t *while_branch) {
     return (node_t *) new_node;
 }
 
-node_t *new_assign_node(list_t *entry, node_t *assign_val) {
+node_t *new_assign_node(list_t *symtab_elem, node_t *assign_val) {
     assign_node_t *new_node = malloc(sizeof (assign_node_t));
     new_node->type = ASSIGN_NODE_T;
-    new_node->entry = entry;
+    new_node->symtab_elem = symtab_elem;
     new_node->assign_val = assign_val;
     return (node_t *) new_node;
 }
@@ -173,10 +172,10 @@ node_t *new_jump_node(int statement_type) {
     return (node_t *) new_node;
 }
 
-node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars) {
+node_t *new_func_call_node(list_t *symtab_elem, node_t **pars, unsigned num_of_pars) {
     func_call_node_t *new_node = malloc(sizeof (func_call_node_t));
     new_node->type = FUNC_CALL_NODE_T;
-    new_node->entry = entry;
+    new_node->symtab_elem = symtab_elem;
     new_node->pars = pars;
     new_node->num_of_pars = num_of_pars;
     return (node_t *) new_node;
@@ -236,11 +235,11 @@ node_t *new_equ_node(equ_op_t op, node_t *left, node_t *right) {
     return (node_t *) new_node;
 }
 
-node_t *new_func_decl_node(type_t ret_type, list_t *entry) {
+node_t *new_func_decl_node(type_t ret_type, list_t *symtab_elem) {
     func_decl_node_t *new_node = malloc(sizeof (func_decl_node_t));
     new_node->type = FUNC_DECL_NODE_T;
     new_node->ret_type = ret_type;
-    new_node->entry = entry;
+    new_node->symtab_elem = symtab_elem;
     return (node_t *) new_node;
 }
 
@@ -259,7 +258,7 @@ void print_node(const node_t *node) {
             break;
         }
         case DECL_NODE_T: {
-            printf("Declaration node of data type %s fpr %s\n", type_to_str(((decl_node_t *) node)->data_type), ((decl_node_t *) node)->name->st_name);
+            printf("Declaration node for %s\n", ((decl_node_t *) node)->symtab_elem->name);
             break;
         }
         case CONST_NODE_T: {
@@ -287,7 +286,7 @@ void print_node(const node_t *node) {
             break;
         }
         case ASSIGN_NODE_T: {
-            printf("Assign node of entry %s\n", ((assign_node_t *) node)->entry->st_name);
+            printf("Assign node of symtab_elem %s\n", ((assign_node_t *) node)->symtab_elem->name);
             break;
         }
         case JUMP_NODE_T: {
@@ -295,7 +294,7 @@ void print_node(const node_t *node) {
             break;
         }
         case FUNC_CALL_NODE_T: {
-            printf("Function call node for %s with %u parameters\n", ((func_call_node_t *) node)->entry->st_name, ((func_call_node_t *) node)->num_of_pars);
+            printf("Function call node for %s with %u parameters\n", ((func_call_node_t *) node)->symtab_elem->name, ((func_call_node_t *) node)->num_of_pars);
             break;
         }
         case ARITHM_NODE_T: {
@@ -323,7 +322,7 @@ void print_node(const node_t *node) {
             break;
         }
         case FUNC_DECL_NODE_T: {
-            printf("Function declaration node of %s with return tyupe %s\n", ((func_decl_node_t *) node)->entry->st_name, type_to_str(((func_decl_node_t *) node)->ret_type));
+            printf("Function declaration node of %s with return tyupe %s\n", ((func_decl_node_t *) node)->symtab_elem->name, type_to_str(((func_decl_node_t *) node)->ret_type));
             break;
         }
         case RETURN_NODE_T: {

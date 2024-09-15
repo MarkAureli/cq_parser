@@ -2,12 +2,10 @@
 #define SYMTAB_H
 
 #include <stdbool.h>
+#include "rules.h"
 
 /* maximum size of hash table */
 #define SIZE 211
-
-/* maximum size of tokens-identifiers */
-#define MAXTOKENLEN 40
 
 /* control scope hide for visual debugging via --dump */
 static bool no_hide = false;
@@ -48,10 +46,16 @@ typedef struct func_info {
     unsigned num_of_pars;
 } func_info_t;
 
-typedef struct array_info {
+typedef struct type_info {
     type_t type;
+    unsigned sizes[MAXARRAYDEPTH];
     unsigned depth;
-} array_info_t;
+} type_info_t;
+
+typedef struct array_values {
+    value_t *values;
+    unsigned length;
+} array_values_t;
 
 /* a linked list of references (lineno's) for each variable */
 typedef struct ref_list { 
@@ -62,13 +66,14 @@ typedef struct ref_list {
 
 // struct that represents a list node
 typedef struct list {
-    char st_name[MAXTOKENLEN];
+    char name[MAXTOKENLEN];
     unsigned scope;
     ref_list_t *lines;
     type_qualifier_t type_qualifier;
     type_t type;
     bool is_function;
-    unsigned *sizes;
+    unsigned sizes[MAXARRAYDEPTH];
+    unsigned length;
     unsigned depth;
     union {
         value_t *values;
@@ -84,7 +89,9 @@ char *type_qualifier_to_str(type_qualifier_t type_qualifier);
 
 char *type_to_str(type_t type);
 
-array_info_t array_info_init(type_t type, unsigned depth);
+type_info_t type_info_init(type_t type, unsigned depth);
+
+array_values_t array_values_init(value_t *values, unsigned old_length, unsigned length);
 
 void init_hash_table();
 
@@ -98,9 +105,11 @@ void hide_scope();
 
 void incr_scope();
 
-void set_type_of_elem(list_t *symtab_elem, type_qualifier_t type_qualifier, type_t type, bool is_function, unsigned depth);
+void set_type_of_elem(list_t *symtab_elem, type_qualifier_t type_qualifier, type_t type, bool is_function, unsigned depth, const unsigned sizes[MAXARRAYDEPTH]);
 
-void set_type(const char *name, type_qualifier_t type_qualifier, type_t type, bool is_function, unsigned depth);
+void set_type(const char *name, type_qualifier_t type_qualifier, type_t type, bool is_function, unsigned depth, const unsigned sizes[MAXARRAYDEPTH]);
+
+void set_values_of_elem(list_t *symtab_elem, value_t *values, unsigned length);
 
 type_t get_type(const char *name);
 

@@ -4,15 +4,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ast.h"
+#include "rules.h"
 #include "symtab.h"
 
 extern int yylex(void);
 extern int yylineno;
 extern bool no_hide;
 int yyerror(const char *s);
-int success = 1;
 extern FILE *yyin;
 extern FILE *yyout;
+
+char error_msg[256];
 
 %}
 
@@ -22,7 +24,8 @@ extern FILE *yyout;
     value_t value;
     list_t *symtab_item;
     node_t *node;
-    array_info_t type_info;
+    type_info_t type_info;
+    array_values_t array_values;
     type_t const_type;
 }
 
@@ -58,7 +61,8 @@ extern FILE *yyout;
 
 %type <symtab_item> declarator
 %type <type_info> type_specifier
-%type <node> variable_decl
+%type <node> variable_decl variable_def const
+%type <array_values> init init_elem_l
 %define parse.error verbose
 %start program
 
@@ -83,15 +87,15 @@ decl:
 function_def:
 	QUANTUM type_specifier declarator { incr_scope(); } function_head function_tail {
 	    hide_scope();
-	    set_type_of_elem($3, QUANTUM_T, $2.type, true, $2.depth);
+	    set_type_of_elem($3, QUANTUM_T, $2.type, true, $2.depth, $2.sizes);
 	}
 	| type_specifier declarator { incr_scope(); } function_head function_tail {
 	    hide_scope();
-	    set_type_of_elem($2, NONE_T, $1.type, true, $1.depth);
+	    set_type_of_elem($2, NONE_T, $1.type, true, $1.depth, $1.sizes);
 	}
 	| VOID declarator { incr_scope(); } function_head function_tail {
 	    hide_scope();
-	    set_type_of_elem($2, NONE_T, VOID_T, true, 0);
+	    set_type_of_elem($2, NONE_T, VOID_T, true, 0, NULL);
 	}
 	;
 
@@ -110,46 +114,131 @@ par_l:
 	;
 
 par:
-	QUANTUM type_specifier declarator
-	| type_specifier declarator
+	QUANTUM type_specifier declarator {
+	    set_type_of_elem($3, QUANTUM_T, $2.type, false, $2.depth, $2.sizes);
+	}
+	| type_specifier declarator {
+        set_type_of_elem($2, NONE_T, $1.type, false, $1.depth, $1.sizes);
+    }
 	;
 
 variable_decl:
     QUANTUM type_specifier declarator SEMICOLON {
-        $$ = new_decl_node($2.type, $3);
-        set_type_of_elem($3, QUANTUM_T, $2.type, false, $2.depth);
+        $$ = new_decl_node($3);
+        set_type_of_elem($3, QUANTUM_T, $2.type, false, $2.depth, $2.sizes);
     }
     | type_specifier declarator SEMICOLON {
-        $$ = new_decl_node($1.type, $2);
-        set_type_of_elem($2, NONE_T, $1.type, false, $1.depth);
+        $$ = new_decl_node($2);
+        set_type_of_elem($2, NONE_T, $1.type, false, $1.depth, $1.sizes);
     }
     ;
 
 variable_def:
-	QUANTUM type_specifier declarator ASSIGN logical_or_expr SEMICOLON
-	| QUANTUM type_specifier declarator ASSIGN LBRACE initializer_l RBRACE SEMICOLON
-	| QUANTUM type_specifier declarator ASSIGN LBRACKET initializer_l RBRACKET SEMICOLON
-	| CONST type_specifier declarator ASSIGN logical_or_expr SEMICOLON
-	| CONST type_specifier declarator ASSIGN LBRACE initializer_l RBRACE SEMICOLON
-	| type_specifier declarator ASSIGN logical_or_expr SEMICOLON
-	| type_specifier declarator ASSIGN LBRACE initializer_l RBRACE SEMICOLON
+	QUANTUM type_specifier declarator ASSIGN init SEMICOLON {
+	    $$ = new_decl_node($3);
+	    set_type_of_elem($3, QUANTUM_T, $2.type, false, $2.depth, $2.sizes);
+	    if ($5.length > $3->length) {
+	        if ($3->depth == 0) {
+	            if (snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $3->name) > 0) {
+	                yyerror(error_msg);
+	            } else {
+	                yyerror("Attempt to initialize scalar as array");
+	            }
+	        } else {
+	            if (snprintf(error_msg, sizeof (error_msg), "Too many (%u) elements initialized for array %s of total length %u", $5.length, $3->name, $3->length) > 0) {
+	                yyerror(error_msg);
+	            } else {
+	                yyerror("Too many elements initialized for array");
+	            }
+	        }
+	    }
+	    set_values_of_elem($3, $5.values, $5.length);
+	}
+	| CONST type_specifier declarator ASSIGN init SEMICOLON {
+        $$ = new_decl_node($3);
+        set_type_of_elem($3, CONST_T, $2.type, false, $2.depth, $2.sizes);
+        if ($5.length > $3->length) {
+            if ($3->depth == 0) {
+                if (snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $3->name) > 0) {
+                    yyerror(error_msg);
+                } else {
+                    yyerror("Attempt to initialize scalar as array");
+                }
+            } else {
+                if (snprintf(error_msg, sizeof (error_msg), "Too many (%u) elements initialized for array %s of total length %u", $5.length, $3->name, $3->length) > 0) {
+                    yyerror(error_msg);
+                } else {
+                    yyerror("Too many elements initialized for array");
+                }
+            }
+        }
+        set_values_of_elem($3, $5.values, $5.length);
+    }
+	| type_specifier declarator ASSIGN init SEMICOLON {
+        $$ = new_decl_node($2);
+        set_type_of_elem($2, NONE_T, $1.type, false, $1.depth, $1.sizes);
+        if ($4.length > $2->length) {
+            if ($2->depth == 0) {
+                if (snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $2->name) > 0) {
+                    yyerror(error_msg);
+                } else {
+                    yyerror("Attempt to initialize scalar as array");
+                }
+            } else {
+                if (snprintf(error_msg, sizeof (error_msg), "Too many (%u) elements initialized for array %s of total length %u", $4.length, $2->name, $2->length) > 0) {
+                    yyerror(error_msg);
+                } else {
+                    yyerror("Too many elements initialized for array");
+                }
+            }
+        }
+    set_values_of_elem($2, $4.values, $4.length);
+    }
 	;
 
 declarator:
-	ID { $$ = insert($1, strlen($1), UNDEFINED_T, yylineno, true); }
+	ID {
+	    $$ = insert($1, strlen($1), UNDEFINED_T, yylineno, true);
+	}
 	;
 
-initializer_l:
-	initializer_l COMMA logical_or_expr
-	| logical_or_expr
-	;
+init:
+    const {
+        $$ = array_values_init(NULL, 0, 1);
+        $$.values[0] = ((const_node_t *) $1)->value;
+    }
+    | LBRACE init_elem_l RBRACE {
+        $$ = $2;
+    }
+    ;
+
+init_elem_l:
+    const {
+        $$ = array_values_init(NULL, 0, 1);
+        $$.values[0] = ((const_node_t *) $1)->value;
+    }
+    | init_elem_l COMMA const {
+        $$ = array_values_init($1.values, $1.length, $1.length + 1);
+        $$.values[$1.length] = ((const_node_t *) $3)->value;
+        free($1.values);
+    }
+    ;
 
 type_specifier:
-	BOOL { $$ = array_info_init(BOOL_T, 0); }
-	| INT { $$ = array_info_init(INT_T, 0); }
-	| UNSIGNED { $$ = array_info_init(UNSIGNED_T, 0); }
-	| type_specifier LBRACKET logical_or_expr RBRACKET { $$ = $1; ++($$.depth); }
-	| type_specifier LBRACKET RBRACKET { $$ = $1; ++($$.depth); }
+	BOOL { $$ = type_info_init(BOOL_T, 0); }
+	| INT { $$ = type_info_init(INT_T, 0); }
+	| UNSIGNED { $$ = type_info_init(UNSIGNED_T, 0); }
+	| type_specifier LBRACKET UCONST RBRACKET {
+	    if ($1.depth == MAXARRAYDEPTH) {
+	        if (snprintf(error_msg, sizeof (error_msg), "Exceeding maximal array length of %i", MAXARRAYDEPTH) > 0) {
+	            yyerror(error_msg);
+	        } else {
+	            yyerror("Exceeding maximal array length");
+	        }
+	    }
+	    $$ = $1;
+	    $$.sizes[($$.depth)++] = $3.uval;
+	}
 	;
 
 stmt_l:
@@ -342,7 +431,7 @@ postfix_expr:
 
 primary_expr:
 	ID { insert($1, strlen($1), UNDEFINED_T, yylineno, false); }
-	| consts
+	| const
 	| LPAREN logical_or_expr RPAREN
 	;
 
@@ -351,18 +440,17 @@ argument_expr_l:
 	| argument_expr_l COMMA logical_or_expr
 	;
 
-consts:
-    BCONST
-    | ICONST
-    | UCONST
+const:
+    BCONST { $$ = new_const_node(BOOL_T, $1); }
+    | ICONST { $$ = new_const_node(INT_T, $1); }
+    | UCONST { $$ = new_const_node(UNSIGNED_T, $1); }
 	;
 
 %%
 
 int yyerror(const char *msg) {
     fprintf(stderr, "Parsing failed in line %d: %s\n", yylineno, msg);
-    success = 0;
-    return 0;
+    exit(1);
 }
 
 int main(int argc, char **argv) {
@@ -402,9 +490,5 @@ int main(int argc, char **argv) {
     }
 
     // set return value
-    if (success == 1) {
-	return 0;
-    } else {
-        return 2;	    
-    }
+    return 0;
 }

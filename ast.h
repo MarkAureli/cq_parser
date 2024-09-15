@@ -70,8 +70,7 @@ typedef struct node {
 
 typedef struct decl_node {
     node_type_t type;
-    type_t data_type;
-    list_t *name;
+    list_t *symtab_elem;
 } decl_node_t;
 
 typedef struct const_node {
@@ -117,7 +116,7 @@ typedef struct while_node {
 
 typedef struct assign_node {
     node_type_t type;
-    list_t *entry;
+    list_t *symtab_elem;
     node_t *assign_val;
 } assign_node_t;
 
@@ -128,7 +127,7 @@ typedef struct jump_node {
 
 typedef struct func_call_node {
     node_type_t type;
-    list_t *entry;
+    list_t *symtab_elem;
     node_t **pars;
     unsigned num_of_pars;
 } func_call_node_t;
@@ -178,7 +177,7 @@ typedef struct equ_node {
 typedef struct func_decl_node {
     node_type_t type;
     type_t ret_type;
-    list_t *entry;
+    list_t *symtab_elem;
 } func_decl_node_t;
 
 typedef struct return_node {
@@ -201,7 +200,7 @@ char *equ_op_to_str(equ_op_t equ_op);
 
 node_t *new_node(node_type_t type, node_t *left, node_t *right);
 
-node_t *new_decl_node(type_t data_type, list_t *name);
+node_t *new_decl_node(list_t *symtab_elem);
 
 node_t *new_const_node(type_t data_type, value_t value);
 
@@ -215,11 +214,11 @@ node_t *new_do_node(node_t *do_branch, node_t *condition);
 
 node_t *new_while_node(node_t *condition, node_t *while_branch);
 
-node_t *new_assign_node(list_t *entry, node_t *assign_val);
+node_t *new_assign_node(list_t *symtab_elem, node_t *assign_val);
 
 node_t *new_jump_node(int statement_type);
 
-node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars);
+node_t *new_func_call_node(list_t *symtab_elem, node_t **pars, unsigned num_of_pars);
 
 node_t *new_arithm_node(arithm_op_t op, node_t *left, node_t *right);
 
@@ -233,7 +232,7 @@ node_t *new_rel_node(rel_op_t op, node_t *left, node_t *right);
 
 node_t *new_equ_node(equ_op_t op, node_t *left, node_t *right);
 
-node_t *new_func_decl_node(type_t ret_type, list_t *entry);
+node_t *new_func_decl_node(type_t ret_type, list_t *symtab_elem);
 
 node_t *new_return_node(type_t ret_type, node_t *ret_val);
 
