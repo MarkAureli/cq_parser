@@ -4,8 +4,8 @@
 #include <string.h>
 #include "symtab.h"
 
-char *type_qualifier_to_str(type_qualifier_t type_qualifier) {
-    switch (type_qualifier) {
+char *qualifier_to_str(qualifier_t qualifier) {
+    switch (qualifier) {
         case NONE_T: {
             return "NONE_T";
         }
@@ -55,8 +55,8 @@ void init_hash_table() {
     hash_table = calloc(SIZE, sizeof(list_t*));
 }
 
-array_access_info_t array_access_info_init(list_t *symtab_elem) {
-    array_access_info_t new_array_access = { .symtab_elem=symtab_elem};
+array_access_info_t array_access_info_init(list_t *entry) {
+    array_access_info_t new_array_access = { .entry=entry};
     return new_array_access;
 }
 
@@ -158,29 +158,29 @@ void incr_scope() { /* go to next scope */
     ++cur_scope;
 }
 
-void set_type_of_elem(list_t *symtab_elem, type_qualifier_t type_qualifier, type_t type, bool is_function, unsigned depth, const unsigned sizes[MAXARRAYDEPTH]) {
-    symtab_elem->type_qualifier = type_qualifier;
-    symtab_elem->type = type;
-    symtab_elem->is_function = is_function;
-    symtab_elem->depth = depth;
+void set_type_of_elem(list_t *entry, qualifier_t qualifier, type_t type, bool is_function, unsigned depth, const unsigned sizes[MAXARRAYDEPTH]) {
+    entry->qualifier = qualifier;
+    entry->type = type;
+    entry->is_function = is_function;
+    entry->depth = depth;
     unsigned length = 1;
     if (sizes != NULL) {
-        memcpy(symtab_elem->sizes, sizes, MAXARRAYDEPTH * sizeof (unsigned));
+        memcpy(entry->sizes, sizes, MAXARRAYDEPTH * sizeof (unsigned));
         for (unsigned i = 0; i < depth; ++i) {
             length *= sizes[i];
         }
     }
-    symtab_elem->length = length;
+    entry->length = length;
 }
 
-void set_type(const char *name, type_qualifier_t type_qualifier, type_t type, bool is_function, unsigned depth, const unsigned sizes[MAXARRAYDEPTH]) {
+void set_type(const char *name, qualifier_t qualifier, type_t type, bool is_function, unsigned depth, const unsigned sizes[MAXARRAYDEPTH]) {
     list_t *l = lookup(name);
-    set_type_of_elem(l, type_qualifier, type, is_function, depth, sizes);
+    set_type_of_elem(l, qualifier, type, is_function, depth, sizes);
 }
 
-void set_values_of_elem(list_t *symtab_elem, value_t *values, unsigned length) {
-    symtab_elem->values = calloc(symtab_elem->length, sizeof (value_t));
-    memcpy(symtab_elem->values, values, length * sizeof (value_t));
+void set_values_of_elem(list_t *entry, value_t *values, unsigned length) {
+    entry->values = calloc(entry->length, sizeof (value_t));
+    memcpy(entry->values, values, length * sizeof (value_t));
 }
 
 type_t get_type(const char *name) {
@@ -236,7 +236,7 @@ void symtab_dump(FILE * of){
             while (l != NULL) { 
                 ref_list_t *t = l->lines;
                 fprintf(of,"%-*s", MAXTOKENLEN + 1, l->name);
-                switch (l->type_qualifier) {
+                switch (l->qualifier) {
                     case NONE_T: {
                         fprintf(of, "%-11s", "");
                         break;

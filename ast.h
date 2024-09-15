@@ -68,6 +68,12 @@ typedef enum node_type {
     RETURN_NODE_T
 } node_type_t;
 
+typedef struct var_info {
+    qualifier_t qualifier;
+    type_t type;
+    value_t value;
+} var_info_t;
+
 typedef struct node {
     node_type_t type;
     struct node *left;
@@ -76,18 +82,17 @@ typedef struct node {
 
 typedef struct var_decl_node {
     node_type_t type;
-    list_t *symtab_elem;
+    list_t *entry;
 } var_decl_node_t;
 
 typedef struct func_decl_node {
     node_type_t type;
-    list_t *symtab_elem;
+    list_t *entry;
 } func_decl_node_t;
 
 typedef struct const_node {
     node_type_t type;
-    type_t data_type;
-    value_t value;
+    var_info_t var_info;
 } const_node_t;
 
 typedef struct if_node {
@@ -127,7 +132,7 @@ typedef struct while_node {
 
 typedef struct assign_node {
     node_type_t type;
-    list_t *symtab_elem;
+    list_t *entry;
     node_t *assign_val;
 } assign_node_t;
 
@@ -138,7 +143,7 @@ typedef struct jump_node {
 
 typedef struct func_call_node {
     node_type_t type;
-    list_t *symtab_elem;
+    list_t *entry;
     node_t **pars;
     unsigned num_of_pars;
 } func_call_node_t;
@@ -187,9 +192,10 @@ typedef struct equality_node {
 
 typedef struct reference_node {
     node_type_t type;
-    list_t *symtab_elem;
+    list_t *entry;
     unsigned indices[MAXARRAYDEPTH];
     unsigned depth;
+    var_info_t var_info;
 } reference_node_t;
 
 typedef struct return_node {
@@ -214,11 +220,11 @@ char *equality_op_to_str(equality_op_t equality_op);
 
 node_t *new_node(node_type_t type, node_t *left, node_t *right);
 
-node_t *new_var_decl_node(list_t *symtab_elem);
+node_t *new_var_decl_node(list_t *entry);
 
-node_t *new_func_decl_node(list_t *symtab_elem);
+node_t *new_func_decl_node(list_t *entry);
 
-node_t *new_const_node(type_t data_type, value_t value);
+node_t *new_const_node(type_t type, value_t value);
 
 node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branches, unsigned elseif_count, node_t *else_branch);
 
@@ -230,11 +236,11 @@ node_t *new_do_node(node_t *do_branch, node_t *condition);
 
 node_t *new_while_node(node_t *condition, node_t *while_branch);
 
-node_t *new_assign_node(list_t *symtab_elem, node_t *assign_val);
+node_t *new_assign_node(list_t *entry, node_t *assign_val);
 
 node_t *new_jump_node(int statement_type);
 
-node_t *new_func_call_node(list_t *symtab_elem, node_t **pars, unsigned num_of_pars);
+node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars);
 
 node_t *new_arithmetic_node(arithmetic_op_t op, node_t *left, node_t *right);
 
@@ -248,7 +254,7 @@ node_t *new_relation_node(relation_op_t op, node_t *left, node_t *right);
 
 node_t *new_equality_node(equality_op_t op, node_t *left, node_t *right);
 
-node_t *new_reference_node(list_t *symtab_elem);
+node_t *new_reference_node(list_t *entry);
 
 node_t *new_return_node(type_t ret_type, node_t *ret_val);
 

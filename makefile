@@ -10,6 +10,10 @@ all: $(LEXER).l $(PARSER).y symtab.c ast.c
 	clang -o $(PARSER) $(PARSER).tab.c symtab.c ast.c $(LEXER).yy.c -ll
 	@rm $(LEXER).yy.c $(PARSER).tab.c $(PARSER).tab.h
 
+example:
+	@./$(PARSER) example.cq --dump
+	@cat symtab_dump.out
+
 test:
 	@echo "Running tests..."; \
 

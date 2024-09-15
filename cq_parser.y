@@ -223,7 +223,7 @@ declarator:
 init:
     const {
         $$ = array_values_init(NULL, 0, 1);
-        $$.values[0] = ((const_node_t *) $1)->value;
+        $$.values[0] = ((const_node_t *) $1)->var_info.value;
     }
     | LBRACE init_elem_l RBRACE {
         $$ = $2;
@@ -233,11 +233,11 @@ init:
 init_elem_l:
     const {
         $$ = array_values_init(NULL, 0, 1);
-        $$.values[0] = ((const_node_t *) $1)->value;
+        $$.values[0] = ((const_node_t *) $1)->var_info.value;
     }
     | init_elem_l COMMA const {
         $$ = array_values_init($1.values, $1.length, $1.length + 1);
-        $$.values[$1.length] = ((const_node_t *) $3)->value;
+        $$.values[$1.length] = ((const_node_t *) $3)->var_info.value;
         free($1.values);
     }
     ;
@@ -437,39 +437,52 @@ postfix_expr:
 	    $$ = $1;
 	}
 	| array_access LBRACKET UCONST RBRACKET {
-        if ($1.depth == $1.symtab_elem->depth) {
-            if (snprintf(error_msg, sizeof (error_msg), "Depth-%u access of depth-%u array %s", $1.depth + 1, $1.symtab_elem->depth, $1.symtab_elem->name) > 0) {
+	    unsigned depth = $1.depth;
+	    list_t *entry = $1.entry;
+        if (depth == entry->depth) {
+            if (snprintf(error_msg, sizeof (error_msg), "Depth-%u access of depth-%u array %s", depth + 1, entry->depth, entry->name) > 0) {
                 yyerror(error_msg);
             } else {
                 yyerror("Too deep access of array");
             }
-        } else if ($1.depth + 1 != $1.symtab_elem->depth) {
-            if (snprintf(error_msg, sizeof (error_msg), "Insufficient depth-%u access of depth-%u array %s", $1.depth + 1, $1.symtab_elem->depth, $1.symtab_elem->name) > 0) {
+        } else if (depth + 1 != entry->depth) {
+            if (snprintf(error_msg, sizeof (error_msg), "Insufficient depth-%u access of depth-%u array %s", depth + 1, entry->depth, entry->name) > 0) {
                 yyerror(error_msg);
             } else {
                 yyerror("Too shallow access of array");
             }
         }
-        for (unsigned i = 0; i < $1.depth; ++i) {
-            if ($1.indices[i] >= $1.symtab_elem->sizes[i]) {
-                if (snprintf(error_msg, sizeof (error_msg), "%u-th index (%u) array index of %s out of bounds (%u)", i, $1.indices[i], $1.symtab_elem->name, $1.symtab_elem->sizes[i]) > 0) {
+        for (unsigned i = 0; i < depth; ++i) {
+            if ($1.indices[i] >= entry->sizes[i]) {
+                if (snprintf(error_msg, sizeof (error_msg), "%u-th index (%u) array index of %s out of bounds (%u)", i, $1.indices[i], entry->name, entry->sizes[i]) > 0) {
                     yyerror(error_msg);
                 } else {
                     yyerror("Array index out of bounds");
                 }
             }
         }
-        if ($3.uval >= $1.symtab_elem->sizes[$1.depth]) {
-            if (snprintf(error_msg, sizeof (error_msg), "%u-th index (%u) array index of %s out of bounds (%u)", $1.depth, $3.uval, $1.symtab_elem->name, $1.symtab_elem->sizes[$1.depth]) > 0) {
+        if ($3.uval >= entry->sizes[depth]) {
+            if (snprintf(error_msg, sizeof (error_msg), "%u-th index (%u) array index of %s out of bounds (%u)", depth, $3.uval, entry->name, entry->sizes[depth]) > 0) {
                 yyerror(error_msg);
             } else {
                 yyerror("Array index out of bounds");
             }
         }
-        $$ = new_reference_node($1.symtab_elem);
-        ((reference_node_t *) $$)->depth = $1.depth + 1;
-        memcpy(((reference_node_t *) $$)->indices, $1.indices, $1.depth * sizeof (unsigned));
-        ((reference_node_t *) $$)->indices[$1.depth] = $3.uval;
+        $$ = new_reference_node(entry);
+        memcpy(((reference_node_t *) $$)->indices, $1.indices, depth * sizeof (unsigned));
+        ((reference_node_t *) $$)->indices[depth++] = $3.uval;
+        ((reference_node_t *) $$)->depth = depth;
+        if (((reference_node_t *) $$)->var_info.qualifier == CONST_T) {
+            unsigned index = 0;
+            for (unsigned i = 0; i < depth; ++i) {
+                unsigned factor = i;
+                for (unsigned j = i + 1; j < depth; ++j) {
+                    factor *= ((reference_node_t *) $$)->indices[j];
+                }
+                index += factor;
+            }
+            ((reference_node_t *) $$)->var_info.value = entry->values[index];
+        }
 	}
 	| ID LPAREN argument_expr_l RPAREN {
 	    $$ = new_func_call_node(insert($1, strlen($1), yylineno, false), NULL, 0); /* dummy implementation */
@@ -496,8 +509,8 @@ postfix_expr:
 array_access:
     ID {
         $$ = array_access_info_init(insert($1, strlen($1), yylineno, false));
-        if ($$.symtab_elem->depth == 0) {
-            if (snprintf(error_msg, sizeof (error_msg), "Array access of scalar %s", $$.symtab_elem->name) > 0) {
+        if ($$.entry->depth == 0) {
+            if (snprintf(error_msg, sizeof (error_msg), "Array access of scalar %s", $$.entry->name) > 0) {
                 yyerror(error_msg);
             } else {
                 yyerror("Array access of scalar");
@@ -506,8 +519,8 @@ array_access:
     }
     | array_access LBRACKET UCONST RBRACKET {
         $$ = $1;
-        if ($$.depth == $$.symtab_elem->depth) {
-            if (snprintf(error_msg, sizeof (error_msg), "Depth-%u access of depth-%u array %s", $$.depth + 1, $$.symtab_elem->depth, $$.symtab_elem->name) > 0) {
+        if ($$.depth == $$.entry->depth) {
+            if (snprintf(error_msg, sizeof (error_msg), "Depth-%u access of depth-%u array %s", $$.depth + 1, $$.entry->depth, $$.entry->name) > 0) {
                 yyerror(error_msg);
             } else {
                 yyerror("Too deep acess of array");
@@ -519,13 +532,17 @@ array_access:
 
 primary_expr:
 	ID {
-	    $$ = new_reference_node(insert($1, strlen($1), yylineno, false));
-	    if (((reference_node_t *) $$)->symtab_elem->depth != 0) {
-	        if (snprintf(error_msg, sizeof (error_msg), "Depth-%u array %s is not indexed", ((reference_node_t *) $$)->symtab_elem->depth, ((reference_node_t *) $$)->symtab_elem->name) > 0 ) {
+	    list_t *entry = insert($1, strlen($1), yylineno, false);
+	    if (entry->depth != 0) {
+	        if (snprintf(error_msg, sizeof (error_msg), "Depth-%u array %s is not indexed", entry->depth, entry->name) > 0 ) {
 	            yyerror(error_msg);
 	        } else {
 	            yyerror("Array is not index");
 	        }
+	    }
+	    $$ = new_reference_node(entry);
+	    if (((reference_node_t *) $$)->var_info.qualifier == CONST_T) {
+	        ((reference_node_t *) $$)->var_info.value = entry->values[0];
 	    }
 	}
 	| const {

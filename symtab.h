@@ -20,11 +20,11 @@ typedef union value {
 } value_t;
 
 /* token types */
-typedef enum type_qualifier {
+typedef enum qualifier {
     NONE_T,
     CONST_T,
     QUANTUM_T
-} type_qualifier_t;
+} qualifier_t;
 
 typedef enum type {
     UNDEFINED_T,
@@ -68,7 +68,7 @@ typedef struct list {
     char name[MAXTOKENLEN];
     unsigned scope;
     ref_list_t *lines;
-    type_qualifier_t type_qualifier;
+    qualifier_t qualifier;
     type_t type;
     bool is_function;
     unsigned sizes[MAXARRAYDEPTH];
@@ -82,7 +82,7 @@ typedef struct list {
 } list_t;
 
 typedef struct array_access_info {
-    list_t *symtab_elem;
+    list_t *entry;
     unsigned indices[MAXARRAYDEPTH];
     unsigned depth;
 } array_access_info_t;
@@ -90,7 +90,7 @@ typedef struct array_access_info {
 /* the hash table */
 static list_t **hash_table;
 
-char *type_qualifier_to_str(type_qualifier_t type_qualifier);
+char *qualifier_to_str(qualifier_t qualifier);
 
 char *type_to_str(type_t type);
 
@@ -100,7 +100,7 @@ array_values_t array_values_init(const value_t *values, unsigned old_length, uns
 
 void init_hash_table();
 
-array_access_info_t array_access_info_init(list_t *symtab_elem);
+array_access_info_t array_access_info_init(list_t *entry);
 
 unsigned hash(const char *key);
 
@@ -112,11 +112,11 @@ void hide_scope();
 
 void incr_scope();
 
-void set_type_of_elem(list_t *symtab_elem, type_qualifier_t type_qualifier, type_t type, bool is_function, unsigned depth, const unsigned sizes[MAXARRAYDEPTH]);
+void set_type_of_elem(list_t *entry, qualifier_t qualifier, type_t type, bool is_function, unsigned depth, const unsigned sizes[MAXARRAYDEPTH]);
 
-void set_type(const char *name, type_qualifier_t type_qualifier, type_t type, bool is_function, unsigned depth, const unsigned sizes[MAXARRAYDEPTH]);
+void set_type(const char *name, qualifier_t qualifier, type_t type, bool is_function, unsigned depth, const unsigned sizes[MAXARRAYDEPTH]);
 
-void set_values_of_elem(list_t *symtab_elem, value_t *values, unsigned length);
+void set_values_of_elem(list_t *entry, value_t *values, unsigned length);
 
 type_t get_type(const char *name);
 

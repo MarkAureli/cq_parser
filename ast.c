@@ -102,37 +102,38 @@ char *equality_op_to_str(equality_op_t equality_op) {
 }
 
 node_t *new_node(node_type_t type, node_t *left, node_t *right) {
-    node_t *new_node = malloc(sizeof (node_t));
+    node_t *new_node = calloc(1, sizeof (node_t));
     new_node->type = type;
     new_node->left = left;
     new_node->right = right;
     return new_node;
 }
 
-node_t *new_var_decl_node(list_t *symtab_elem) {
-    var_decl_node_t *new_node = malloc(sizeof (var_decl_node_t));
+node_t *new_var_decl_node(list_t *entry) {
+    var_decl_node_t *new_node = calloc(1, sizeof (var_decl_node_t));
     new_node->type = VAR_DECL_NODE_T;
-    new_node->symtab_elem = symtab_elem;
+    new_node->entry = entry;
     return (node_t *) new_node;
 }
 
-node_t *new_func_decl_node(list_t *symtab_elem) {
-    func_decl_node_t *new_node = malloc(sizeof (func_decl_node_t));
+node_t *new_func_decl_node(list_t *entry) {
+    func_decl_node_t *new_node = calloc(1, sizeof (func_decl_node_t));
     new_node->type = FUNC_DECL_NODE_T;
-    new_node->symtab_elem = symtab_elem;
+    new_node->entry = entry;
     return (node_t *) new_node;
 }
 
-node_t *new_const_node(type_t data_type, value_t value) {
-    const_node_t *new_node = malloc(sizeof (const_node_t));
+node_t *new_const_node(type_t type, value_t value) {
+    const_node_t *new_node = calloc(1, sizeof (const_node_t));
     new_node->type = CONST_NODE_T;
-    new_node->data_type = data_type;
-    new_node->value = value;
+    new_node->var_info.qualifier = true;
+    new_node->var_info.type = type;
+    new_node->var_info.value = value;
     return (node_t *) new_node;
 }
 
 node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branches, unsigned elseif_count, node_t *else_branch) {
-    if_node_t *new_node = malloc(sizeof (if_node_t));
+    if_node_t *new_node = calloc(1, sizeof (if_node_t));
     new_node->type = IF_NODE_T;
     new_node->condition = condition;
     new_node->if_branch = if_branch;
@@ -143,7 +144,7 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branch
 }
 
 node_t *new_else_node(node_t *condition, node_t *elseif_branch) {
-    else_node_t *new_node = malloc(sizeof (else_node_t));
+    else_node_t *new_node = calloc(1, sizeof (else_node_t));
     new_node->type = ELSE_NODE_T;
     new_node->condition = condition;
     new_node->elseif_branch = elseif_branch;
@@ -151,7 +152,7 @@ node_t *new_else_node(node_t *condition, node_t *elseif_branch) {
 }
 
 node_t *new_for_node(node_t *initialize, node_t *condition, node_t *increment, node_t *for_branch) {
-    for_node_t *new_node = malloc(sizeof (for_node_t));
+    for_node_t *new_node = calloc(1, sizeof (for_node_t));
     new_node->type = FOR_NODE_T;
     new_node->initialize = initialize;
     new_node->condition = condition;
@@ -161,7 +162,7 @@ node_t *new_for_node(node_t *initialize, node_t *condition, node_t *increment, n
 }
 
 node_t *new_do_node(node_t *do_branch, node_t *condition) {
-    do_node_t *new_node = malloc(sizeof (do_node_t));
+    do_node_t *new_node = calloc(1, sizeof (do_node_t));
     new_node->type = DO_NODE_T;
     new_node->do_branch = do_branch;
     new_node->condition = condition;
@@ -169,42 +170,42 @@ node_t *new_do_node(node_t *do_branch, node_t *condition) {
 }
 
 node_t *new_while_node(node_t *condition, node_t *while_branch) {
-    while_node_t *new_node = malloc(sizeof (while_node_t));
+    while_node_t *new_node = calloc(1, sizeof (while_node_t));
     new_node->type = WHILE_NODE_T;
     new_node->condition = condition;
     new_node->while_branch = while_branch;
     return (node_t *) new_node;
 }
 
-node_t *new_assign_node(list_t *symtab_elem, node_t *assign_val) {
-    assign_node_t *new_node = malloc(sizeof (assign_node_t));
+node_t *new_assign_node(list_t *entry, node_t *assign_val) {
+    assign_node_t *new_node = calloc(1, sizeof (assign_node_t));
     new_node->type = ASSIGN_NODE_T;
-    new_node->symtab_elem = symtab_elem;
+    new_node->entry = entry;
     new_node->assign_val = assign_val;
     return (node_t *) new_node;
 }
 
 node_t *new_jump_node(int statement_type) {
-    jump_node_t *new_node = malloc(sizeof (jump_node_t));
+    jump_node_t *new_node = calloc(1, sizeof (jump_node_t));
     new_node->type = JUMP_NODE_T;
     new_node->statement_type = statement_type;
     return (node_t *) new_node;
 }
 
-node_t *new_func_call_node(list_t *symtab_elem, node_t **pars, unsigned num_of_pars) {
-    if (!symtab_elem->is_function) {
+node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars) {
+    if (!entry->is_function) {
         return NULL;
     }
-    func_call_node_t *new_node = malloc(sizeof (func_call_node_t));
+    func_call_node_t *new_node = calloc(1, sizeof (func_call_node_t));
     new_node->type = FUNC_CALL_NODE_T;
-    new_node->symtab_elem = symtab_elem;
+    new_node->entry = entry;
     new_node->pars = pars;
     new_node->num_of_pars = num_of_pars;
     return (node_t *) new_node;
 }
 
 node_t *new_arithmetic_node(arithmetic_op_t op, node_t *left, node_t *right) {
-    arithmetic_node_t *new_node = malloc(sizeof (arithmetic_node_t));
+    arithmetic_node_t *new_node = calloc(1, sizeof (arithmetic_node_t));
     new_node->type = ARITHMETIC_NODE_T;
     new_node->op = op;
     new_node->left = left;
@@ -213,7 +214,7 @@ node_t *new_arithmetic_node(arithmetic_op_t op, node_t *left, node_t *right) {
 }
 
 node_t *new_bitwise_node(bitwise_op_t op, node_t *left, node_t *right) {
-    bit_node_t *new_node = malloc(sizeof (bit_node_t));
+    bit_node_t *new_node = calloc(1, sizeof (bit_node_t));
     new_node->type = BITWISE_NODE_T;
     new_node->op = op;
     new_node->left = left;
@@ -222,7 +223,7 @@ node_t *new_bitwise_node(bitwise_op_t op, node_t *left, node_t *right) {
 }
 
 node_t *new_shift_node(shift_op_t op, node_t *left, node_t *right) {
-    shift_node_t *new_node = malloc(sizeof (shift_node_t));
+    shift_node_t *new_node = calloc(1, sizeof (shift_node_t));
     new_node->type = SHIFT_NODE_T;
     new_node->op = op;
     new_node->left = left;
@@ -231,7 +232,7 @@ node_t *new_shift_node(shift_op_t op, node_t *left, node_t *right) {
 }
 
 node_t *new_logical_node(logical_op_t op, node_t *left, node_t *right) {
-    logical_node_t *new_node = malloc(sizeof (logical_node_t));
+    logical_node_t *new_node = calloc(1, sizeof (logical_node_t));
     new_node->type = LOGICAL_NODE_T;
     new_node->op = op;
     new_node->left = left;
@@ -240,7 +241,7 @@ node_t *new_logical_node(logical_op_t op, node_t *left, node_t *right) {
 }
 
 node_t *new_relation_node(relation_op_t op, node_t *left, node_t *right) {
-    relation_node_t *new_node = malloc(sizeof (relation_node_t));
+    relation_node_t *new_node = calloc(1, sizeof (relation_node_t));
     new_node->type = RELATION_NODE_T;
     new_node->op = op;
     new_node->left = left;
@@ -249,7 +250,7 @@ node_t *new_relation_node(relation_op_t op, node_t *left, node_t *right) {
 }
 
 node_t *new_equality_node(equality_op_t op, node_t *left, node_t *right) {
-    equality_node_t *new_node = malloc(sizeof (equality_node_t));
+    equality_node_t *new_node = calloc(1, sizeof (equality_node_t));
     new_node->type = EQUALITY_NODE_T;
     new_node->op = op;
     new_node->left = left;
@@ -257,15 +258,16 @@ node_t *new_equality_node(equality_op_t op, node_t *left, node_t *right) {
     return (node_t *) new_node;
 }
 
-node_t *new_reference_node(list_t *symtab_elem) {
+node_t *new_reference_node(list_t *entry) {
     reference_node_t *new_node = calloc(1, sizeof (reference_node_t));
     new_node->type = REFERENCE_NODE_T;
-    new_node->symtab_elem = symtab_elem;
+    new_node->entry = entry;
+    new_node->var_info.type = entry->type;
     return (node_t *) new_node;
 }
 
 node_t *new_return_node(type_t ret_type, node_t *ret_val) {
-    return_node_t *new_node = malloc(sizeof (return_node_t));
+    return_node_t *new_node = calloc(1, sizeof (return_node_t));
     new_node->type = RETURN_NODE_T;
     new_node->ret_type = ret_type;
     new_node->ret_val = ret_val;
@@ -279,15 +281,15 @@ void print_node(const node_t *node) {
             break;
         }
         case VAR_DECL_NODE_T: {
-            printf("Variable declaration node for %s\n", ((var_decl_node_t *) node)->symtab_elem->name);
+            printf("Variable declaration node for %s\n", ((var_decl_node_t *) node)->entry->name);
             break;
         }
         case FUNC_DECL_NODE_T: {
-            printf("Function declaration node for %s\n", ((func_decl_node_t *) node)->symtab_elem->name);
+            printf("Function declaration node for %s\n", ((func_decl_node_t *) node)->entry->name);
             break;
         }
         case CONST_NODE_T: {
-            printf("Constant node of data type %s\n", type_to_str(((const_node_t *) node)->data_type));
+            printf("Constant node of data type %s\n", type_to_str(((const_node_t *) node)->var_info.type));
             break;
         }
         case IF_NODE_T: {
@@ -311,7 +313,7 @@ void print_node(const node_t *node) {
             break;
         }
         case ASSIGN_NODE_T: {
-            printf("Assign node of symtab_elem %s\n", ((assign_node_t *) node)->symtab_elem->name);
+            printf("Assign node of entry %s\n", ((assign_node_t *) node)->entry->name);
             break;
         }
         case JUMP_NODE_T: {
@@ -319,7 +321,7 @@ void print_node(const node_t *node) {
             break;
         }
         case FUNC_CALL_NODE_T: {
-            printf("Function call node for %s with %u parameters\n", ((func_call_node_t *) node)->symtab_elem->name, ((func_call_node_t *) node)->num_of_pars);
+            printf("Function call node for %s with %u parameters\n", ((func_call_node_t *) node)->entry->name, ((func_call_node_t *) node)->num_of_pars);
             break;
         }
         case ARITHMETIC_NODE_T: {
@@ -347,7 +349,7 @@ void print_node(const node_t *node) {
             break;
         }
         case REFERENCE_NODE_T: {
-            printf("Reference node for %s\n", ((reference_node_t *) node)->symtab_elem->name);
+            printf("Reference node for %s\n", ((reference_node_t *) node)->entry->name);
             break;
         }
         case RETURN_NODE_T: {
