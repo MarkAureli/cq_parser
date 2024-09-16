@@ -11,11 +11,6 @@ typedef enum arithmetic_op {
     SUB_OP
 } arithmetic_op_t;
 
-typedef enum increment_op {
-    INCR_OP,
-    DECR_OP
-} increment_op_t;
-
 typedef enum bitwise_op {
     AND_OP,
     OR_OP,
@@ -282,6 +277,8 @@ node_t *new_assign_node(list_t *entry, node_t *assign_val);
 node_t *new_jump_node(int statement_type);
 
 node_t *new_return_node(type_t ret_type, node_t *ret_val);
+
+node_t *build_arithmetic_node(arithmetic_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]);
 
 void print_node(const node_t *node);
 
