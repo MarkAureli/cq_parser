@@ -14,7 +14,7 @@ int yyerror(const char *s);
 extern FILE *yyin;
 extern FILE *yyout;
 
-char error_msg[256];
+char error_msg[ERRORMSGLENGTH];
 
 %}
 
