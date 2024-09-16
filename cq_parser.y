@@ -75,7 +75,7 @@ char error_msg[256];
 
 %type <symtab_item> declarator
 %type <type_info> type_specifier
-%type <node> variable_decl variable_def function_def const primary_expr postfix_expr
+%type <node> variable_decl variable_def function_def const primary_expr postfix_expr unary_expr
 %type <array_values> init init_elem_l
 %type <array_access_info> array_access
 %define parse.error verbose
@@ -425,11 +425,117 @@ mul_expr:
 	;
 
 unary_expr:
-	postfix_expr
-	| INV unary_expr
-	| NOT unary_expr
-	| MEASURE LPAREN postfix_expr RPAREN
-	| PHASE LPAREN postfix_expr RPAREN
+	postfix_expr {
+	    $$ = $1;
+	}
+	| INV unary_expr {
+	    switch ($2->type) {
+	        case CONST_NODE_T: {
+                if (((const_node_t *) $2)->var_info.type == INT_T) {
+                    $$ = $2;
+                    ((const_node_t *) $$)->var_info.value.ival = ~(((const_node_t *) $$)->var_info.value.ival);
+                } else if (((const_node_t *) $2)->var_info.type == UNSIGNED_T) {
+                    $$ = $2;
+                    ((const_node_t *) $$)->var_info.value.uval = ~(((const_node_t *) $$)->var_info.value.uval);
+                } else {
+                    yyerror("Applying \"!\" to boolean expression");
+                }
+                break;
+	        }
+            case ARITHMETIC_NODE_T: {
+                $$ = new_inv_node($2);
+                ((inv_node_t *) $$)->var_info.qualifier = ((arithmetic_node_t *) $2)->var_info.qualifier;
+                ((inv_node_t *) $$)->var_info.type = ((arithmetic_node_t *) $2)->var_info.type;
+                break;
+            }
+            case BITWISE_NODE_T: {
+                $$ = new_inv_node($2);
+                ((inv_node_t *) $$)->var_info.qualifier = ((bitwise_node_t *) $2)->var_info.qualifier;
+                ((inv_node_t *) $$)->var_info.type = ((bitwise_node_t *) $2)->var_info.type;
+                break;
+            }
+            case SHIFT_NODE_T: {
+                $$ = new_inv_node($2);
+                ((inv_node_t *) $$)->var_info.qualifier = NONE_T;
+                ((inv_node_t *) $$)->var_info.type = ((shift_node_t *) $2)->var_info.type;
+                break;
+            }
+	        case INV_NODE_T: {
+	            $$ = new_inv_node(((inv_node_t *) $2)->child);
+	            ((inv_node_t *) $$)->var_info.qualifier = ((inv_node_t *) $2)->var_info.qualifier;
+	            ((inv_node_t *) $$)->var_info.type = ((inv_node_t *) $2)->var_info.type;
+	            free($2);
+	            break;
+	        }
+            case REFERENCE_NODE_T: {
+                if (((reference_node_t *) $2)->var_info.type == INT_T && ((reference_node_t *) $2)->var_info.type == UNSIGNED_T) {
+                    $$ = new_inv_node($2);
+                    ((inv_node_t *) $$)->var_info.qualifier = ((reference_node_t *) $2)->var_info.qualifier;
+                    ((inv_node_t *) $$)->var_info.type = ((reference_node_t *) $2)->var_info.type;
+                } else {
+                    if (snprintf(error_msg, sizeof (error_msg), "Applying \"~\" to boolean variable %s", ((reference_node_t *) $2)->entry->name) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Applying \"~\" to boolean variable");
+                    }
+                }
+                break;
+            }
+            default: {
+                yyerror("Applying \"~\" to boolean expression");
+            }
+	    }
+	}
+	| NOT unary_expr {
+	    switch ($2->type) {
+	        case CONST_NODE_T: {
+                if (((const_node_t *) $2)->var_info.type == BOOL_T) {
+                    $$ = $2;
+                    ((const_node_t *) $$)->var_info.value.bval = !(((const_node_t *) $$)->var_info.value.bval);
+                } else {
+                    yyerror("Applying \"!\" to non-boolean expression");
+                }
+                break;
+	        }
+            case LOGICAL_NODE_T: {
+                $$ = new_not_op_node($2);
+                ((not_op_node_t *) $$)->var_info.qualifier = ((logical_node_t *) $2)->var_info.qualifier;
+                break;
+            }
+            case RELATION_NODE_T: {
+                $$ = new_not_op_node($2);
+                ((not_op_node_t *) $$)->var_info.qualifier = ((relation_node_t *) $2)->var_info.qualifier;
+                break;
+            }
+            case EQUALITY_NODE_T: {
+                $$ = new_not_op_node($2);
+                ((not_op_node_t *) $$)->var_info.qualifier = ((equality_node_t *) $2)->var_info.qualifier;
+                break;
+            }
+	        case NOT_OP_NODE_T: {
+	            $$ = new_not_op_node(((not_op_node_t *) $2)->child);
+	            ((not_op_node_t *) $$)->var_info.qualifier = ((not_op_node_t *) $2)->var_info.qualifier;
+	            free($2);
+	            break;
+	        }
+            case REFERENCE_NODE_T: {
+                if (((reference_node_t *) $2)->var_info.type == BOOL_T) {
+                    $$ = new_not_op_node($2);
+                    ((not_op_node_t *) $$)->var_info.qualifier = ((reference_node_t *) $2)->var_info.qualifier;
+                } else {
+                    if (snprintf(error_msg, sizeof (error_msg), "Applying \"!\" to non-boolean variable %s", ((reference_node_t *) $2)->entry->name) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Applying \"!\" to non-boolean variable");
+                    }
+                }
+                break;
+            }
+            default: {
+                yyerror("Applying \"!\" to non-boolean expression");
+            }
+	    }
+	}
 	;
 
 postfix_expr:
@@ -468,20 +574,22 @@ postfix_expr:
                 yyerror("Array index out of bounds");
             }
         }
-        $$ = new_reference_node(entry);
-        memcpy(((reference_node_t *) $$)->indices, $1.indices, depth * sizeof (unsigned));
-        ((reference_node_t *) $$)->indices[depth++] = $3.uval;
-        ((reference_node_t *) $$)->depth = depth;
-        if (((reference_node_t *) $$)->var_info.qualifier == CONST_T) {
+        if (entry->qualifier == CONST_T) {
             unsigned index = 0;
             for (unsigned i = 0; i < depth; ++i) {
                 unsigned factor = i;
                 for (unsigned j = i + 1; j < depth; ++j) {
-                    factor *= ((reference_node_t *) $$)->indices[j];
+                    factor *= $1.indices[j];
                 }
                 index += factor;
             }
-            ((reference_node_t *) $$)->var_info.value = entry->values[index];
+            index += $3.uval;
+            $$ = new_const_node(entry->type, entry->values[index]);
+        } else {
+            $$ = new_reference_node(entry);
+            memcpy(((reference_node_t *) $$)->indices, $1.indices, depth * sizeof (unsigned));
+            ((reference_node_t *) $$)->indices[depth++] = $3.uval;
+            ((reference_node_t *) $$)->depth = depth;
         }
 	}
 	| ID LPAREN argument_expr_l RPAREN {
@@ -540,9 +648,10 @@ primary_expr:
 	            yyerror("Array is not index");
 	        }
 	    }
-	    $$ = new_reference_node(entry);
-	    if (((reference_node_t *) $$)->var_info.qualifier == CONST_T) {
-	        ((reference_node_t *) $$)->var_info.value = entry->values[0];
+	    if (entry->qualifier == CONST_T) {
+	        $$ = new_const_node(entry->type, entry->values[0]);
+	    } else {
+	        $$ = new_reference_node(entry);
 	    }
 	}
 	| const {
@@ -559,9 +668,15 @@ argument_expr_l:
 	;
 
 const:
-    BCONST { $$ = new_const_node(BOOL_T, $1); }
-    | ICONST { $$ = new_const_node(INT_T, $1); }
-    | UCONST { $$ = new_const_node(UNSIGNED_T, $1); }
+    BCONST {
+        $$ = new_const_node(BOOL_T, $1);
+    }
+    | ICONST {
+        $$ = new_const_node(INT_T, $1);
+    }
+    | UCONST {
+        $$ = new_const_node(UNSIGNED_T, $1);
+    }
 	;
 
 %%

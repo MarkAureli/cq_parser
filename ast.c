@@ -132,6 +132,97 @@ node_t *new_const_node(type_t type, value_t value) {
     return (node_t *) new_node;
 }
 
+node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars) {
+    if (!entry->is_function) {
+        return NULL;
+    }
+    func_call_node_t *new_node = calloc(1, sizeof (func_call_node_t));
+    new_node->type = FUNC_CALL_NODE_T;
+    new_node->var_info.qualifier = entry->qualifier;
+    new_node->var_info.type = entry->type;
+    new_node->entry = entry;
+    new_node->pars = pars;
+    new_node->num_of_pars = num_of_pars;
+    return (node_t *) new_node;
+}
+
+node_t *new_arithmetic_node(arithmetic_op_t op, node_t *left, node_t *right) {
+    arithmetic_node_t *new_node = calloc(1, sizeof (arithmetic_node_t));
+    new_node->type = ARITHMETIC_NODE_T;
+    new_node->op = op;
+    new_node->left = left;
+    new_node->right = right;
+    return (node_t *) new_node;
+}
+
+node_t *new_bitwise_node(bitwise_op_t op, node_t *left, node_t *right) {
+    bitwise_node_t *new_node = calloc(1, sizeof (bitwise_node_t));
+    new_node->type = BITWISE_NODE_T;
+    new_node->op = op;
+    new_node->left = left;
+    new_node->right = right;
+    return (node_t *) new_node;
+}
+
+node_t *new_shift_node(shift_op_t op, node_t *left, node_t *right) {
+    shift_node_t *new_node = calloc(1, sizeof (shift_node_t));
+    new_node->type = SHIFT_NODE_T;
+    new_node->op = op;
+    new_node->left = left;
+    new_node->right = right;
+    return (node_t *) new_node;
+}
+
+node_t *new_inv_node(node_t *child) {
+    inv_node_t *new_node = calloc(1, sizeof (inv_node_t));
+    new_node->type = INV_NODE_T;
+    new_node->child = child;
+    return (node_t *) new_node;
+}
+
+node_t *new_logical_node(logical_op_t op, node_t *left, node_t *right) {
+    logical_node_t *new_node = calloc(1, sizeof (logical_node_t));
+    new_node->type = LOGICAL_NODE_T;
+    new_node->op = op;
+    new_node->left = left;
+    new_node->right = right;
+    return (node_t *) new_node;
+}
+
+node_t *new_relation_node(relation_op_t op, node_t *left, node_t *right) {
+    relation_node_t *new_node = calloc(1, sizeof (relation_node_t));
+    new_node->type = RELATION_NODE_T;
+    new_node->op = op;
+    new_node->left = left;
+    new_node->right = right;
+    return (node_t *) new_node;
+}
+
+node_t *new_equality_node(equality_op_t op, node_t *left, node_t *right) {
+    equality_node_t *new_node = calloc(1, sizeof (equality_node_t));
+    new_node->type = EQUALITY_NODE_T;
+    new_node->op = op;
+    new_node->left = left;
+    new_node->right = right;
+    return (node_t *) new_node;
+}
+
+node_t *new_not_op_node(node_t *child) {
+    not_op_node_t *new_node = calloc(1, sizeof (not_op_node_t));
+    new_node->type = NOT_OP_NODE_T;
+    new_node->var_info.type = BOOL_T;
+    new_node->child = child;
+    return (node_t *) new_node;
+}
+
+node_t *new_reference_node(list_t *entry) {
+    reference_node_t *new_node = calloc(1, sizeof (reference_node_t));
+    new_node->type = REFERENCE_NODE_T;
+    new_node->var_info.type = entry->type;
+    new_node->entry = entry;
+    return (node_t *) new_node;
+}
+
 node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branches, unsigned elseif_count, node_t *else_branch) {
     if_node_t *new_node = calloc(1, sizeof (if_node_t));
     new_node->type = IF_NODE_T;
@@ -192,80 +283,6 @@ node_t *new_jump_node(int statement_type) {
     return (node_t *) new_node;
 }
 
-node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars) {
-    if (!entry->is_function) {
-        return NULL;
-    }
-    func_call_node_t *new_node = calloc(1, sizeof (func_call_node_t));
-    new_node->type = FUNC_CALL_NODE_T;
-    new_node->entry = entry;
-    new_node->pars = pars;
-    new_node->num_of_pars = num_of_pars;
-    return (node_t *) new_node;
-}
-
-node_t *new_arithmetic_node(arithmetic_op_t op, node_t *left, node_t *right) {
-    arithmetic_node_t *new_node = calloc(1, sizeof (arithmetic_node_t));
-    new_node->type = ARITHMETIC_NODE_T;
-    new_node->op = op;
-    new_node->left = left;
-    new_node->right = right;
-    return (node_t *) new_node;
-}
-
-node_t *new_bitwise_node(bitwise_op_t op, node_t *left, node_t *right) {
-    bit_node_t *new_node = calloc(1, sizeof (bit_node_t));
-    new_node->type = BITWISE_NODE_T;
-    new_node->op = op;
-    new_node->left = left;
-    new_node->right = right;
-    return (node_t *) new_node;
-}
-
-node_t *new_shift_node(shift_op_t op, node_t *left, node_t *right) {
-    shift_node_t *new_node = calloc(1, sizeof (shift_node_t));
-    new_node->type = SHIFT_NODE_T;
-    new_node->op = op;
-    new_node->left = left;
-    new_node->right = right;
-    return (node_t *) new_node;
-}
-
-node_t *new_logical_node(logical_op_t op, node_t *left, node_t *right) {
-    logical_node_t *new_node = calloc(1, sizeof (logical_node_t));
-    new_node->type = LOGICAL_NODE_T;
-    new_node->op = op;
-    new_node->left = left;
-    new_node->right = right;
-    return (node_t *) new_node;
-}
-
-node_t *new_relation_node(relation_op_t op, node_t *left, node_t *right) {
-    relation_node_t *new_node = calloc(1, sizeof (relation_node_t));
-    new_node->type = RELATION_NODE_T;
-    new_node->op = op;
-    new_node->left = left;
-    new_node->right = right;
-    return (node_t *) new_node;
-}
-
-node_t *new_equality_node(equality_op_t op, node_t *left, node_t *right) {
-    equality_node_t *new_node = calloc(1, sizeof (equality_node_t));
-    new_node->type = EQUALITY_NODE_T;
-    new_node->op = op;
-    new_node->left = left;
-    new_node->right = right;
-    return (node_t *) new_node;
-}
-
-node_t *new_reference_node(list_t *entry) {
-    reference_node_t *new_node = calloc(1, sizeof (reference_node_t));
-    new_node->type = REFERENCE_NODE_T;
-    new_node->entry = entry;
-    new_node->var_info.type = entry->type;
-    return (node_t *) new_node;
-}
-
 node_t *new_return_node(type_t ret_type, node_t *ret_val) {
     return_node_t *new_node = calloc(1, sizeof (return_node_t));
     new_node->type = RETURN_NODE_T;
@@ -290,6 +307,46 @@ void print_node(const node_t *node) {
         }
         case CONST_NODE_T: {
             printf("Constant node of data type %s\n", type_to_str(((const_node_t *) node)->var_info.type));
+            break;
+        }
+        case FUNC_CALL_NODE_T: {
+            printf("Function call node for %s with %u parameters\n", ((func_call_node_t *) node)->entry->name, ((func_call_node_t *) node)->num_of_pars);
+            break;
+        }
+        case ARITHMETIC_NODE_T: {
+            printf("Arithmetic node of operator %s\n", arithmetic_op_to_str(((arithmetic_node_t *) node)->op));
+            break;
+        }
+        case BITWISE_NODE_T: {
+            printf("Bitwise node of operator %s\n", bitwise_op_to_str(((bitwise_node_t *) node)->op));
+            break;
+        }
+        case SHIFT_NODE_T: {
+            printf("Shift node of operator %s\n", shift_op_to_str(((shift_node_t *) node)->op));
+            break;
+        }
+        case INV_NODE_T: {
+            printf("Inversion node\n");
+            break;
+        }
+        case LOGICAL_NODE_T: {
+            printf("Logical node of operator %s\n", logical_op_to_str(((logical_node_t *) node)->op));
+            break;
+        }
+        case RELATION_NODE_T: {
+            printf("Relation node of operator %s\n", relation_op_to_str(((relation_node_t *) node)->op));
+            break;
+        }
+        case EQUALITY_NODE_T: {
+            printf("Equation node of operator %s\n", equality_op_to_str(((equality_node_t *) node)->op));
+            break;
+        }
+        case NOT_OP_NODE_T: {
+            printf("Not operator node\n");
+            break;
+        }
+        case REFERENCE_NODE_T: {
+            printf("Reference node for %s\n", ((reference_node_t *) node)->entry->name);
             break;
         }
         case IF_NODE_T: {
@@ -320,38 +377,6 @@ void print_node(const node_t *node) {
             printf("Jump node of statement %d\n", ((jump_node_t *) node)->statement_type);
             break;
         }
-        case FUNC_CALL_NODE_T: {
-            printf("Function call node for %s with %u parameters\n", ((func_call_node_t *) node)->entry->name, ((func_call_node_t *) node)->num_of_pars);
-            break;
-        }
-        case ARITHMETIC_NODE_T: {
-            printf("Arithmetic node of operator %s\n", arithmetic_op_to_str(((arithmetic_node_t *) node)->op));
-            break;
-        }
-        case BITWISE_NODE_T: {
-            printf("Bitwise node of operator %s\n", bitwise_op_to_str(((bit_node_t *) node)->op));
-            break;
-        }
-        case SHIFT_NODE_T: {
-            printf("Shift node of operator %s\n", shift_op_to_str(((shift_node_t *) node)->op));
-            break;
-        }
-        case LOGICAL_NODE_T: {
-            printf("Logical node of operator %s\n", logical_op_to_str(((logical_node_t *) node)->op));
-            break;
-        }
-        case RELATION_NODE_T: {
-            printf("Relation node of operator %s\n", relation_op_to_str(((relation_node_t *) node)->op));
-            break;
-        }
-        case EQUALITY_NODE_T: {
-            printf("Equation node of operator %s\n", equality_op_to_str(((equality_node_t *) node)->op));
-            break;
-        }
-        case REFERENCE_NODE_T: {
-            printf("Reference node for %s\n", ((reference_node_t *) node)->entry->name);
-            break;
-        }
         case RETURN_NODE_T: {
             printf("Return node of return type %s\n", type_to_str(((return_node_t *) node)->ret_type));
             break;
@@ -368,6 +393,20 @@ void tree_traversal(const node_t *node) {
         case BASIC_NODE_T: case ARITHMETIC_NODE_T: case BITWISE_NODE_T: case SHIFT_NODE_T: case LOGICAL_NODE_T: case RELATION_NODE_T: case EQUALITY_NODE_T: {
             tree_traversal(node->left);
             tree_traversal(node->right);
+            break;
+        }
+        case INV_NODE_T: {
+            tree_traversal(((inv_node_t *) node)->child);
+            break;
+        }
+        case NOT_OP_NODE_T: {
+            tree_traversal(((not_op_node_t *) node)->child);
+            break;
+        }
+        case FUNC_CALL_NODE_T: {
+            for (unsigned i = 0; i < ((func_call_node_t *) node)->num_of_pars; ++i) {
+                tree_traversal(((func_call_node_t *) node)->pars[i]);
+            }
             break;
         }
         case IF_NODE_T: {
@@ -403,12 +442,6 @@ void tree_traversal(const node_t *node) {
         }
         case ASSIGN_NODE_T: {
             tree_traversal(((assign_node_t *) node)->assign_val);
-            break;
-        }
-        case FUNC_CALL_NODE_T: {
-            for (unsigned i = 0; i < ((func_call_node_t *) node)->num_of_pars; ++i) {
-                tree_traversal(((func_call_node_t *) node)->pars[i]);
-            }
             break;
         }
         case RETURN_NODE_T: {
