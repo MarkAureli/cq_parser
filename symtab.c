@@ -7,13 +7,13 @@
 char *qualifier_to_str(qualifier_t qualifier) {
     switch (qualifier) {
         case NONE_T: {
-            return "NONE_T";
+            return "";
         }
         case CONST_T: {
-            return "CONST_T";
+            return "const";
         }
         case QUANTUM_T: {
-            return "QUANTUM_T";
+            return "quantum";
         }
     }
 }
@@ -21,19 +21,19 @@ char *qualifier_to_str(qualifier_t qualifier) {
 char *type_to_str(type_t type) {
     switch (type) {
         case UNDEFINED_T: {
-            return "UNDEFINED_T";
+            return "undefined";
         }
         case BOOL_T: {
-            return "BOOL_T";
+            return "bool";
         }
         case INT_T: {
-            return "INT_T";
+            return "int";
         }
         case UNSIGNED_T: {
-            return "UNSIGNED_T";
+            return "unsigned";
         }
         case VOID_T: {
-            return "VOID_T";
+            return "void";
         }
     }
 }

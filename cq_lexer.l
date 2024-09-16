@@ -164,7 +164,7 @@ phase				    { return PHASE; }
 
 %{ /* match not found */
 %}
-.				        { fprintf(stderr, "%u: error: %s \n", yylineno, yytext); }
+.				        { fprintf(stderr, "Parsing failed in line %u: unknown symbol %s \n", yylineno, yytext); exit(1); }
 
 %%
 

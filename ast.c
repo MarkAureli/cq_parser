@@ -6,19 +6,19 @@
 char *arithmetic_op_to_str(arithmetic_op_t arithmetic_op) {
     switch (arithmetic_op) {
         case ADD_OP: {
-            return "ADD_OP";
+            return "+";
         }
         case DIV_OP: {
-            return "DIV_OP";
+            return "/";
         }
         case MOD_OP: {
-            return "MOD_OP";
+            return "%%";
         }
         case MUL_OP: {
-            return "MUL_OP";
+            return "*";
         }
         case SUB_OP: {
-            return "SUB_OP";
+            return "-";
         }
     }
 }
@@ -26,10 +26,10 @@ char *arithmetic_op_to_str(arithmetic_op_t arithmetic_op) {
 char *increment_op_to_str(increment_op_t increment_op) {
     switch (increment_op) {
         case INCR_OP: {
-            return "INCR_OP";
+            return "++";
         }
         case DECR_OP: {
-            return "DECR_OP";
+            return "--";
         }
     }
 }
@@ -37,13 +37,13 @@ char *increment_op_to_str(increment_op_t increment_op) {
 char *bitwise_op_to_str(bitwise_op_t bitwise_op) {
     switch (bitwise_op) {
         case AND_OP: {
-            return "AND_OP";
+            return "&";
         }
         case OR_OP: {
-            return "OR_OP";
+            return "|";
         }
         case XOR_OP: {
-            return "XOR_OP";
+            return "^";
         }
     }
 }
@@ -51,10 +51,10 @@ char *bitwise_op_to_str(bitwise_op_t bitwise_op) {
 char *shift_op_to_str(shift_op_t shift_op) {
     switch (shift_op) {
         case LSHIFT_OP: {
-            return "LSHIFT_OP";
+            return "<<";
         }
         case RSHIFT_OP: {
-            return "RSHIFT_OP";
+            return ">>";
         }
     }
 }
@@ -62,13 +62,13 @@ char *shift_op_to_str(shift_op_t shift_op) {
 char *logical_op_to_str(logical_op_t logical_op) {
     switch (logical_op) {
         case LAND_OP: {
-            return "LAND_OP";
+            return "&&";
         }
         case LOR_OP: {
-            return "LOR_OP";
+            return "||";
         }
         case LXOR_OP: {
-            return "LXOR_OP";
+            return "^^";
         }
     }
 }
@@ -76,16 +76,16 @@ char *logical_op_to_str(logical_op_t logical_op) {
 char *relation_op_to_str(relation_op_t relation_op) {
     switch (relation_op) {
         case GE_OP: {
-            return "GE_OP";
+            return ">";
         }
         case GEQ_OP: {
-            return "GEQ_OP";
+            return ">=";
         }
         case LE_OP: {
-            return "LE_OP";
+            return "<";
         }
         case LEQ_OP: {
-            return "LEQ_OP";
+            return "<=";
         }
     }
 }
@@ -93,10 +93,10 @@ char *relation_op_to_str(relation_op_t relation_op) {
 char *equality_op_to_str(equality_op_t equality_op) {
     switch (equality_op) {
         case EQ_OP: {
-            return "EQ_OP";
+            return "==";
         }
         case NEQ_OP: {
-            return "NEQ_OP";
+            return "!=";
         }
     }
 }
@@ -219,6 +219,7 @@ node_t *new_reference_node(list_t *entry) {
     reference_node_t *new_node = calloc(1, sizeof (reference_node_t));
     new_node->type = REFERENCE_NODE_T;
     new_node->var_info.type = entry->type;
+    new_node->var_info.qualifier = entry->qualifier;
     new_node->entry = entry;
     return (node_t *) new_node;
 }
@@ -291,6 +292,45 @@ node_t *new_return_node(type_t ret_type, node_t *ret_val) {
     return (node_t *) new_node;
 }
 
+var_info_t get_var_info_of_node(const node_t *node) {
+    switch (node->type) {
+        case CONST_NODE_T: {
+            return ((const_node_t *) node)->var_info;
+        }
+        case ARITHMETIC_NODE_T: {
+            return ((arithmetic_node_t *) node)->var_info;
+        }
+        case BITWISE_NODE_T: {
+            return ((bitwise_node_t *) node)->var_info;
+        }
+        case SHIFT_NODE_T: {
+            return ((shift_node_t *) node)->var_info;
+        }
+        case INV_NODE_T: {
+            return ((inv_node_t *) node)->var_info;
+        }
+        case LOGICAL_NODE_T: {
+            return ((logical_node_t *) node)->var_info;
+        }
+        case NOT_OP_NODE_T: {
+            return ((not_op_node_t *) node)->var_info;
+        }
+        case RELATION_NODE_T: {
+            return ((relation_node_t *) node)->var_info;
+        }
+        case EQUALITY_NODE_T: {
+            return ((equality_node_t *) node)->var_info;
+        }
+        case REFERENCE_NODE_T: {
+            return ((reference_node_t *) node)->var_info;
+        }
+        default: {
+            var_info_t undefined_result = { .qualifier=NONE_T, .type=UNDEFINED_T, .value.bval=false};
+            return undefined_result;
+        }
+    }
+}
+
 void print_node(const node_t *node) {
     switch (node->type) {
         case BASIC_NODE_T: {
@@ -298,7 +338,24 @@ void print_node(const node_t *node) {
             break;
         }
         case VAR_DECL_NODE_T: {
-            printf("Variable declaration node for %s\n", ((var_decl_node_t *) node)->entry->name);
+            switch (((var_decl_node_t *) node)->entry->qualifier) {
+                case NONE_T: {
+                    break;
+                }
+                case CONST_T: {
+                    printf("const ");
+                    break;
+                }
+                case QUANTUM_T: {
+                    printf("quantum ");
+                    break;
+                }
+            }
+            printf("%s", type_to_str(((var_decl_node_t *) node)->entry->type));
+            for (unsigned i = 0; i < ((var_decl_node_t *) node)->entry->depth; ++i) {
+                printf("[]");
+            }
+            putchar('\n');
             break;
         }
         case FUNC_DECL_NODE_T: {
@@ -306,7 +363,24 @@ void print_node(const node_t *node) {
             break;
         }
         case CONST_NODE_T: {
-            printf("Constant node of data type %s\n", type_to_str(((const_node_t *) node)->var_info.type));
+            switch (((const_node_t *) node)->var_info.type) {
+                case BOOL_T: {
+                    printf("%s\n", ((const_node_t *) node)->var_info.value.bval ? "true" : "false");
+                    break;
+                }
+                case INT_T: {
+                    printf("%d\n", ((const_node_t *) node)->var_info.value.ival);
+                    break;
+                }
+                case UNSIGNED_T: {
+                    printf("%u\n", ((const_node_t *) node)->var_info.value.uval);
+                    break;
+                }
+                default: {
+                    printf("undefined\n");
+                    break;
+                }
+            }
             break;
         }
         case FUNC_CALL_NODE_T: {
@@ -314,7 +388,22 @@ void print_node(const node_t *node) {
             break;
         }
         case ARITHMETIC_NODE_T: {
-            printf("Arithmetic node of operator %s\n", arithmetic_op_to_str(((arithmetic_node_t *) node)->op));
+            putchar('(');
+            var_info_t left_info = get_var_info_of_node(((arithmetic_node_t *) node)->left);
+            if (left_info.qualifier == QUANTUM_T) {
+                printf("quantum ");
+            }
+            printf("%s) %s (", type_to_str(left_info.type), arithmetic_op_to_str(((arithmetic_node_t *) node)->op));
+            var_info_t right_info = get_var_info_of_node(((arithmetic_node_t *) node)->right);
+            if (right_info.qualifier == QUANTUM_T) {
+                printf("quantum ");
+            }
+            printf("%s) -> (", type_to_str(right_info.type));
+            var_info_t info = get_var_info_of_node(node);
+            if (info.qualifier == QUANTUM_T) {
+                printf("quantum ");
+            }
+            printf("%s)\n", type_to_str(info.type));
             break;
         }
         case BITWISE_NODE_T: {
@@ -346,7 +435,12 @@ void print_node(const node_t *node) {
             break;
         }
         case REFERENCE_NODE_T: {
-            printf("Reference node for %s\n", ((reference_node_t *) node)->entry->name);
+            var_info_t info = get_var_info_of_node(node);
+            printf("reference to %s%s %s", (info.qualifier == QUANTUM_T) ? "quantum " : "", type_to_str(info.type), ((reference_node_t *) node)->entry->name);
+            for (unsigned i = 0; i < ((reference_node_t *) node)->depth; ++i) {
+                printf("[%u]", ((reference_node_t *) node)->indices[i]);
+            }
+            putchar('\n');
             break;
         }
         case IF_NODE_T: {

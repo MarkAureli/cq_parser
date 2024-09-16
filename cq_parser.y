@@ -949,7 +949,7 @@ mul_expr:
 	            yyerror("Left operand of \"*\" is a boolean expression");
 	        }
 	    }
-	    tree_traversal($$);
+	    print_node($$);
 	}
 	| mul_expr DIV unary_expr {
         $$ = $3; /* dummy */
