@@ -78,28 +78,20 @@ measure				    { return MEASURE; }
 %}
 phase				    { return PHASE; }
 
-%{ /* arithmetic operations */
+%{ /* integer operations */
 %}
-"+"				        { yylval.arithmetic_op = ADD_OP; return ADD; }
-"/"				        { yylval.arithmetic_op = DIV_OP; return DIV; }
-"%"				        { yylval.arithmetic_op = MOD_OP; return MOD; }
-"*"				        { yylval.arithmetic_op = MUL_OP; return MUL; }
-"-"				        { yylval.arithmetic_op = SUB_OP; return SUB; }
-
-%{ /* increment operations */
-%}
-"++"                    { yylval.increment_op = INCR_OP; return INCR; }
-"--"                    { yylval.increment_op = DECR_OP; return DECR; }
+"+"				        { yylval.integer_op = ADD_OP; return ADD; }
+"&"				        { yylval.integer_op = AND_OP; return AND; }
+"/"				        { yylval.integer_op = DIV_OP; return DIV; }
+"%"				        { yylval.integer_op = MOD_OP; return MOD; }
+"*"				        { yylval.integer_op = MUL_OP; return MUL; }
+"|"				        { yylval.integer_op = OR_OP; return OR;   }
+"-"				        { yylval.integer_op = SUB_OP; return SUB; }
+"^"				        { yylval.integer_op = XOR_OP; return XOR; }
 
 %{ /* invert operation */
 %}
 "~"                     { return INV; }
-
-%{ /* bitwise operations */
-%}
-"&"				        { yylval.bitwise_op = AND_OP; return AND; }
-"|"				        { yylval.bitwise_op = OR_OP; return OR; }
-"^"				        { yylval.bitwise_op = XOR_OP; return XOR; }
 
 %{ /* shift operations */
 %}

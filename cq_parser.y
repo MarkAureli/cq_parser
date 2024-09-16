@@ -27,9 +27,7 @@ char error_msg[ERRORMSGLENGTH];
     type_info_t type_info;
     array_values_t array_values;
     array_access_info_t array_access_info;
-    arithmetic_op_t arithmetic_op;
-    increment_op_t increment_op;
-    bitwise_op_t bitwise_op;
+    integer_op_t integer_op;
     shift_op_t shift_op;
     logical_op_t logical_op;
     relation_op_t relation_op;
@@ -75,7 +73,7 @@ char error_msg[ERRORMSGLENGTH];
 
 %type <symtab_item> declarator
 %type <type_info> type_specifier
-%type <node> variable_decl variable_def function_def const primary_expr postfix_expr unary_expr mul_expr
+%type <node> variable_decl variable_def function_def const primary_expr postfix_expr unary_expr mul_expr add_expr
 %type <array_values> init init_elem_l
 %type <array_access_info> array_access
 %define parse.error verbose
@@ -412,9 +410,23 @@ shift_expr:
 	;
 
 add_expr:
-	mul_expr
-	| add_expr ADD mul_expr
-	| add_expr SUB mul_expr
+	mul_expr {
+	    $$ = $1;
+	}
+	| add_expr ADD mul_expr {
+        $$ = build_arithmetic_node(ADD_OP, $1, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+	    print_node($$);
+	}
+	| add_expr SUB mul_expr {
+        $$ = build_arithmetic_node(SUB_OP, $1, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+	    print_node($$);
+	}
 	;
 
 mul_expr:
@@ -462,34 +474,28 @@ unary_expr:
                 }
                 break;
 	        }
-            case ARITHMETIC_NODE_T: {
-                $$ = new_inv_node($2);
-                ((inv_node_t *) $$)->var_info.qualifier = ((arithmetic_node_t *) $2)->var_info.qualifier;
-                ((inv_node_t *) $$)->var_info.type = ((arithmetic_node_t *) $2)->var_info.type;
+            case INTEGER_OP_NODE_T: {
+                $$ = new_invert_op_node($2);
+                ((invert_op_node_t *) $$)->var_info.qualifier = ((integer_op_node_t *) $2)->var_info.qualifier;
+                ((invert_op_node_t *) $$)->var_info.type = ((integer_op_node_t *) $2)->var_info.type;
                 break;
             }
-            case BITWISE_NODE_T: {
-                $$ = new_inv_node($2);
-                ((inv_node_t *) $$)->var_info.qualifier = ((bitwise_node_t *) $2)->var_info.qualifier;
-                ((inv_node_t *) $$)->var_info.type = ((bitwise_node_t *) $2)->var_info.type;
+            case SHIFT_OP_NODE_T: {
+                $$ = new_invert_op_node($2);
+                ((invert_op_node_t *) $$)->var_info.qualifier = NONE_T;
+                ((invert_op_node_t *) $$)->var_info.type = ((shift_op_node_t *) $2)->var_info.type;
                 break;
             }
-            case SHIFT_NODE_T: {
-                $$ = new_inv_node($2);
-                ((inv_node_t *) $$)->var_info.qualifier = NONE_T;
-                ((inv_node_t *) $$)->var_info.type = ((shift_node_t *) $2)->var_info.type;
-                break;
-            }
-	        case INV_NODE_T: {
-	            $$ = ((inv_node_t *) $2)->child;
+	        case INVERT_OP_NODE_T: {
+	            $$ = ((invert_op_node_t *) $2)->child;
 	            free($2);
 	            break;
 	        }
             case REFERENCE_NODE_T: {
                 if (((reference_node_t *) $2)->var_info.type == INT_T || ((reference_node_t *) $2)->var_info.type == UNSIGNED_T) {
-                    $$ = new_inv_node($2);
-                    ((inv_node_t *) $$)->var_info.qualifier = ((reference_node_t *) $2)->var_info.qualifier;
-                    ((inv_node_t *) $$)->var_info.type = ((reference_node_t *) $2)->var_info.type;
+                    $$ = new_invert_op_node($2);
+                    ((invert_op_node_t *) $$)->var_info.qualifier = ((reference_node_t *) $2)->var_info.qualifier;
+                    ((invert_op_node_t *) $$)->var_info.type = ((reference_node_t *) $2)->var_info.type;
                 } else {
                     if (snprintf(error_msg, sizeof (error_msg), "Applying \"~\" to boolean variable %s", ((reference_node_t *) $2)->entry->name) > 0) {
                         yyerror(error_msg);
@@ -515,19 +521,19 @@ unary_expr:
                 }
                 break;
 	        }
-            case LOGICAL_NODE_T: {
+            case LOGICAL_OP_NODE_T: {
                 $$ = new_not_op_node($2);
-                ((not_op_node_t *) $$)->var_info.qualifier = ((logical_node_t *) $2)->var_info.qualifier;
+                ((not_op_node_t *) $$)->var_info.qualifier = ((logical_op_node_t *) $2)->var_info.qualifier;
                 break;
             }
-            case RELATION_NODE_T: {
+            case RELATION_OP_NODE_T: {
                 $$ = new_not_op_node($2);
-                ((not_op_node_t *) $$)->var_info.qualifier = ((relation_node_t *) $2)->var_info.qualifier;
+                ((not_op_node_t *) $$)->var_info.qualifier = ((relation_op_node_t *) $2)->var_info.qualifier;
                 break;
             }
-            case EQUALITY_NODE_T: {
+            case EQUALITY_OP_NODE_T: {
                 $$ = new_not_op_node($2);
-                ((not_op_node_t *) $$)->var_info.qualifier = ((equality_node_t *) $2)->var_info.qualifier;
+                ((not_op_node_t *) $$)->var_info.qualifier = ((equality_op_node_t *) $2)->var_info.qualifier;
                 break;
             }
 	        case NOT_OP_NODE_T: {

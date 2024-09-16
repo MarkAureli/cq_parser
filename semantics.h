@@ -4,10 +4,8 @@
 
 typedef enum op_type {
     NONE_OP,
-    ARITHMETIC_OP,
-    INCREMENT_OP,
+    INTEGER_OP,
     INVERT_OP,
-    BITWISE_OP,
     SHIFT_OP,
     LOGICAL_OP,
     LOGICAL_NOT_OP,

@@ -3,19 +3,16 @@
 #include <stdbool.h>
 #include "symtab.h"
 
-typedef enum arithmetic_op {
+typedef enum integer_op {
     ADD_OP,
+    AND_OP,
     DIV_OP,
     MOD_OP,
     MUL_OP,
-    SUB_OP
-} arithmetic_op_t;
-
-typedef enum bitwise_op {
-    AND_OP,
     OR_OP,
+    SUB_OP,
     XOR_OP
-} bitwise_op_t;
+} integer_op_t;
 
 typedef enum shift_op {
     LSHIFT_OP,
@@ -46,13 +43,12 @@ typedef enum node_type {
     FUNC_DECL_NODE_T,
     CONST_NODE_T,
     FUNC_CALL_NODE_T,
-    ARITHMETIC_NODE_T,
-    BITWISE_NODE_T,
-    SHIFT_NODE_T,
-    INV_NODE_T,
-    LOGICAL_NODE_T,
-    RELATION_NODE_T,
-    EQUALITY_NODE_T,
+    INTEGER_OP_NODE_T,
+    SHIFT_OP_NODE_T,
+    INVERT_OP_NODE_T,
+    LOGICAL_OP_NODE_T,
+    RELATION_OP_NODE_T,
+    EQUALITY_OP_NODE_T,
     NOT_OP_NODE_T,
     REFERENCE_NODE_T,
     IF_NODE_T,
@@ -100,59 +96,51 @@ typedef struct func_call_node {
     unsigned num_of_pars;
 } func_call_node_t;
 
-typedef struct arithmetic_node {
+typedef struct integer_op_node {
     node_type_t type;
     var_info_t var_info;
-    arithmetic_op_t op;
+    integer_op_t op;
     node_t *left;
     node_t *right;
-} arithmetic_node_t;
+} integer_op_node_t;
 
-typedef struct bitwise_node {
-    node_type_t type;
-    var_info_t var_info;
-    bitwise_op_t op;
-    node_t *left;
-    node_t *right;
-} bitwise_node_t;
-
-typedef struct shift_node {
+typedef struct shift_op_node {
     node_type_t type;
     var_info_t var_info;
     shift_op_t op;
     node_t *left;
     node_t *right;
-} shift_node_t;
+} shift_op_node_t;
 
-typedef struct inv_node {
+typedef struct invert_op_node {
     node_type_t type;
     var_info_t var_info;
     node_t *child;
-} inv_node_t;
+} invert_op_node_t;
 
-typedef struct logical_node {
+typedef struct logical_op_node {
     node_type_t type;
     var_info_t var_info;
     logical_op_t op;
     node_t *left;
     node_t *right;
-} logical_node_t;
+} logical_op_node_t;
 
-typedef struct relation_node {
+typedef struct relation_op_node {
     node_type_t type;
     var_info_t var_info;
     relation_op_t op;
     node_t *left;
     node_t *right;
-} relation_node_t;
+} relation_op_node_t;
 
-typedef struct equality_node {
+typedef struct equality_op_node {
     node_type_t type;
     var_info_t var_info;
     equality_op_t op;
     node_t *left;
     node_t *right;
-} equality_node_t;
+} equality_op_node_t;
 
 typedef struct not_op_node {
     node_type_t type;
@@ -220,11 +208,7 @@ typedef struct return_node {
     node_t *ret_val;
 } return_node_t;
 
-char *arithmetic_op_to_str(arithmetic_op_t arithmetic_op);
-
-char *increment_op_to_str(increment_op_t increment_op);
-
-char *bitwise_op_to_str(bitwise_op_t bitwise_op);
+char *integer_op_to_str(integer_op_t integer_op);
 
 char *shift_op_to_str(shift_op_t shift_op);
 
@@ -244,19 +228,17 @@ node_t *new_const_node(type_t type, value_t value);
 
 node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars);
 
-node_t *new_arithmetic_node(arithmetic_op_t op, node_t *left, node_t *right);
+node_t *new_integer_op_node(integer_op_t op, node_t *left, node_t *right);
 
-node_t *new_bitwise_node(bitwise_op_t op, node_t *left, node_t *right);
+node_t *new_shift_op_node(shift_op_t op, node_t *left, node_t *right);
 
-node_t *new_shift_node(shift_op_t op, node_t *left, node_t *right);
+node_t *new_invert_op_node(node_t *child);
 
-node_t *new_inv_node(node_t *child);
+node_t *new_logical_op_node(logical_op_t op, node_t *left, node_t *right);
 
-node_t *new_logical_node(logical_op_t op, node_t *left, node_t *right);
+node_t *new_relation_op_node(relation_op_t op, node_t *left, node_t *right);
 
-node_t *new_relation_node(relation_op_t op, node_t *left, node_t *right);
-
-node_t *new_equality_node(equality_op_t op, node_t *left, node_t *right);
+node_t *new_equality_op_node(equality_op_t op, node_t *left, node_t *right);
 
 node_t *new_not_op_node(node_t *child);
 
@@ -278,7 +260,7 @@ node_t *new_jump_node(int statement_type);
 
 node_t *new_return_node(type_t ret_type, node_t *ret_val);
 
-node_t *build_arithmetic_node(arithmetic_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]);
+node_t *build_arithmetic_node(integer_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]);
 
 void print_node(const node_t *node);
 

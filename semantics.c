@@ -8,17 +8,11 @@ char *op_type_to_string(op_type_t op_type) {
         case NONE_OP: {
             return "NONE_OP";
         }
-        case ARITHMETIC_OP: {
-            return "ARITHMETIC_OP";
-        }
-        case INCREMENT_OP: {
-            return "INCREMENT_OP";
+        case INTEGER_OP: {
+            return "INTEGER_OP";
         }
         case INVERT_OP: {
             return "INVERT_OP";
-        }
-        case BITWISE_OP: {
-            return "BITWISE_OP";
         }
         case SHIFT_OP: {
             return "SHIFT_OP";
@@ -46,7 +40,7 @@ type_t get_result_type(type_t type_1, type_t type_2, op_type_t op_type) {
             }
             break;
         }
-        case ARITHMETIC_OP: case BITWISE_OP: case SHIFT_OP: {
+        case INTEGER_OP: case SHIFT_OP: {
             switch (type_1) {
                 case INT_T: {
                     switch (type_2) {
@@ -77,7 +71,7 @@ type_t get_result_type(type_t type_1, type_t type_2, op_type_t op_type) {
             }
             break;
         }
-        case INCREMENT_OP: case INVERT_OP: {
+        case INVERT_OP: {
             if (type_1 == INT_T) {
                 return INT_T;
             } else if (type_1 == UNSIGNED_T) {
