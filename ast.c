@@ -390,9 +390,39 @@ void tree_traversal(const node_t *node) {
     }
 
     switch (node->type) {
-        case BASIC_NODE_T: case ARITHMETIC_NODE_T: case BITWISE_NODE_T: case SHIFT_NODE_T: case LOGICAL_NODE_T: case RELATION_NODE_T: case EQUALITY_NODE_T: {
+        case BASIC_NODE_T: {
             tree_traversal(node->left);
             tree_traversal(node->right);
+            break;
+        }
+        case ARITHMETIC_NODE_T: {
+            tree_traversal(((arithmetic_node_t *)node)->left);
+            tree_traversal(((arithmetic_node_t *)node)->right);
+            break;
+        }
+        case BITWISE_NODE_T: {
+            tree_traversal(((bitwise_node_t *)node)->left);
+            tree_traversal(((bitwise_node_t *)node)->right);
+            break;
+        }
+        case SHIFT_NODE_T: {
+            tree_traversal(((shift_node_t *)node)->left);
+            tree_traversal(((shift_node_t *)node)->right);
+            break;
+        }
+        case LOGICAL_NODE_T: {
+            tree_traversal(((logical_node_t *)node)->left);
+            tree_traversal(((logical_node_t *)node)->right);
+            break;
+        }
+        case RELATION_NODE_T: {
+            tree_traversal(((relation_node_t *)node)->left);
+            tree_traversal(((relation_node_t *)node)->right);
+            break;
+        }
+        case EQUALITY_NODE_T: {
+            tree_traversal(((equality_node_t *)node)->left);
+            tree_traversal(((equality_node_t *)node)->right);
             break;
         }
         case INV_NODE_T: {

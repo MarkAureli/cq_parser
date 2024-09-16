@@ -75,7 +75,7 @@ char error_msg[256];
 
 %type <symtab_item> declarator
 %type <type_info> type_specifier
-%type <node> variable_decl variable_def function_def const primary_expr postfix_expr unary_expr
+%type <node> variable_decl variable_def function_def const primary_expr postfix_expr unary_expr mul_expr
 %type <array_values> init init_elem_l
 %type <array_access_info> array_access
 %define parse.error verbose
@@ -418,10 +418,545 @@ add_expr:
 	;
 
 mul_expr:
-	unary_expr
-	| mul_expr MUL unary_expr
-	| mul_expr DIV unary_expr
-	| mul_expr MOD unary_expr
+	unary_expr {
+	    $$ = $1;
+	}
+	| mul_expr MUL unary_expr {
+	    switch ($1->type) {
+	        case CONST_NODE_T: {
+                if (((const_node_t *) $1)->var_info.type == BOOL_T) {
+                    yyerror("Left operand of \"*\" is a boolean expression");
+                }
+	            switch ($3->type) {
+	                case CONST_NODE_T: {
+                        if (((const_node_t *) $3)->var_info.type == BOOL_T) {
+	                        yyerror("Right operand of \"*\" is a boolean expression");
+	                    }
+	                    $$ = $1;
+                        if (((const_node_t *) $$)->var_info.type == INT_T) {
+                            if (((const_node_t *) $3)->var_info.type == INT_T) {
+                                ((const_node_t *) $$)->var_info.value.ival *= (((const_node_t *) $3)->var_info.value.ival);
+                            } else {
+                                ((const_node_t *) $$)->var_info.value.uval = (((const_node_t *) $1)->var_info.value.ival) * (((const_node_t *) $3)->var_info.value.uval);
+                            }
+                        } else {
+                            if (((const_node_t *) $3)->var_info.type == INT_T) {
+                                ((const_node_t *) $$)->var_info.value.uval *= (((const_node_t *) $3)->var_info.value.ival);
+                            } else {
+                                ((const_node_t *) $$)->var_info.value.uval *= (((const_node_t *) $3)->var_info.value.uval);
+                            }
+                        }
+                        free($3);
+                        break;
+	                }
+	                case ARITHMETIC_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    ((arithmetic_node_t *) $$)->var_info.qualifier = ((arithmetic_node_t *) $3)->var_info.qualifier;
+	                    if (((const_node_t *) $1)->var_info.type == ((arithmetic_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((const_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case BITWISE_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    ((arithmetic_node_t *) $$)->var_info.qualifier = ((bitwise_node_t *) $3)->var_info.qualifier;
+	                    if (((const_node_t *) $1)->var_info.type == ((bitwise_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((const_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case SHIFT_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    if (((const_node_t *) $1)->var_info.type == ((shift_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((const_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case INV_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    ((arithmetic_node_t *) $$)->var_info.qualifier = ((inv_node_t *) $3)->var_info.qualifier;
+	                    if (((const_node_t *) $1)->var_info.type == ((inv_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((const_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case REFERENCE_NODE_T: {
+                        if (((reference_node_t *) $3)->var_info.type == BOOL_T) {
+	                        yyerror("Right operand of \"*\" is a boolean expression");
+	                    }
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    ((arithmetic_node_t *) $$)->var_info.qualifier = ((reference_node_t *) $3)->var_info.qualifier;
+	                    if (((const_node_t *) $1)->var_info.type == ((reference_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((const_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                default: {
+	                    yyerror("Right operand of \"*\" is a boolean expression");
+	                }
+	            }
+	            break;
+	        }
+	        case ARITHMETIC_NODE_T: {
+                switch ($3->type) {
+	                case CONST_NODE_T: {
+                        if (((const_node_t *) $3)->var_info.type == BOOL_T) {
+	                        yyerror("Right operand of \"*\" is a boolean expression");
+	                    }
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    ((arithmetic_node_t *) $$)->var_info.qualifier = ((arithmetic_node_t *) $1)->var_info.qualifier;
+	                    if (((arithmetic_node_t *) $1)->var_info.type == ((const_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((arithmetic_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case ARITHMETIC_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    if (((arithmetic_node_t *) $1)->var_info.qualifier == QUANTUM_T || ((arithmetic_node_t *) $3)->var_info.qualifier == QUANTUM_T) {
+                            ((arithmetic_node_t *) $$)->var_info.qualifier = QUANTUM_T;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    }
+	                    if (((arithmetic_node_t *) $1)->var_info.type == ((arithmetic_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((arithmetic_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case BITWISE_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    if (((arithmetic_node_t *) $1)->var_info.qualifier == QUANTUM_T || ((bitwise_node_t *) $3)->var_info.qualifier == QUANTUM_T) {
+                            ((arithmetic_node_t *) $$)->var_info.qualifier = QUANTUM_T;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    }
+	                    if (((arithmetic_node_t *) $1)->var_info.type == ((bitwise_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((arithmetic_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case SHIFT_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    ((arithmetic_node_t *) $$)->var_info.qualifier = ((arithmetic_node_t *) $1)->var_info.qualifier;
+	                    if (((arithmetic_node_t *) $1)->var_info.type == ((shift_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((arithmetic_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case INV_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    if (((arithmetic_node_t *) $1)->var_info.qualifier == QUANTUM_T || ((inv_node_t *) $3)->var_info.qualifier == QUANTUM_T) {
+                            ((arithmetic_node_t *) $$)->var_info.qualifier = QUANTUM_T;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    }
+	                    if (((arithmetic_node_t *) $1)->var_info.type == ((inv_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((arithmetic_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case REFERENCE_NODE_T: {
+                        if (((reference_node_t *) $3)->var_info.type == BOOL_T) {
+	                        yyerror("Right operand of \"*\" is a boolean expression");
+	                    }
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    if (((arithmetic_node_t *) $1)->var_info.qualifier == QUANTUM_T || ((reference_node_t *) $3)->var_info.qualifier == QUANTUM_T) {
+                            ((arithmetic_node_t *) $$)->var_info.qualifier = QUANTUM_T;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    }
+	                    if (((arithmetic_node_t *) $1)->var_info.type == ((reference_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((arithmetic_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                default: {
+	                    yyerror("Right operand of \"*\" is a boolean expression");
+	                }
+                }
+                break;
+	        }
+	        case BITWISE_NODE_T: {
+                switch ($3->type) {
+	                case CONST_NODE_T: {
+                        if (((const_node_t *) $3)->var_info.type == BOOL_T) {
+	                        yyerror("Right operand of \"*\" is a boolean expression");
+	                    }
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    ((arithmetic_node_t *) $$)->var_info.qualifier = ((bitwise_node_t *) $1)->var_info.qualifier;
+	                    if (((bitwise_node_t *) $1)->var_info.type == ((const_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((bitwise_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case ARITHMETIC_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    if (((bitwise_node_t *) $1)->var_info.qualifier == QUANTUM_T || ((arithmetic_node_t *) $3)->var_info.qualifier == QUANTUM_T) {
+                            ((arithmetic_node_t *) $$)->var_info.qualifier = QUANTUM_T;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    }
+	                    if (((bitwise_node_t *) $1)->var_info.type == ((arithmetic_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((bitwise_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case BITWISE_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    if (((bitwise_node_t *) $1)->var_info.qualifier == QUANTUM_T || ((bitwise_node_t *) $3)->var_info.qualifier == QUANTUM_T) {
+                            ((arithmetic_node_t *) $$)->var_info.qualifier = QUANTUM_T;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    }
+	                    if (((bitwise_node_t *) $1)->var_info.type == ((bitwise_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((bitwise_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case SHIFT_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    ((arithmetic_node_t *) $$)->var_info.qualifier = ((bitwise_node_t *) $1)->var_info.qualifier;
+	                    if (((bitwise_node_t *) $1)->var_info.type == ((shift_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((bitwise_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case INV_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    if (((bitwise_node_t *) $1)->var_info.qualifier == QUANTUM_T || ((inv_node_t *) $3)->var_info.qualifier == QUANTUM_T) {
+                            ((arithmetic_node_t *) $$)->var_info.qualifier = QUANTUM_T;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    }
+	                    if (((bitwise_node_t *) $1)->var_info.type == ((inv_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((bitwise_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case REFERENCE_NODE_T: {
+                        if (((reference_node_t *) $3)->var_info.type == BOOL_T) {
+	                        yyerror("Right operand of \"*\" is a boolean expression");
+	                    }
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    if (((bitwise_node_t *) $1)->var_info.qualifier == QUANTUM_T || ((reference_node_t *) $3)->var_info.qualifier == QUANTUM_T) {
+                            ((arithmetic_node_t *) $$)->var_info.qualifier = QUANTUM_T;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    }
+	                    if (((bitwise_node_t *) $1)->var_info.type == ((reference_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((bitwise_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                default: {
+	                    yyerror("Right operand of \"*\" is a boolean expression");
+	                }
+                }
+                break;
+	        }
+	        case SHIFT_NODE_T: {
+                switch ($3->type) {
+	                case CONST_NODE_T: {
+                        if (((const_node_t *) $3)->var_info.type == BOOL_T) {
+	                        yyerror("Right operand of \"*\" is a boolean expression");
+	                    }
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    if (((shift_node_t *) $1)->var_info.type == ((const_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((shift_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case ARITHMETIC_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+                        ((arithmetic_node_t *) $$)->var_info.qualifier = ((arithmetic_node_t *) $3)->var_info.qualifier;
+	                    if (((shift_node_t *) $1)->var_info.type == ((arithmetic_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((shift_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case BITWISE_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+                        ((arithmetic_node_t *) $$)->var_info.qualifier = ((bitwise_node_t *) $3)->var_info.qualifier;
+	                    if (((shift_node_t *) $1)->var_info.type == ((bitwise_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((shift_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case SHIFT_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    if (((shift_node_t *) $1)->var_info.type == ((shift_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((shift_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case INV_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    ((arithmetic_node_t *) $$)->var_info.qualifier = ((inv_node_t *) $3)->var_info.qualifier;
+	                    if (((shift_node_t *) $1)->var_info.type == ((inv_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((shift_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case REFERENCE_NODE_T: {
+                        if (((reference_node_t *) $3)->var_info.type == BOOL_T) {
+	                        yyerror("Right operand of \"*\" is a boolean expression");
+	                    }
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    ((arithmetic_node_t *) $$)->var_info.qualifier = ((reference_node_t *) $3)->var_info.qualifier;
+	                    if (((shift_node_t *) $1)->var_info.type == ((reference_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((shift_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                default: {
+	                    yyerror("Right operand of \"*\" is a boolean expression");
+	                }
+                }
+                break;
+	        }
+	        case INV_NODE_T: {
+                switch ($3->type) {
+	                case CONST_NODE_T: {
+                        if (((const_node_t *) $3)->var_info.type == BOOL_T) {
+	                        yyerror("Right operand of \"*\" is a boolean expression");
+	                    }
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    ((arithmetic_node_t *) $$)->var_info.qualifier = ((inv_node_t *) $1)->var_info.qualifier;
+	                    if (((inv_node_t *) $1)->var_info.type == ((const_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((inv_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case ARITHMETIC_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    if (((inv_node_t *) $1)->var_info.qualifier == QUANTUM_T || ((arithmetic_node_t *) $3)->var_info.qualifier == QUANTUM_T) {
+                            ((arithmetic_node_t *) $$)->var_info.qualifier = QUANTUM_T;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    }
+	                    if (((inv_node_t *) $1)->var_info.type == ((arithmetic_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((inv_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case BITWISE_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    if (((inv_node_t *) $1)->var_info.qualifier == QUANTUM_T || ((bitwise_node_t *) $3)->var_info.qualifier == QUANTUM_T) {
+                            ((arithmetic_node_t *) $$)->var_info.qualifier = QUANTUM_T;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    }
+	                    if (((inv_node_t *) $1)->var_info.type == ((bitwise_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((inv_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case SHIFT_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    ((arithmetic_node_t *) $$)->var_info.qualifier = ((inv_node_t *) $1)->var_info.qualifier;
+	                    if (((inv_node_t *) $1)->var_info.type == ((shift_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((inv_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case INV_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    if (((inv_node_t *) $1)->var_info.qualifier == QUANTUM_T || ((inv_node_t *) $3)->var_info.qualifier == QUANTUM_T) {
+                            ((arithmetic_node_t *) $$)->var_info.qualifier = QUANTUM_T;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    }
+	                    if (((inv_node_t *) $1)->var_info.type == ((inv_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((inv_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case REFERENCE_NODE_T: {
+                        if (((reference_node_t *) $3)->var_info.type == BOOL_T) {
+	                        yyerror("Right operand of \"*\" is a boolean expression");
+	                    }
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    if (((inv_node_t *) $1)->var_info.qualifier == QUANTUM_T || ((reference_node_t *) $3)->var_info.qualifier == QUANTUM_T) {
+                            ((arithmetic_node_t *) $$)->var_info.qualifier = QUANTUM_T;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    }
+	                    if (((inv_node_t *) $1)->var_info.type == ((reference_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((inv_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                default: {
+	                    yyerror("Right operand of \"*\" is a boolean expression");
+	                }
+                }
+                break;
+	        }
+	        case REFERENCE_NODE_T: {
+                if (((reference_node_t *) $1)->var_info.type == BOOL_T) {
+                    yyerror("Left operand of \"*\" is a boolean expression");
+                }
+	            switch ($3->type) {
+	                case CONST_NODE_T: {
+                        if (((const_node_t *) $3)->var_info.type == BOOL_T) {
+	                        yyerror("Right operand of \"*\" is a boolean expression");
+	                    }
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    ((arithmetic_node_t *) $$)->var_info.qualifier = ((reference_node_t *) $1)->var_info.qualifier;
+	                    if (((reference_node_t *) $1)->var_info.type == ((const_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((reference_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case ARITHMETIC_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    if (((reference_node_t *) $1)->var_info.qualifier == QUANTUM_T || ((arithmetic_node_t *) $3)->var_info.qualifier == QUANTUM_T) {
+                            ((arithmetic_node_t *) $$)->var_info.qualifier = QUANTUM_T;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    }
+	                    if (((reference_node_t *) $1)->var_info.type == ((arithmetic_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((reference_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case BITWISE_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    if (((reference_node_t *) $1)->var_info.qualifier == QUANTUM_T || ((bitwise_node_t *) $3)->var_info.qualifier == QUANTUM_T) {
+                            ((arithmetic_node_t *) $$)->var_info.qualifier = QUANTUM_T;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    }
+	                    if (((reference_node_t *) $1)->var_info.type == ((bitwise_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((reference_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case SHIFT_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    ((arithmetic_node_t *) $$)->var_info.qualifier = ((reference_node_t *) $1)->var_info.qualifier;
+	                    if (((reference_node_t *) $1)->var_info.type == ((shift_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((reference_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case INV_NODE_T: {
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    if (((reference_node_t *) $1)->var_info.qualifier == QUANTUM_T || ((inv_node_t *) $3)->var_info.qualifier == QUANTUM_T) {
+                            ((arithmetic_node_t *) $$)->var_info.qualifier = QUANTUM_T;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    }
+	                    if (((reference_node_t *) $1)->var_info.type == ((inv_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((reference_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                case REFERENCE_NODE_T: {
+                        if (((reference_node_t *) $3)->var_info.type == BOOL_T) {
+	                        yyerror("Right operand of \"*\" is a boolean expression");
+	                    }
+	                    $$ = new_arithmetic_node(MUL_OP, $1, $3);
+	                    if (((reference_node_t *) $1)->var_info.qualifier == QUANTUM_T || ((reference_node_t *) $3)->var_info.qualifier == QUANTUM_T) {
+                            ((arithmetic_node_t *) $$)->var_info.qualifier = QUANTUM_T;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.qualifier = NONE_T;
+	                    }
+	                    if (((reference_node_t *) $1)->var_info.type == ((reference_node_t *) $3)->var_info.type) {
+	                        ((arithmetic_node_t *) $$)->var_info.type = ((reference_node_t *) $1)->var_info.type;
+	                    } else {
+	                        ((arithmetic_node_t *) $$)->var_info.type = UNSIGNED_T;
+	                    }
+	                    break;
+	                }
+	                default: {
+	                    yyerror("Right operand of \"*\" is a boolean expression");
+	                }
+	            }
+	            break;
+	        }
+	        default: {
+	            yyerror("Left operand of \"*\" is a boolean expression");
+	        }
+	    }
+	    tree_traversal($$);
+	}
+	| mul_expr DIV unary_expr {
+        $$ = $3; /* dummy */
+	}
+	| mul_expr MOD unary_expr {
+        $$ = $3; /* dummy */
+	}
 	;
 
 unary_expr:
@@ -461,14 +996,12 @@ unary_expr:
                 break;
             }
 	        case INV_NODE_T: {
-	            $$ = new_inv_node(((inv_node_t *) $2)->child);
-	            ((inv_node_t *) $$)->var_info.qualifier = ((inv_node_t *) $2)->var_info.qualifier;
-	            ((inv_node_t *) $$)->var_info.type = ((inv_node_t *) $2)->var_info.type;
+	            $$ = ((inv_node_t *) $2)->child;
 	            free($2);
 	            break;
 	        }
             case REFERENCE_NODE_T: {
-                if (((reference_node_t *) $2)->var_info.type == INT_T && ((reference_node_t *) $2)->var_info.type == UNSIGNED_T) {
+                if (((reference_node_t *) $2)->var_info.type == INT_T || ((reference_node_t *) $2)->var_info.type == UNSIGNED_T) {
                     $$ = new_inv_node($2);
                     ((inv_node_t *) $$)->var_info.qualifier = ((reference_node_t *) $2)->var_info.qualifier;
                     ((inv_node_t *) $$)->var_info.type = ((reference_node_t *) $2)->var_info.type;
@@ -513,8 +1046,7 @@ unary_expr:
                 break;
             }
 	        case NOT_OP_NODE_T: {
-	            $$ = new_not_op_node(((not_op_node_t *) $2)->child);
-	            ((not_op_node_t *) $$)->var_info.qualifier = ((not_op_node_t *) $2)->var_info.qualifier;
+	            $$ = ((not_op_node_t *) $2)->child;
 	            free($2);
 	            break;
 	        }
