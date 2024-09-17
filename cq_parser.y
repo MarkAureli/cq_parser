@@ -54,13 +54,13 @@ char error_msg[ERRORMSGLENGTH];
 %token <value> ASSIGN ASSIGN_ADD ASSIGN_AND ASSIGN_DIV ASSIGN_MOD ASSIGN_MUL ASSIGN_OR ASSIGN_SUB ASSIGN_XOR
 %token <value> COLON COMMA LBRACE LBRACKET LPAREN RBRACE RBRACKET RPAREN SEMICOLON
 %left LPAREN RPAREN LBRACKET RBRACKET
+%left OR
+%left XOR
+%left AND
 %left ADD SUB
 %left MUL DIV MOD
-%left XOR
-%left OR
-%left AND
-%left LXOR
 %left LOR
+%left LXOR
 %left LAND
 %right INCR DECR
 %right INV
@@ -71,6 +71,7 @@ char error_msg[ERRORMSGLENGTH];
 %type <symtab_item> declarator
 %type <type_info> type_specifier
 %type <node> variable_decl variable_def function_def const primary_expr postfix_expr unary_expr mul_expr add_expr
+%type <node> or_expr xor_expr and_expr
 %type <array_values> init init_elem_l
 %type <array_access_info> array_access
 %define parse.error verbose
@@ -378,24 +379,48 @@ relational_expr:
 	;
 
 equality_expr:
-	bit_or_expr
-	| equality_expr EQ bit_or_expr
-	| equality_expr NEQ bit_or_expr
+	or_expr
+	| equality_expr EQ or_expr
+	| equality_expr NEQ or_expr
 	;
 
-bit_or_expr:
-	bit_xor_expr
-	| bit_or_expr OR bit_xor_expr
+or_expr:
+    xor_expr {
+        $$ = $1;
+    }
+	| or_expr OR xor_expr {
+        $$ = build_integer_op_node(OR_OP, $1, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+	    print_node($$);
+	}
 	;
 
-bit_xor_expr:
-	bit_and_expr
-	| bit_xor_expr XOR bit_and_expr
+xor_expr:
+	and_expr {
+	    $$ = $1;
+	}
+	| xor_expr XOR and_expr {
+        $$ = build_integer_op_node(XOR_OP, $1, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+	    print_node($$);
+	}
 	;
 
-bit_and_expr:
-	add_expr
-	| bit_and_expr AND add_expr
+and_expr:
+	add_expr {
+        $$ = $1;
+    }
+	| and_expr AND add_expr {
+        $$ = build_integer_op_node(AND_OP, $1, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+	    print_node($$);
+	}
 	;
 
 add_expr:
@@ -403,14 +428,14 @@ add_expr:
 	    $$ = $1;
 	}
 	| add_expr ADD mul_expr {
-        $$ = build_arithmetic_node(ADD_OP, $1, $3, error_msg);
+        $$ = build_integer_op_node(ADD_OP, $1, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	    print_node($$);
 	}
 	| add_expr SUB mul_expr {
-        $$ = build_arithmetic_node(SUB_OP, $1, $3, error_msg);
+        $$ = build_integer_op_node(SUB_OP, $1, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -423,21 +448,21 @@ mul_expr:
 	    $$ = $1;
 	}
 	| mul_expr MUL unary_expr {
-        $$ = build_arithmetic_node(MUL_OP, $1, $3, error_msg);
+        $$ = build_integer_op_node(MUL_OP, $1, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	    print_node($$);
 	}
 	| mul_expr DIV unary_expr {
-        $$ = build_arithmetic_node(DIV_OP, $1, $3, error_msg);
+        $$ = build_integer_op_node(DIV_OP, $1, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
         print_node($$);
 	}
 	| mul_expr MOD unary_expr {
-        $$ = build_arithmetic_node(MOD_OP, $1, $3, error_msg);
+        $$ = build_integer_op_node(MOD_OP, $1, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -450,97 +475,18 @@ unary_expr:
 	    $$ = $1;
 	}
 	| INV unary_expr {
-	    switch ($2->type) {
-	        case CONST_NODE_T: {
-                if (((const_node_t *) $2)->var_info.type == INT_T) {
-                    $$ = $2;
-                    ((const_node_t *) $$)->var_info.value.ival = ~(((const_node_t *) $$)->var_info.value.ival);
-                } else if (((const_node_t *) $2)->var_info.type == UNSIGNED_T) {
-                    $$ = $2;
-                    ((const_node_t *) $$)->var_info.value.uval = ~(((const_node_t *) $$)->var_info.value.uval);
-                } else {
-                    yyerror("Applying \"!\" to boolean expression");
-                }
-                break;
-	        }
-            case INTEGER_OP_NODE_T: {
-                $$ = new_invert_op_node($2);
-                ((invert_op_node_t *) $$)->var_info.qualifier = ((integer_op_node_t *) $2)->var_info.qualifier;
-                ((invert_op_node_t *) $$)->var_info.type = ((integer_op_node_t *) $2)->var_info.type;
-                break;
-            }
-	        case INVERT_OP_NODE_T: {
-	            $$ = ((invert_op_node_t *) $2)->child;
-	            free($2);
-	            break;
-	        }
-            case REFERENCE_NODE_T: {
-                if (((reference_node_t *) $2)->var_info.type == INT_T || ((reference_node_t *) $2)->var_info.type == UNSIGNED_T) {
-                    $$ = new_invert_op_node($2);
-                    ((invert_op_node_t *) $$)->var_info.qualifier = ((reference_node_t *) $2)->var_info.qualifier;
-                    ((invert_op_node_t *) $$)->var_info.type = ((reference_node_t *) $2)->var_info.type;
-                } else {
-                    if (snprintf(error_msg, sizeof (error_msg), "Applying \"~\" to boolean variable %s", ((reference_node_t *) $2)->entry->name) > 0) {
-                        yyerror(error_msg);
-                    } else {
-                        yyerror("Applying \"~\" to boolean variable");
-                    }
-                }
-                break;
-            }
-            default: {
-                yyerror("Applying \"~\" to boolean expression");
-            }
-	    }
+        $$ = build_invert_op_node($2, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+        print_node($$);
 	}
 	| NOT unary_expr {
-	    switch ($2->type) {
-	        case CONST_NODE_T: {
-                if (((const_node_t *) $2)->var_info.type == BOOL_T) {
-                    $$ = $2;
-                    ((const_node_t *) $$)->var_info.value.bval = !(((const_node_t *) $$)->var_info.value.bval);
-                } else {
-                    yyerror("Applying \"!\" to non-boolean expression");
-                }
-                break;
-	        }
-            case LOGICAL_OP_NODE_T: {
-                $$ = new_not_op_node($2);
-                ((not_op_node_t *) $$)->var_info.qualifier = ((logical_op_node_t *) $2)->var_info.qualifier;
-                break;
-            }
-            case RELATION_OP_NODE_T: {
-                $$ = new_not_op_node($2);
-                ((not_op_node_t *) $$)->var_info.qualifier = ((relation_op_node_t *) $2)->var_info.qualifier;
-                break;
-            }
-            case EQUALITY_OP_NODE_T: {
-                $$ = new_not_op_node($2);
-                ((not_op_node_t *) $$)->var_info.qualifier = ((equality_op_node_t *) $2)->var_info.qualifier;
-                break;
-            }
-	        case NOT_OP_NODE_T: {
-	            $$ = ((not_op_node_t *) $2)->child;
-	            free($2);
-	            break;
-	        }
-            case REFERENCE_NODE_T: {
-                if (((reference_node_t *) $2)->var_info.type == BOOL_T) {
-                    $$ = new_not_op_node($2);
-                    ((not_op_node_t *) $$)->var_info.qualifier = ((reference_node_t *) $2)->var_info.qualifier;
-                } else {
-                    if (snprintf(error_msg, sizeof (error_msg), "Applying \"!\" to non-boolean variable %s", ((reference_node_t *) $2)->entry->name) > 0) {
-                        yyerror(error_msg);
-                    } else {
-                        yyerror("Applying \"!\" to non-boolean variable");
-                    }
-                }
-                break;
-            }
-            default: {
-                yyerror("Applying \"!\" to non-boolean expression");
-            }
-	    }
+	    $$ = build_not_op_node($2, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+        print_node($$);
 	}
 	;
 

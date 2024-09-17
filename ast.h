@@ -3,17 +3,6 @@
 #include <stdbool.h>
 #include "symtab.h"
 
-typedef enum integer_op {
-    ADD_OP,
-    AND_OP,
-    DIV_OP,
-    MOD_OP,
-    MUL_OP,
-    OR_OP,
-    SUB_OP,
-    XOR_OP
-} integer_op_t;
-
 typedef enum logical_op {
     LAND_OP,
     LOR_OP,
@@ -32,19 +21,30 @@ typedef enum equality_op {
     NEQ_OP
 } equality_op_t;
 
+typedef enum integer_op {
+    ADD_OP,
+    AND_OP,
+    DIV_OP,
+    MOD_OP,
+    MUL_OP,
+    OR_OP,
+    SUB_OP,
+    XOR_OP
+} integer_op_t;
+
 typedef enum node_type {
     BASIC_NODE_T,
     VAR_DECL_NODE_T,
     FUNC_DECL_NODE_T,
     CONST_NODE_T,
+    REFERENCE_NODE_T,
     FUNC_CALL_NODE_T,
-    INTEGER_OP_NODE_T,
-    INVERT_OP_NODE_T,
     LOGICAL_OP_NODE_T,
     RELATION_OP_NODE_T,
     EQUALITY_OP_NODE_T,
     NOT_OP_NODE_T,
-    REFERENCE_NODE_T,
+    INTEGER_OP_NODE_T,
+    INVERT_OP_NODE_T,
     IF_NODE_T,
     ELSE_NODE_T,
     FOR_NODE_T,
@@ -67,20 +67,28 @@ typedef struct node {
     struct node *right;
 } node_t;
 
-typedef struct var_decl_node {
-    node_type_t type;
-    list_t *entry;
-} var_decl_node_t;
-
 typedef struct func_decl_node {
     node_type_t type;
     list_t *entry;
 } func_decl_node_t;
 
+typedef struct var_decl_node {
+    node_type_t type;
+    list_t *entry;
+} var_decl_node_t;
+
 typedef struct const_node {
     node_type_t type;
     var_info_t var_info;
 } const_node_t;
+
+typedef struct reference_node {
+    node_type_t type;
+    var_info_t var_info;
+    unsigned indices[MAXARRAYDEPTH];
+    unsigned depth;
+    list_t *entry;
+} reference_node_t;
 
 typedef struct func_call_node {
     node_type_t type;
@@ -89,20 +97,6 @@ typedef struct func_call_node {
     node_t **pars;
     unsigned num_of_pars;
 } func_call_node_t;
-
-typedef struct integer_op_node {
-    node_type_t type;
-    var_info_t var_info;
-    integer_op_t op;
-    node_t *left;
-    node_t *right;
-} integer_op_node_t;
-
-typedef struct invert_op_node {
-    node_type_t type;
-    var_info_t var_info;
-    node_t *child;
-} invert_op_node_t;
 
 typedef struct logical_op_node {
     node_type_t type;
@@ -134,13 +128,19 @@ typedef struct not_op_node {
     node_t *child;
 } not_op_node_t;
 
-typedef struct reference_node {
+typedef struct integer_op_node {
     node_type_t type;
     var_info_t var_info;
-    unsigned indices[MAXARRAYDEPTH];
-    unsigned depth;
-    list_t *entry;
-} reference_node_t;
+    integer_op_t op;
+    node_t *left;
+    node_t *right;
+} integer_op_node_t;
+
+typedef struct invert_op_node {
+    node_type_t type;
+    var_info_t var_info;
+    node_t *child;
+} invert_op_node_t;
 
 typedef struct if_node {
     node_type_t type;
@@ -204,17 +204,15 @@ char *equality_op_to_str(equality_op_t equality_op);
 
 node_t *new_node(node_type_t type, node_t *left, node_t *right);
 
-node_t *new_var_decl_node(list_t *entry);
-
 node_t *new_func_decl_node(list_t *entry);
+
+node_t *new_var_decl_node(list_t *entry);
 
 node_t *new_const_node(type_t type, value_t value);
 
+node_t *new_reference_node(list_t *entry);
+
 node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars);
-
-node_t *new_integer_op_node(integer_op_t op, node_t *left, node_t *right);
-
-node_t *new_invert_op_node(node_t *child);
 
 node_t *new_logical_op_node(logical_op_t op, node_t *left, node_t *right);
 
@@ -224,7 +222,9 @@ node_t *new_equality_op_node(equality_op_t op, node_t *left, node_t *right);
 
 node_t *new_not_op_node(node_t *child);
 
-node_t *new_reference_node(list_t *entry);
+node_t *new_integer_op_node(integer_op_t op, node_t *left, node_t *right);
+
+node_t *new_invert_op_node(node_t *child);
 
 node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branches, unsigned elseif_count, node_t *else_branch);
 
@@ -242,7 +242,11 @@ node_t *new_jump_node(int statement_type);
 
 node_t *new_return_node(type_t ret_type, node_t *ret_val);
 
-node_t *build_arithmetic_node(integer_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]);
+node_t *build_not_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]);
+
+node_t *build_integer_op_node(integer_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]);
+
+node_t *build_invert_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]);
 
 void print_node(const node_t *node);
 
