@@ -28,7 +28,6 @@ char error_msg[ERRORMSGLENGTH];
     array_values_t array_values;
     array_access_info_t array_access_info;
     integer_op_t integer_op;
-    shift_op_t shift_op;
     logical_op_t logical_op;
     relation_op_t relation_op;
     equality_op_t equality_op;
@@ -48,15 +47,13 @@ char error_msg[ERRORMSGLENGTH];
 %token <value> INCR DECR
 %token <value> INV
 %token <value> AND OR XOR
-%token <value> LSHIFT RSHIFT
 %token <value> LAND LOR LXOR
 %token <value> NOT
 %token <value> GE GEQ LE LEQ
 %token <value> EQ NEQ
-%token <value> ASSIGN ASSIGN_ADD ASSIGN_AND ASSIGN_DIV ASSIGN_LSHIFT ASSIGN_MOD ASSIGN_MUL ASSIGN_OR ASSIGN_RSHIFT ASSIGN_SUB ASSIGN_XOR
+%token <value> ASSIGN ASSIGN_ADD ASSIGN_AND ASSIGN_DIV ASSIGN_MOD ASSIGN_MUL ASSIGN_OR ASSIGN_SUB ASSIGN_XOR
 %token <value> COLON COMMA LBRACE LBRACKET LPAREN RBRACE RBRACKET RPAREN SEMICOLON
 %left LPAREN RPAREN LBRACKET RBRACKET
-%left LSHIFT RSHIFT
 %left ADD SUB
 %left MUL DIV MOD
 %left XOR
@@ -349,8 +346,6 @@ assignment_operator:
 	ASSIGN_AND
 	| ASSIGN_OR
 	| ASSIGN_XOR
-	| ASSIGN_LSHIFT
-	| ASSIGN_RSHIFT
 	| ASSIGN_MUL
 	| ASSIGN_DIV
 	| ASSIGN_MOD
@@ -370,8 +365,22 @@ logical_xor_expr:
 	;
 
 logical_and_expr:
+	relational_expr
+	| logical_and_expr LAND relational_expr
+	;
+
+relational_expr:
+	equality_expr
+	| relational_expr LE equality_expr
+	| relational_expr GE equality_expr
+	| relational_expr LEQ equality_expr
+	| relational_expr GEQ equality_expr
+	;
+
+equality_expr:
 	bit_or_expr
-	| logical_and_expr LAND bit_or_expr
+	| equality_expr EQ bit_or_expr
+	| equality_expr NEQ bit_or_expr
 	;
 
 bit_or_expr:
@@ -385,28 +394,8 @@ bit_xor_expr:
 	;
 
 bit_and_expr:
-	equality_expr
-	| bit_and_expr AND equality_expr
-	;
-
-equality_expr:
-	relational_expr
-	| equality_expr EQ relational_expr
-	| equality_expr NEQ relational_expr
-	;
-
-relational_expr:
-	shift_expr
-	| relational_expr LE shift_expr
-	| relational_expr GE shift_expr
-	| relational_expr LEQ shift_expr
-	| relational_expr GEQ shift_expr
-	;
-
-shift_expr:
 	add_expr
-	| shift_expr LSHIFT add_expr
-	| shift_expr RSHIFT add_expr
+	| bit_and_expr AND add_expr
 	;
 
 add_expr:
@@ -478,12 +467,6 @@ unary_expr:
                 $$ = new_invert_op_node($2);
                 ((invert_op_node_t *) $$)->var_info.qualifier = ((integer_op_node_t *) $2)->var_info.qualifier;
                 ((invert_op_node_t *) $$)->var_info.type = ((integer_op_node_t *) $2)->var_info.type;
-                break;
-            }
-            case SHIFT_OP_NODE_T: {
-                $$ = new_invert_op_node($2);
-                ((invert_op_node_t *) $$)->var_info.qualifier = NONE_T;
-                ((invert_op_node_t *) $$)->var_info.type = ((shift_op_node_t *) $2)->var_info.type;
                 break;
             }
 	        case INVERT_OP_NODE_T: {

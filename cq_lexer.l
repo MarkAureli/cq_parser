@@ -93,11 +93,6 @@ phase				    { return PHASE; }
 %}
 "~"                     { return INV; }
 
-%{ /* shift operations */
-%}
-"<<"				    { yylval.shift_op = LSHIFT_OP; return LSHIFT; }
-">>"				    { yylval.shift_op = RSHIFT_OP; return RSHIFT; }
-
 %{ /* logical operations */
 %}
 "&&"				    { yylval.logical_op = LAND_OP; return LAND; }
@@ -126,11 +121,9 @@ phase				    { return PHASE; }
 "+="				    { return ASSIGN_ADD; }
 "&="				    { return ASSIGN_AND; }
 "/="				    { return ASSIGN_DIV; }
-"<<="				    { return ASSIGN_LSHIFT; }
 "%="				    { return ASSIGN_MOD; }
 "*="				    { return ASSIGN_MUL; }
 "|="				    { return ASSIGN_OR; }
-">>="				    { return ASSIGN_RSHIFT; }
 "-="				    { return ASSIGN_SUB; }
 "^="				    { return ASSIGN_XOR; }
 

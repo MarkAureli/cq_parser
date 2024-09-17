@@ -32,17 +32,6 @@ char *integer_op_to_str(integer_op_t integer_op) {
     }
 }
 
-char *shift_op_to_str(shift_op_t shift_op) {
-    switch (shift_op) {
-        case LSHIFT_OP: {
-            return "<<";
-        }
-        case RSHIFT_OP: {
-            return ">>";
-        }
-    }
-}
-
 char *logical_op_to_str(logical_op_t logical_op) {
     switch (logical_op) {
         case LAND_OP: {
@@ -133,15 +122,6 @@ node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars) {
 node_t *new_integer_op_node(integer_op_t op, node_t *left, node_t *right) {
     integer_op_node_t *new_node = calloc(1, sizeof (integer_op_node_t));
     new_node->type = INTEGER_OP_NODE_T;
-    new_node->op = op;
-    new_node->left = left;
-    new_node->right = right;
-    return (node_t *) new_node;
-}
-
-node_t *new_shift_op_node(shift_op_t op, node_t *left, node_t *right) {
-    shift_op_node_t *new_node = calloc(1, sizeof (shift_op_node_t));
-    new_node->type = SHIFT_OP_NODE_T;
     new_node->op = op;
     new_node->left = left;
     new_node->right = right;
@@ -275,9 +255,6 @@ var_info_t get_var_info_of_node(const node_t *node) {
         case INTEGER_OP_NODE_T: {
             return ((integer_op_node_t *) node)->var_info;
         }
-        case SHIFT_OP_NODE_T: {
-            return ((shift_op_node_t *) node)->var_info;
-        }
         case INVERT_OP_NODE_T: {
             return ((invert_op_node_t *) node)->var_info;
         }
@@ -308,7 +285,6 @@ node_t *build_arithmetic_node(integer_op_t op, node_t *left, node_t *right, char
     const_node_t *const_node_view_left, *const_node_view_right, *const_node_view_result;
     reference_node_t *reference_node_view_left, *reference_node_view_right;
     integer_op_node_t *integer_op_node_view_left, *integer_op_node_view_right, *integer_op_node_view_result;
-    shift_op_node_t *shift_op_node_view_left, *shift_op_node_view_right;
     invert_op_node_t *invert_op_node_view_left, *invert_op_node_view_right;
 
     switch (left->type) {
@@ -522,18 +498,6 @@ node_t *build_arithmetic_node(integer_op_t op, node_t *left, node_t *right, char
                     }
                     return result;
                 }
-                case SHIFT_OP_NODE_T: {
-                    shift_op_node_view_right = (shift_op_node_t *) right;
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    integer_op_node_view_result->var_info.qualifier = shift_op_node_view_right->var_info.qualifier;
-                    if (const_node_view_left->var_info.type == shift_op_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = const_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
                 case INVERT_OP_NODE_T: {
                     invert_op_node_view_right = (invert_op_node_t *) right;
                     result = new_integer_op_node(op, left, right);
@@ -614,22 +578,6 @@ node_t *build_arithmetic_node(integer_op_t op, node_t *left, node_t *right, char
                     }
                     return result;
                 }
-                case SHIFT_OP_NODE_T: {
-                    shift_op_node_view_right = (shift_op_node_t *) right;
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    if (integer_op_node_view_left->var_info.qualifier == QUANTUM_T || shift_op_node_view_right->var_info.qualifier == QUANTUM_T) {
-                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
-                    } else {
-                        integer_op_node_view_result->var_info.qualifier = NONE_T;
-                    }
-                    if (integer_op_node_view_left->var_info.type == shift_op_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = integer_op_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
                 case INVERT_OP_NODE_T: {
                     invert_op_node_view_right = (invert_op_node_t *) right;
                     result = new_integer_op_node(op, left, right);
@@ -662,102 +610,6 @@ node_t *build_arithmetic_node(integer_op_t op, node_t *left, node_t *right, char
                     }
                     if (integer_op_node_view_left->var_info.type == reference_node_view_right->var_info.type) {
                         integer_op_node_view_result->var_info.type = integer_op_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                default: {
-                    snprintf(error_msg, ERRORMSGLENGTH, "Right operand of \"%s\" is a boolean expression",
-                             integer_op_to_str(op));
-                    return NULL;
-                }
-            }
-        }
-        case SHIFT_OP_NODE_T: {
-            shift_op_node_view_left = (shift_op_node_t *) left;
-            switch (right->type) {
-                case CONST_NODE_T: {
-                    const_node_view_right = (const_node_t *) right;
-                    if (const_node_view_right->var_info.type == BOOL_T) {
-                        snprintf(error_msg, ERRORMSGLENGTH, "Right operand of \"%s\" is a boolean expression",
-                                 integer_op_to_str(op));
-                        return NULL;
-                    }
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    integer_op_node_view_result->var_info.qualifier = shift_op_node_view_left->var_info.qualifier;
-                    if (shift_op_node_view_left->var_info.type == const_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = shift_op_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                case INTEGER_OP_NODE_T: {
-                    integer_op_node_view_right = (integer_op_node_t *) right;
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    if (shift_op_node_view_left->var_info.qualifier == QUANTUM_T || integer_op_node_view_right->var_info.qualifier == QUANTUM_T) {
-                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
-                    } else {
-                        integer_op_node_view_result->var_info.qualifier = NONE_T;
-                    }
-                    if (shift_op_node_view_left->var_info.type == integer_op_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = shift_op_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                case SHIFT_OP_NODE_T: {
-                    shift_op_node_view_right = (shift_op_node_t *) right;
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    if (shift_op_node_view_left->var_info.qualifier == QUANTUM_T || shift_op_node_view_right->var_info.qualifier == QUANTUM_T) {
-                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
-                    } else {
-                        integer_op_node_view_result->var_info.qualifier = NONE_T;
-                    }
-                    if (shift_op_node_view_left->var_info.type == shift_op_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = shift_op_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                case INVERT_OP_NODE_T: {
-                    invert_op_node_view_right = (invert_op_node_t *) right;
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    if (shift_op_node_view_left->var_info.qualifier == QUANTUM_T || invert_op_node_view_right->var_info.qualifier == QUANTUM_T) {
-                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
-                    } else {
-                        integer_op_node_view_result->var_info.qualifier = NONE_T;
-                    }
-                    if (shift_op_node_view_left->var_info.type == invert_op_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = shift_op_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                case REFERENCE_NODE_T: {
-                    reference_node_view_right = (reference_node_t *) right;
-                    if (reference_node_view_right->var_info.type == BOOL_T) {
-                        snprintf(error_msg, ERRORMSGLENGTH, "Right operand of \"%s\" is a boolean expression",
-                                 integer_op_to_str(op));
-                        return NULL;
-                    }
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    if (shift_op_node_view_left->var_info.qualifier == QUANTUM_T || reference_node_view_right->var_info.qualifier == QUANTUM_T) {
-                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
-                    } else {
-                        integer_op_node_view_result->var_info.qualifier = NONE_T;
-                    }
-                    if (shift_op_node_view_left->var_info.type == reference_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = shift_op_node_view_left->var_info.type;
                     } else {
                         integer_op_node_view_result->var_info.type = UNSIGNED_T;
                     }
@@ -808,22 +660,6 @@ node_t *build_arithmetic_node(integer_op_t op, node_t *left, node_t *right, char
                         integer_op_node_view_result->var_info.qualifier = NONE_T;
                     }
                     if (invert_op_node_view_left->var_info.type == integer_op_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = invert_op_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                case SHIFT_OP_NODE_T: {
-                    shift_op_node_view_right = (shift_op_node_t *) right;
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    if (invert_op_node_view_left->var_info.qualifier == QUANTUM_T || shift_op_node_view_right->var_info.qualifier == QUANTUM_T) {
-                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
-                    } else {
-                        integer_op_node_view_result->var_info.qualifier = NONE_T;
-                    }
-                    if (invert_op_node_view_left->var_info.type == shift_op_node_view_right->var_info.type) {
                         integer_op_node_view_result->var_info.type = invert_op_node_view_left->var_info.type;
                     } else {
                         integer_op_node_view_result->var_info.type = UNSIGNED_T;
@@ -917,22 +753,6 @@ node_t *build_arithmetic_node(integer_op_t op, node_t *left, node_t *right, char
                         integer_op_node_view_result->var_info.qualifier = NONE_T;
                     }
                     if (reference_node_view_left->var_info.type == integer_op_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = reference_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                case SHIFT_OP_NODE_T: {
-                    shift_op_node_view_right = (shift_op_node_t *) right;
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    if (reference_node_view_left->var_info.qualifier == QUANTUM_T || shift_op_node_view_right->var_info.qualifier == QUANTUM_T) {
-                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
-                    } else {
-                        integer_op_node_view_result->var_info.qualifier = NONE_T;
-                    }
-                    if (reference_node_view_left->var_info.type == shift_op_node_view_right->var_info.type) {
                         integer_op_node_view_result->var_info.type = reference_node_view_left->var_info.type;
                     } else {
                         integer_op_node_view_result->var_info.type = UNSIGNED_T;
@@ -1066,10 +886,6 @@ void print_node(const node_t *node) {
             printf("%s)\n", type_to_str(info.type));
             break;
         }
-        case SHIFT_OP_NODE_T: {
-            printf("Shift node of operator %s\n", shift_op_to_str(((shift_op_node_t *) node)->op));
-            break;
-        }
         case INVERT_OP_NODE_T: {
             printf("Inversion node\n");
             break;
@@ -1148,11 +964,6 @@ void tree_traversal(const node_t *node) {
         case INTEGER_OP_NODE_T: {
             tree_traversal(((integer_op_node_t *)node)->left);
             tree_traversal(((integer_op_node_t *)node)->right);
-            break;
-        }
-        case SHIFT_OP_NODE_T: {
-            tree_traversal(((shift_op_node_t *)node)->left);
-            tree_traversal(((shift_op_node_t *)node)->right);
             break;
         }
         case LOGICAL_OP_NODE_T: {

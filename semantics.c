@@ -14,9 +14,6 @@ char *op_type_to_string(op_type_t op_type) {
         case INVERT_OP: {
             return "INVERT_OP";
         }
-        case SHIFT_OP: {
-            return "SHIFT_OP";
-        }
         case LOGICAL_OP: {
             return "LOGICAL_OP";
         }
@@ -40,7 +37,7 @@ type_t get_result_type(type_t type_1, type_t type_2, op_type_t op_type) {
             }
             break;
         }
-        case INTEGER_OP: case SHIFT_OP: {
+        case INTEGER_OP: {
             switch (type_1) {
                 case INT_T: {
                     switch (type_2) {

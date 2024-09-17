@@ -14,11 +14,6 @@ typedef enum integer_op {
     XOR_OP
 } integer_op_t;
 
-typedef enum shift_op {
-    LSHIFT_OP,
-    RSHIFT_OP
-} shift_op_t;
-
 typedef enum logical_op {
     LAND_OP,
     LOR_OP,
@@ -44,7 +39,6 @@ typedef enum node_type {
     CONST_NODE_T,
     FUNC_CALL_NODE_T,
     INTEGER_OP_NODE_T,
-    SHIFT_OP_NODE_T,
     INVERT_OP_NODE_T,
     LOGICAL_OP_NODE_T,
     RELATION_OP_NODE_T,
@@ -103,14 +97,6 @@ typedef struct integer_op_node {
     node_t *left;
     node_t *right;
 } integer_op_node_t;
-
-typedef struct shift_op_node {
-    node_type_t type;
-    var_info_t var_info;
-    shift_op_t op;
-    node_t *left;
-    node_t *right;
-} shift_op_node_t;
 
 typedef struct invert_op_node {
     node_type_t type;
@@ -210,8 +196,6 @@ typedef struct return_node {
 
 char *integer_op_to_str(integer_op_t integer_op);
 
-char *shift_op_to_str(shift_op_t shift_op);
-
 char *logical_op_to_str(logical_op_t logical_op);
 
 char *relation_op_to_str(relation_op_t relation_op);
@@ -229,8 +213,6 @@ node_t *new_const_node(type_t type, value_t value);
 node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars);
 
 node_t *new_integer_op_node(integer_op_t op, node_t *left, node_t *right);
-
-node_t *new_shift_op_node(shift_op_t op, node_t *left, node_t *right);
 
 node_t *new_invert_op_node(node_t *child);
 
