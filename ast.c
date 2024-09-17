@@ -507,7 +507,7 @@ node_t *build_arithmetic_node(integer_op_t op, node_t *left, node_t *right, char
                             }
                         }
                     }
-                    free(right);
+                    free(const_node_view_right);
                     return result;
                 }
                 case INTEGER_OP_NODE_T: {
@@ -526,7 +526,7 @@ node_t *build_arithmetic_node(integer_op_t op, node_t *left, node_t *right, char
                     shift_op_node_view_right = (shift_op_node_t *) right;
                     result = new_integer_op_node(op, left, right);
                     integer_op_node_view_result = (integer_op_node_t *) result;
-                    integer_op_node_view_result->var_info.qualifier = NONE_T;
+                    integer_op_node_view_result->var_info.qualifier = shift_op_node_view_right->var_info.qualifier;
                     if (const_node_view_left->var_info.type == shift_op_node_view_right->var_info.type) {
                         integer_op_node_view_result->var_info.type = const_node_view_left->var_info.type;
                     } else {
@@ -618,7 +618,11 @@ node_t *build_arithmetic_node(integer_op_t op, node_t *left, node_t *right, char
                     shift_op_node_view_right = (shift_op_node_t *) right;
                     result = new_integer_op_node(op, left, right);
                     integer_op_node_view_result = (integer_op_node_t *) result;
-                    integer_op_node_view_result->var_info.qualifier = integer_op_node_view_left->var_info.qualifier;
+                    if (integer_op_node_view_left->var_info.qualifier == QUANTUM_T || shift_op_node_view_right->var_info.qualifier == QUANTUM_T) {
+                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
+                    } else {
+                        integer_op_node_view_result->var_info.qualifier = NONE_T;
+                    }
                     if (integer_op_node_view_left->var_info.type == shift_op_node_view_right->var_info.type) {
                         integer_op_node_view_result->var_info.type = integer_op_node_view_left->var_info.type;
                     } else {
@@ -682,7 +686,7 @@ node_t *build_arithmetic_node(integer_op_t op, node_t *left, node_t *right, char
                     }
                     result = new_integer_op_node(op, left, right);
                     integer_op_node_view_result = (integer_op_node_t *) result;
-                    integer_op_node_view_result->var_info.qualifier = NONE_T;
+                    integer_op_node_view_result->var_info.qualifier = shift_op_node_view_left->var_info.qualifier;
                     if (shift_op_node_view_left->var_info.type == const_node_view_right->var_info.type) {
                         integer_op_node_view_result->var_info.type = shift_op_node_view_left->var_info.type;
                     } else {
@@ -694,7 +698,11 @@ node_t *build_arithmetic_node(integer_op_t op, node_t *left, node_t *right, char
                     integer_op_node_view_right = (integer_op_node_t *) right;
                     result = new_integer_op_node(op, left, right);
                     integer_op_node_view_result = (integer_op_node_t *) result;
-                    integer_op_node_view_result->var_info.qualifier = integer_op_node_view_right->var_info.qualifier;
+                    if (shift_op_node_view_left->var_info.qualifier == QUANTUM_T || integer_op_node_view_right->var_info.qualifier == QUANTUM_T) {
+                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
+                    } else {
+                        integer_op_node_view_result->var_info.qualifier = NONE_T;
+                    }
                     if (shift_op_node_view_left->var_info.type == integer_op_node_view_right->var_info.type) {
                         integer_op_node_view_result->var_info.type = shift_op_node_view_left->var_info.type;
                     } else {
@@ -706,7 +714,11 @@ node_t *build_arithmetic_node(integer_op_t op, node_t *left, node_t *right, char
                     shift_op_node_view_right = (shift_op_node_t *) right;
                     result = new_integer_op_node(op, left, right);
                     integer_op_node_view_result = (integer_op_node_t *) result;
-                    integer_op_node_view_result->var_info.qualifier = NONE_T;
+                    if (shift_op_node_view_left->var_info.qualifier == QUANTUM_T || shift_op_node_view_right->var_info.qualifier == QUANTUM_T) {
+                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
+                    } else {
+                        integer_op_node_view_result->var_info.qualifier = NONE_T;
+                    }
                     if (shift_op_node_view_left->var_info.type == shift_op_node_view_right->var_info.type) {
                         integer_op_node_view_result->var_info.type = shift_op_node_view_left->var_info.type;
                     } else {
@@ -718,7 +730,11 @@ node_t *build_arithmetic_node(integer_op_t op, node_t *left, node_t *right, char
                     invert_op_node_view_right = (invert_op_node_t *) right;
                     result = new_integer_op_node(op, left, right);
                     integer_op_node_view_result = (integer_op_node_t *) result;
-                    integer_op_node_view_result->var_info.qualifier = invert_op_node_view_right->var_info.qualifier;
+                    if (shift_op_node_view_left->var_info.qualifier == QUANTUM_T || invert_op_node_view_right->var_info.qualifier == QUANTUM_T) {
+                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
+                    } else {
+                        integer_op_node_view_result->var_info.qualifier = NONE_T;
+                    }
                     if (shift_op_node_view_left->var_info.type == invert_op_node_view_right->var_info.type) {
                         integer_op_node_view_result->var_info.type = shift_op_node_view_left->var_info.type;
                     } else {
@@ -735,7 +751,11 @@ node_t *build_arithmetic_node(integer_op_t op, node_t *left, node_t *right, char
                     }
                     result = new_integer_op_node(op, left, right);
                     integer_op_node_view_result = (integer_op_node_t *) result;
-                    integer_op_node_view_result->var_info.qualifier = reference_node_view_right->var_info.qualifier;
+                    if (shift_op_node_view_left->var_info.qualifier == QUANTUM_T || reference_node_view_right->var_info.qualifier == QUANTUM_T) {
+                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
+                    } else {
+                        integer_op_node_view_result->var_info.qualifier = NONE_T;
+                    }
                     if (shift_op_node_view_left->var_info.type == reference_node_view_right->var_info.type) {
                         integer_op_node_view_result->var_info.type = shift_op_node_view_left->var_info.type;
                     } else {
@@ -798,7 +818,11 @@ node_t *build_arithmetic_node(integer_op_t op, node_t *left, node_t *right, char
                     shift_op_node_view_right = (shift_op_node_t *) right;
                     result = new_integer_op_node(op, left, right);
                     integer_op_node_view_result = (integer_op_node_t *) result;
-                    integer_op_node_view_result->var_info.qualifier = invert_op_node_view_left->var_info.qualifier;
+                    if (invert_op_node_view_left->var_info.qualifier == QUANTUM_T || shift_op_node_view_right->var_info.qualifier == QUANTUM_T) {
+                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
+                    } else {
+                        integer_op_node_view_result->var_info.qualifier = NONE_T;
+                    }
                     if (invert_op_node_view_left->var_info.type == shift_op_node_view_right->var_info.type) {
                         integer_op_node_view_result->var_info.type = invert_op_node_view_left->var_info.type;
                     } else {
@@ -903,7 +927,11 @@ node_t *build_arithmetic_node(integer_op_t op, node_t *left, node_t *right, char
                     shift_op_node_view_right = (shift_op_node_t *) right;
                     result = new_integer_op_node(op, left, right);
                     integer_op_node_view_result = (integer_op_node_t *) result;
-                    integer_op_node_view_result->var_info.qualifier = reference_node_view_left->var_info.qualifier;
+                    if (reference_node_view_left->var_info.qualifier == QUANTUM_T || shift_op_node_view_right->var_info.qualifier == QUANTUM_T) {
+                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
+                    } else {
+                        integer_op_node_view_result->var_info.qualifier = NONE_T;
+                    }
                     if (reference_node_view_left->var_info.type == shift_op_node_view_right->var_info.type) {
                         integer_op_node_view_result->var_info.type = reference_node_view_left->var_info.type;
                     } else {
