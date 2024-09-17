@@ -379,9 +379,23 @@ relational_expr:
 	;
 
 equality_expr:
-	or_expr
-	| equality_expr EQ or_expr
-	| equality_expr NEQ or_expr
+	or_expr {
+	    $$ = $1;
+	}
+	| equality_expr EQ or_expr {
+	    $$ = build_equality_op_node(EQ_OP, $1, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+        print_node($$);
+	}
+	| equality_expr NEQ or_expr {
+	    $$ = build_equality_op_node(NEQ_OP, $1, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+        print_node($$);
+	}
 	;
 
 or_expr:

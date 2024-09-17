@@ -280,6 +280,19 @@ var_info_t get_var_info_of_node(const node_t *node) {
     }
 }
 
+node_t *build_equality_op_node(equality_op_t , node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]) {
+    node_t *result;
+    const_node_t *const_node_view_left, *const_node_view_right, *const_node_view_result;
+    reference_node_t *reference_node_view_left, *reference_node_view_right;
+    logical_op_node_t *logical_op_node_view_left, *logical_op_node_view_right;
+    relation_op_node_t *relation_op_node_view_left, *relation_op_node_view_right;
+    equality_op_node_t *equality_op_node_view_left, *equality_op_node_view_right, *equality_op_node_view_result;
+    not_op_node_t *not_op_node_view_left, *not_op_node_view_right;
+    integer_op_node_t *integer_op_node_view_left, *integer_op_node_view_right;
+    invert_op_node_t *invert_op_node_view_left, *invert_op_node_view_right;
+
+}
+
 node_t *build_not_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
     node_t *result;
     const_node_t *const_node_view_child, *const_node_view_result;

@@ -242,6 +242,8 @@ node_t *new_jump_node(int statement_type);
 
 node_t *new_return_node(type_t ret_type, node_t *ret_val);
 
+node_t *build_equality_op_node(equality_op_t , node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]);
+
 node_t *build_not_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]);
 
 node_t *build_integer_op_node(integer_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]);
