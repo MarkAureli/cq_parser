@@ -274,13 +274,13 @@ var_info_t get_var_info_of_node(const node_t *node) {
             return ((reference_node_t *) node)->var_info;
         }
         default: {
-            var_info_t undefined_result = { .qualifier=NONE_T, .type=UNDEFINED_T, .value.bval=false};
+            var_info_t undefined_result = { .qualifier=NONE_T, .type=VOID_T, .value.bval=false};
             return undefined_result;
         }
     }
 }
 
-node_t *build_equality_op_node(equality_op_t , node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]) {
+node_t *build_equality_op_node(equality_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]) {
     node_t *result;
     const_node_t *const_node_view_left, *const_node_view_right, *const_node_view_result;
     reference_node_t *reference_node_view_left, *reference_node_view_right;
@@ -291,6 +291,504 @@ node_t *build_equality_op_node(equality_op_t , node_t *left, node_t *right, char
     integer_op_node_t *integer_op_node_view_left, *integer_op_node_view_right;
     invert_op_node_t *invert_op_node_view_left, *invert_op_node_view_right;
 
+    qualifier_t qualifier_left, qualifier_right;
+    type_t type_left, type_right;
+
+    switch (left->type) {
+        case CONST_NODE_T: {
+            const_node_view_left = (const_node_t *) left;
+            type_left = const_node_view_left->var_info.type;
+            switch (right->type) {
+                case CONST_NODE_T: {
+                    const_node_view_right = (const_node_t *) right;
+                    type_right = const_node_view_right->var_info.type;
+                    switch (type_left) {
+                        case BOOL_T: {
+                            if (type_right == BOOL_T) {
+                                result = left;
+                                const_node_view_result = (const_node_t *) result;
+                                if (op == EQ_OP) {
+                                    const_node_view_result->var_info.value.bval = const_node_view_left->var_info.value.bval == const_node_view_right->var_info.value.bval;
+                                } else {
+                                    const_node_view_result->var_info.value.bval = const_node_view_left->var_info.value.bval != const_node_view_right->var_info.value.bval;
+                                }
+                                free(const_node_view_right);
+                                return result;
+                            } else {
+                                snprintf(error_msg, ERRORMSGLENGTH, "Checking %s of bool and %s", (op == EQ_OP) ? "equality" : "inequality",
+                                         type_to_str(type_right));
+                                return NULL;
+                            }
+                        }
+                        case INT_T: {
+                            switch (type_right) {
+                                case BOOL_T: {
+                                    snprintf(error_msg, ERRORMSGLENGTH, "Checking %s of int and bool", (op == EQ_OP) ? "equality" : "inequality");
+                                    return NULL;
+                                }
+                                case INT_T: {
+                                    result = left;
+                                    const_node_view_result = (const_node_t *) result;
+                                    const_node_view_result->var_info.type = BOOL_T;
+                                    if (op == EQ_OP) {
+                                        const_node_view_result->var_info.value.bval = const_node_view_left->var_info.value.ival == const_node_view_right->var_info.value.ival;
+                                    } else {
+                                        const_node_view_result->var_info.value.bval = const_node_view_left->var_info.value.ival != const_node_view_right->var_info.value.ival;
+                                    }
+                                    free(const_node_view_right);
+                                    return result;
+                                }
+                                case UNSIGNED_T: {
+                                    result = left;
+                                    const_node_view_result = (const_node_t *) result;
+                                    const_node_view_result->var_info.type = BOOL_T;
+                                    if (op == EQ_OP) {
+                                        const_node_view_result->var_info.value.bval = const_node_view_left->var_info.value.ival == const_node_view_right->var_info.value.uval;
+                                    } else {
+                                        const_node_view_result->var_info.value.bval = const_node_view_left->var_info.value.ival != const_node_view_right->var_info.value.uval;
+                                    }
+                                    free(const_node_view_right);
+                                    return result;
+                                }
+                                case VOID_T: {
+                                    snprintf(error_msg, ERRORMSGLENGTH, "Right-hand side of %s is ill-formed", (op == EQ_OP) ? "equality" : "inequality");
+                                    return NULL;
+                                }
+                            }
+                        }
+                        case UNSIGNED_T: {
+                            switch (type_right) {
+                                case BOOL_T: {
+                                    snprintf(error_msg, ERRORMSGLENGTH, "Checking %s of unsigned and bool", (op == EQ_OP) ? "equality" : "inequality");
+                                    return NULL;
+                                }
+                                case INT_T: {
+                                    result = left;
+                                    const_node_view_result = (const_node_t *) result;
+                                    const_node_view_result->var_info.type = BOOL_T;
+                                    if (op == EQ_OP) {
+                                        const_node_view_result->var_info.value.bval = const_node_view_left->var_info.value.uval == const_node_view_right->var_info.value.ival;
+                                    } else {
+                                        const_node_view_result->var_info.value.bval = const_node_view_left->var_info.value.uval != const_node_view_right->var_info.value.ival;
+                                    }
+                                    free(const_node_view_right);
+                                    return result;
+                                }
+                                case UNSIGNED_T: {
+                                    result = left;
+                                    const_node_view_result = (const_node_t *) result;
+                                    const_node_view_result->var_info.type = BOOL_T;
+                                    if (op == EQ_OP) {
+                                        const_node_view_result->var_info.value.bval = const_node_view_left->var_info.value.uval == const_node_view_right->var_info.value.uval;
+                                    } else {
+                                        const_node_view_result->var_info.value.bval = const_node_view_left->var_info.value.uval != const_node_view_right->var_info.value.uval;
+                                    }
+                                    free(const_node_view_right);
+                                    return result;
+                                }
+                                case VOID_T: {
+                                    snprintf(error_msg, ERRORMSGLENGTH, "Right-hand side of %s is ill-formed", (op == EQ_OP) ? "equality" : "inequality");
+                                    return NULL;
+                                }
+                            }
+                        }
+                        case VOID_T: {
+                            snprintf(error_msg, ERRORMSGLENGTH, "Left-hand side of %s is ill-formed", (op == EQ_OP) ? "equality" : "inequality");
+                            return NULL;
+                        }
+                    }
+                }
+                case REFERENCE_NODE_T: {
+                    reference_node_view_right = (reference_node_t *) right;
+                    qualifier_right = reference_node_view_right->var_info.qualifier;
+                    type_right = reference_node_view_right->var_info.type;
+                    switch (type_left) {
+                        case BOOL_T: {
+                            if (type_right == BOOL_T) {
+                                result = new_equality_op_node(op, left, right);
+                                equality_op_node_view_result = (equality_op_node_t *) result;
+                                equality_op_node_view_result->var_info.qualifier = qualifier_right;
+                                return result;
+                            } else {
+                                snprintf(error_msg, ERRORMSGLENGTH, "Checking %s of bool and %s", (op == EQ_OP) ? "equality" : "inequality",
+                                         type_to_str(type_right));
+                                return NULL;
+                            }
+                        }
+                        case INT_T: case UNSIGNED_T: {
+                            if (type_right == INT_T || type_right == UNSIGNED_T) {
+                                result = new_equality_op_node(op, left, right);
+                                equality_op_node_view_result = (equality_op_node_t *) result;
+                                equality_op_node_view_result->var_info.qualifier = qualifier_right;
+                                return result;
+                            } else {
+                                snprintf(error_msg, ERRORMSGLENGTH, "Checking %s of %s and %s", (op == EQ_OP) ? "equality" : "inequality",
+                                         type_to_str(type_left), type_to_str(type_right));
+                                return NULL;
+                            }
+                        }
+                        case VOID_T: {
+                            snprintf(error_msg, ERRORMSGLENGTH, "Left-hand side of %s is ill-formed", (op == EQ_OP) ? "equality" : "inequality");
+                            return NULL;
+                        }
+                    }
+                    return result;
+                }
+                case LOGICAL_OP_NODE_T: {
+                    logical_op_node_view_right = (logical_op_node_t *) right;
+                    qualifier_right = logical_op_node_view_right->var_info.qualifier;
+                    if (type_left == BOOL_T) {
+                        result = new_equality_op_node(op, left, right);
+                        equality_op_node_view_result = (equality_op_node_t *) result;
+                        equality_op_node_view_result->var_info.qualifier = qualifier_right;
+                        return result;
+                    } else {
+                        snprintf(error_msg, ERRORMSGLENGTH, "Checking %s of %s and bool", (op == EQ_OP) ? "equality" : "inequality",
+                                 type_to_str(type_left));
+                        return NULL;
+                    }
+                }
+                case RELATION_OP_NODE_T: {
+                    relation_op_node_view_right = (relation_op_node_t *) right;
+                    qualifier_right = relation_op_node_view_right->var_info.qualifier;
+                    if (type_left == BOOL_T) {
+                        result = new_equality_op_node(op, left, right);
+                        equality_op_node_view_result = (equality_op_node_t *) result;
+                        equality_op_node_view_result->var_info.qualifier = qualifier_right;
+                        return result;
+                    } else {
+                        snprintf(error_msg, ERRORMSGLENGTH, "Checking %s of %s and bool", (op == EQ_OP) ? "equality" : "inequality",
+                                 type_to_str(type_left));
+                        return NULL;
+                    }
+                }
+                case EQUALITY_OP_NODE_T: {
+                    equality_op_node_view_right = (equality_op_node_t *) right;
+                    qualifier_right = equality_op_node_view_right->var_info.qualifier;
+                    if (type_left == BOOL_T) {
+                        result = new_equality_op_node(op, left, right);
+                        equality_op_node_view_result = (equality_op_node_t *) result;
+                        equality_op_node_view_result->var_info.qualifier = qualifier_right;
+                        return result;
+                    } else {
+                        snprintf(error_msg, ERRORMSGLENGTH, "Checking %s of %s and bool", (op == EQ_OP) ? "equality" : "inequality",
+                                 type_to_str(type_left));
+                        return NULL;
+                    }
+                }
+                case NOT_OP_NODE_T: {
+                    not_op_node_view_right = (not_op_node_t *) right;
+                    qualifier_right = not_op_node_view_right->var_info.qualifier;
+                    if (type_left == BOOL_T) {
+                        result = new_equality_op_node(op, left, right);
+                        equality_op_node_view_result = (equality_op_node_t *) result;
+                        equality_op_node_view_result->var_info.qualifier = qualifier_right;
+                        return result;
+                    } else {
+                        snprintf(error_msg, ERRORMSGLENGTH, "Checking %s of %s and bool", (op == EQ_OP) ? "equality" : "inequality",
+                                 type_to_str(type_left));
+                        return NULL;
+                    }
+                }
+                case INTEGER_OP_NODE_T: {
+                    integer_op_node_view_right = (integer_op_node_t *) right;
+                    return result;
+                }
+                case INVERT_OP_NODE_T: {
+                    invert_op_node_view_right = (invert_op_node_t *) right;
+                    return result;
+                }
+                default: {
+                    snprintf(error_msg, ERRORMSGLENGTH, "IMPLEMENT ERROR MESSAGE");
+                    return NULL;
+                }
+            }
+        }
+        case REFERENCE_NODE_T: {
+            reference_node_view_left = (reference_node_t *) left;
+            switch (right->type) {
+                case CONST_NODE_T: {
+                    const_node_view_right = (const_node_t *) right;
+                }
+                case REFERENCE_NODE_T: {
+                    reference_node_view_right = (reference_node_t *) right;
+                    return result;
+                }
+                case LOGICAL_OP_NODE_T: {
+                    logical_op_node_view_right = (logical_op_node_t *) right;
+                    return result;
+                }
+                case RELATION_OP_NODE_T: {
+                    relation_op_node_view_right = (relation_op_node_t *) right;
+                    return result;
+                }
+                case EQUALITY_OP_NODE_T: {
+                    equality_op_node_view_right = (equality_op_node_t *) right;
+                    return result;
+                }
+                case NOT_OP_NODE_T: {
+                    not_op_node_view_right = (not_op_node_t *) right;
+                    return result;
+                }
+                case INTEGER_OP_NODE_T: {
+                    integer_op_node_view_right = (integer_op_node_t *) right;
+                    return result;
+                }
+                case INVERT_OP_NODE_T: {
+                    invert_op_node_view_right = (invert_op_node_t *) right;
+                    return result;
+                }
+                default: {
+                    snprintf(error_msg, ERRORMSGLENGTH, "IMPLEMENT ERROR MESSAGE");
+                    return NULL;
+                }
+            }
+        }
+        case LOGICAL_OP_NODE_T: {
+            logical_op_node_view_left = (logical_op_node_t *) left;
+            switch (right->type) {
+                case CONST_NODE_T: {
+                    const_node_view_right = (const_node_t *) right;
+                }
+                case REFERENCE_NODE_T: {
+                    reference_node_view_right = (reference_node_t *) right;
+                    return result;
+                }
+                case LOGICAL_OP_NODE_T: {
+                    logical_op_node_view_right = (logical_op_node_t *) right;
+                    return result;
+                }
+                case RELATION_OP_NODE_T: {
+                    relation_op_node_view_right = (relation_op_node_t *) right;
+                    return result;
+                }
+                case EQUALITY_OP_NODE_T: {
+                    equality_op_node_view_right = (equality_op_node_t *) right;
+                    return result;
+                }
+                case NOT_OP_NODE_T: {
+                    not_op_node_view_right = (not_op_node_t *) right;
+                    return result;
+                }
+                case INTEGER_OP_NODE_T: {
+                    integer_op_node_view_right = (integer_op_node_t *) right;
+                    return result;
+                }
+                case INVERT_OP_NODE_T: {
+                    invert_op_node_view_right = (invert_op_node_t *) right;
+                    return result;
+                }
+                default: {
+                    snprintf(error_msg, ERRORMSGLENGTH, "IMPLEMENT ERROR MESSAGE");
+                    return NULL;
+                }
+            }
+        }
+        case RELATION_OP_NODE_T: {
+            relation_op_node_view_left = (relation_op_node_t *) left;
+            switch (right->type) {
+                case CONST_NODE_T: {
+                    const_node_view_right = (const_node_t *) right;
+                }
+                case REFERENCE_NODE_T: {
+                    reference_node_view_right = (reference_node_t *) right;
+                    return result;
+                }
+                case LOGICAL_OP_NODE_T: {
+                    logical_op_node_view_right = (logical_op_node_t *) right;
+                    return result;
+                }
+                case RELATION_OP_NODE_T: {
+                    relation_op_node_view_right = (relation_op_node_t *) right;
+                    return result;
+                }
+                case EQUALITY_OP_NODE_T: {
+                    equality_op_node_view_right = (equality_op_node_t *) right;
+                    return result;
+                }
+                case NOT_OP_NODE_T: {
+                    not_op_node_view_right = (not_op_node_t *) right;
+                    return result;
+                }
+                case INTEGER_OP_NODE_T: {
+                    integer_op_node_view_right = (integer_op_node_t *) right;
+                    return result;
+                }
+                case INVERT_OP_NODE_T: {
+                    invert_op_node_view_right = (invert_op_node_t *) right;
+                    return result;
+                }
+                default: {
+                    snprintf(error_msg, ERRORMSGLENGTH, "IMPLEMENT ERROR MESSAGE");
+                    return NULL;
+                }
+            }
+        }
+        case EQUALITY_OP_NODE_T: {
+            equality_op_node_view_left = (equality_op_node_t *) left;
+            switch (right->type) {
+                case CONST_NODE_T: {
+                    const_node_view_right = (const_node_t *) right;
+                }
+                case REFERENCE_NODE_T: {
+                    reference_node_view_right = (reference_node_t *) right;
+                    return result;
+                }
+                case LOGICAL_OP_NODE_T: {
+                    logical_op_node_view_right = (logical_op_node_t *) right;
+                    return result;
+                }
+                case RELATION_OP_NODE_T: {
+                    relation_op_node_view_right = (relation_op_node_t *) right;
+                    return result;
+                }
+                case EQUALITY_OP_NODE_T: {
+                    equality_op_node_view_right = (equality_op_node_t *) right;
+                    return result;
+                }
+                case NOT_OP_NODE_T: {
+                    not_op_node_view_right = (not_op_node_t *) right;
+                    return result;
+                }
+                case INTEGER_OP_NODE_T: {
+                    integer_op_node_view_right = (integer_op_node_t *) right;
+                    return result;
+                }
+                case INVERT_OP_NODE_T: {
+                    invert_op_node_view_right = (invert_op_node_t *) right;
+                    return result;
+                }
+                default: {
+                    snprintf(error_msg, ERRORMSGLENGTH, "IMPLEMENT ERROR MESSAGE");
+                    return NULL;
+                }
+            }
+        }
+        case NOT_OP_NODE_T: {
+            not_op_node_view_left = (not_op_node_t *) left;
+            switch (right->type) {
+                case CONST_NODE_T: {
+                    const_node_view_right = (const_node_t *) right;
+                }
+                case REFERENCE_NODE_T: {
+                    reference_node_view_right = (reference_node_t *) right;
+                    return result;
+                }
+                case LOGICAL_OP_NODE_T: {
+                    logical_op_node_view_right = (logical_op_node_t *) right;
+                    return result;
+                }
+                case RELATION_OP_NODE_T: {
+                    relation_op_node_view_right = (relation_op_node_t *) right;
+                    return result;
+                }
+                case EQUALITY_OP_NODE_T: {
+                    equality_op_node_view_right = (equality_op_node_t *) right;
+                    return result;
+                }
+                case NOT_OP_NODE_T: {
+                    not_op_node_view_right = (not_op_node_t *) right;
+                    return result;
+                }
+                case INTEGER_OP_NODE_T: {
+                    integer_op_node_view_right = (integer_op_node_t *) right;
+                    return result;
+                }
+                case INVERT_OP_NODE_T: {
+                    invert_op_node_view_right = (invert_op_node_t *) right;
+                    return result;
+                }
+                default: {
+                    snprintf(error_msg, ERRORMSGLENGTH, "IMPLEMENT ERROR MESSAGE");
+                    return NULL;
+                }
+            }
+        }
+        case INTEGER_OP_NODE_T: {
+            integer_op_node_view_left = (integer_op_node_t *) left;
+            switch (right->type) {
+                case CONST_NODE_T: {
+                    const_node_view_right = (const_node_t *) right;
+                }
+                case REFERENCE_NODE_T: {
+                    reference_node_view_right = (reference_node_t *) right;
+                    return result;
+                }
+                case LOGICAL_OP_NODE_T: {
+                    logical_op_node_view_right = (logical_op_node_t *) right;
+                    return result;
+                }
+                case RELATION_OP_NODE_T: {
+                    relation_op_node_view_right = (relation_op_node_t *) right;
+                    return result;
+                }
+                case EQUALITY_OP_NODE_T: {
+                    equality_op_node_view_right = (equality_op_node_t *) right;
+                    return result;
+                }
+                case NOT_OP_NODE_T: {
+                    not_op_node_view_right = (not_op_node_t *) right;
+                    return result;
+                }
+                case INTEGER_OP_NODE_T: {
+                    integer_op_node_view_right = (integer_op_node_t *) right;
+                    return result;
+                }
+                case INVERT_OP_NODE_T: {
+                    invert_op_node_view_right = (invert_op_node_t *) right;
+                    return result;
+                }
+                default: {
+                    snprintf(error_msg, ERRORMSGLENGTH, "IMPLEMENT ERROR MESSAGE");
+                    return NULL;
+                }
+            }
+        }
+        case INVERT_OP_NODE_T: {
+            invert_op_node_view_left = (invert_op_node_t *) left;
+            switch (right->type) {
+                case CONST_NODE_T: {
+                    const_node_view_right = (const_node_t *) right;
+                }
+                case REFERENCE_NODE_T: {
+                    reference_node_view_right = (reference_node_t *) right;
+                    return result;
+                }
+                case LOGICAL_OP_NODE_T: {
+                    logical_op_node_view_right = (logical_op_node_t *) right;
+                    return result;
+                }
+                case RELATION_OP_NODE_T: {
+                    relation_op_node_view_right = (relation_op_node_t *) right;
+                    return result;
+                }
+                case EQUALITY_OP_NODE_T: {
+                    equality_op_node_view_right = (equality_op_node_t *) right;
+                    return result;
+                }
+                case NOT_OP_NODE_T: {
+                    not_op_node_view_right = (not_op_node_t *) right;
+                    return result;
+                }
+                case INTEGER_OP_NODE_T: {
+                    integer_op_node_view_right = (integer_op_node_t *) right;
+                    return result;
+                }
+                case INVERT_OP_NODE_T: {
+                    invert_op_node_view_right = (invert_op_node_t *) right;
+                    return result;
+                }
+                default: {
+                    snprintf(error_msg, ERRORMSGLENGTH, "IMPLEMENT ERROR MESSAGE");
+                    return NULL;
+                }
+            }
+        }
+        default: {
+            snprintf(error_msg, ERRORMSGLENGTH, "IMPLEMENT ERROR MESSAGE");
+            return NULL;
+        }
+    }
 }
 
 node_t *build_not_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
@@ -995,7 +1493,7 @@ void print_node(const node_t *node) {
                     printf("%u\n", ((const_node_t *) node)->var_info.value.uval);
                     break;
                 }
-                default: {
+                case VOID_T: {
                     printf("undefined\n");
                     break;
                 }
@@ -1179,15 +1677,3 @@ void tree_traversal(const node_t *node) {
     }
     print_node(node);
 }
-
-// int main(int argc, const char *argv[]) {
-//     value_t val1, val2;
-//     val1.bval = true;
-//     val2.bval = false;
-//     node_t *const_node1 = new_const_node(BOOL_T, val1);
-//     node_t *const_node2 = new_const_node(BOOL_T, val2);
-//     node_t *logical_op_node = new_logical_op_node(LOR_OP, const_node1, const_node2);
-//     node_t *jump_node = new_jump_node(0);
-//     node_t *if_node = new_if_node(logical_op_node, jump_node, NULL, 0, NULL);
-//     tree_traversal(if_node);
-// }

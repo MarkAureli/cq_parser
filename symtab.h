@@ -27,7 +27,6 @@ typedef enum qualifier {
 } qualifier_t;
 
 typedef enum type {
-    UNDEFINED_T,
     BOOL_T,
     INT_T,
     UNSIGNED_T,

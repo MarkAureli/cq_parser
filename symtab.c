@@ -20,9 +20,6 @@ char *qualifier_to_str(qualifier_t qualifier) {
 
 char *type_to_str(type_t type) {
     switch (type) {
-        case UNDEFINED_T: {
-            return "undefined";
-        }
         case BOOL_T: {
             return "bool";
         }
@@ -91,7 +88,7 @@ list_t *insert(const char *name, unsigned length, unsigned line_num, bool declar
         l = (list_t*) malloc(sizeof (list_t));
         strncpy(l->name, name, length);
         /* add to hashtable */
-        l->type = UNDEFINED_T;
+        l->type = VOID_T;
         l->scope = cur_scope;
         l->lines = malloc(sizeof (ref_list_t));
         l->lines->line_num = line_num;
@@ -106,7 +103,7 @@ list_t *insert(const char *name, unsigned length, unsigned line_num, bool declar
             } else {
                 l = malloc(sizeof (list_t));
                 strncpy(l->name, name, length);
-                l->type = UNDEFINED_T;
+                l->type = VOID_T;
                 l->scope = cur_scope;
                 l->lines = malloc(sizeof (ref_list_t));
                 l->lines->line_num = line_num;
@@ -256,11 +253,6 @@ void symtab_dump(FILE * of){
                     type_str_length += 3;
                 }
                 switch (l->type) {
-                    case UNDEFINED_T: {
-                        fprintf(of, "undefined");
-                        type_str_length += 9;
-                        break;
-                    }
                     case BOOL_T: {
                         fprintf(of, "bool");
                         type_str_length += 4;
