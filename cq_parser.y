@@ -339,8 +339,10 @@ jump_stmt:
 	;
 
 expr:
-	logical_or_expr
-	| unary_expr assignment_operator expr
+	logical_or_expr {
+	    $$ = $1;
+	}
+	| unary_expr assignment_operator logical_or_expr
 	;
 
 assignment_operator:
@@ -356,18 +358,42 @@ assignment_operator:
 	;
 
 logical_or_expr:
-	logical_xor_expr
-	| logical_or_expr LOR logical_xor_expr
+	logical_xor_expr {
+	    $$ = $1;
+	}
+	| logical_or_expr LOR logical_xor_expr {
+	    $$ = build_logical_op_node(LOR_OP, $1, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+        tree_traversal($$);
+	}
 	;
 
 logical_xor_expr:
-	logical_and_expr
-	| logical_xor_expr LXOR logical_and_expr
+	logical_and_expr {
+	    $$ = $1;
+	}
+	| logical_xor_expr LXOR logical_and_expr {
+	    $$ = build_logical_op_node(LXOR_OP, $1, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+        tree_traversal($$);
+	}
 	;
 
 logical_and_expr:
-	comparison_expr
-	| logical_and_expr LAND comparison_expr
+	comparison_expr {
+	    $$ = $1;
+	}
+	| logical_and_expr LAND comparison_expr {
+	    $$ = build_logical_op_node(LAND_OP, $1, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+        tree_traversal($$);
+	}
 	;
 
 comparison_expr:
