@@ -151,39 +151,50 @@ variable_def:
 	QUANTUM type_specifier declarator ASSIGN init SEMICOLON {
 	    $$ = new_var_decl_node($3);
 	    set_type_of_elem($3, QUANTUM_T, $2.type, false, $2.depth, $2.sizes);
-	    if ($5.length > $3->length) {
-	        if ($3->depth == 0) {
-	            if (snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $3->name) > 0) {
-	                yyerror(error_msg);
-	            } else {
-	                yyerror("Attempt to initialize scalar as array");
-	            }
-	        } else {
-	            if (snprintf(error_msg, sizeof (error_msg), "Too many (%u) elements initialized for array %s of total length %u", $5.length, $3->name, $3->length) > 0) {
-	                yyerror(error_msg);
-	            } else {
-	                yyerror("Too many elements initialized for array");
-	            }
-	        }
+	    if ($3->depth == 0 && $5.is_array_init) {
+            if (snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $3->name) > 0) {
+                yyerror(error_msg);
+            } else {
+                yyerror("Attempt to initialize scalar as array");
+            }
 	    }
-	    set_values_of_elem($3, $5.values, $5.length);
+	    if ($3->depth != 0 && !$5.is_array_init) {
+            if (snprintf(error_msg, sizeof (error_msg), "%s is an array, but not is initialized as such", $3->name) > 0) {
+                yyerror(error_msg);
+            } else {
+                yyerror("Attempt to initialize scalar as array");
+            }
+	    }
+	    if ($5.length > $3->length) {
+            if (snprintf(error_msg, sizeof (error_msg), "Too many (%u) elements initialized for array %s of total length %u", $5.length, $3->name, $3->length) > 0) {
+                yyerror(error_msg);
+            } else {
+                yyerror("Too many elements initialized for array");
+            }
+	    }
 	}
 	| CONST type_specifier declarator ASSIGN init SEMICOLON {
         $$ = new_var_decl_node($3);
         set_type_of_elem($3, CONST_T, $2.type, false, $2.depth, $2.sizes);
-        if ($5.length > $3->length) {
-            if ($3->depth == 0) {
-                if (snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $3->name) > 0) {
-                    yyerror(error_msg);
-                } else {
-                    yyerror("Attempt to initialize scalar as array");
-                }
+	    if ($3->depth == 0 && $5.is_array_init) {
+            if (snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $3->name) > 0) {
+                yyerror(error_msg);
             } else {
-                if (snprintf(error_msg, sizeof (error_msg), "Too many (%u) elements initialized for array %s of total length %u", $5.length, $3->name, $3->length) > 0) {
-                    yyerror(error_msg);
-                } else {
-                    yyerror("Too many elements initialized for array");
-                }
+                yyerror("Attempt to initialize scalar as array");
+            }
+	    }
+	    if ($3->depth != 0 && !$5.is_array_init) {
+            if (snprintf(error_msg, sizeof (error_msg), "%s is an array, but not is initialized as such", $3->name) > 0) {
+                yyerror(error_msg);
+            } else {
+                yyerror("Attempt to initialize scalar as array");
+            }
+	    }
+        if ($5.length > $3->length) {
+            if (snprintf(error_msg, sizeof (error_msg), "Too many (%u) elements initialized for array %s of total length %u", $5.length, $3->name, $3->length) > 0) {
+                yyerror(error_msg);
+            } else {
+                yyerror("Too many elements initialized for array");
             }
         }
         set_values_of_elem($3, $5.values, $5.length);
@@ -191,22 +202,27 @@ variable_def:
 	| type_specifier declarator ASSIGN init SEMICOLON {
         $$ = new_var_decl_node($2);
         set_type_of_elem($2, NONE_T, $1.type, false, $1.depth, $1.sizes);
-        if ($4.length > $2->length) {
-            if ($2->depth == 0) {
-                if (snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $2->name) > 0) {
-                    yyerror(error_msg);
-                } else {
-                    yyerror("Attempt to initialize scalar as array");
-                }
+	    if ($2->depth == 0 && $4.is_array_init) {
+            if (snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $2->name) > 0) {
+                yyerror(error_msg);
             } else {
-                if (snprintf(error_msg, sizeof (error_msg), "Too many (%u) elements initialized for array %s of total length %u", $4.length, $2->name, $2->length) > 0) {
-                    yyerror(error_msg);
-                } else {
-                    yyerror("Too many elements initialized for array");
-                }
+                yyerror("Attempt to initialize scalar as array");
+            }
+	    }
+	    if ($2->depth != 0 && !$4.is_array_init) {
+            if (snprintf(error_msg, sizeof (error_msg), "%s is an array, but not is initialized as such", $2->name) > 0) {
+                yyerror(error_msg);
+            } else {
+                yyerror("Attempt to initialize scalar as array");
+            }
+	    }
+        if ($4.length > $2->length) {
+            if (snprintf(error_msg, sizeof (error_msg), "Too many (%u) elements initialized for array %s of total length %u", $4.length, $2->name, $2->length) > 0) {
+                yyerror(error_msg);
+            } else {
+                yyerror("Too many elements initialized for array");
             }
         }
-        set_values_of_elem($2, $4.values, $4.length);
     }
 	;
 
@@ -223,6 +239,7 @@ init:
     }
     | LBRACE init_elem_l RBRACE {
         $$ = $2;
+        $$.is_array_init = true;
     }
     ;
 

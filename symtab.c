@@ -42,7 +42,7 @@ type_info_t type_info_init(type_t type, unsigned depth) {
 }
 
 array_values_t array_values_init(const value_t *values, unsigned old_length, unsigned length) {
-    array_values_t new_array_values = { .values = calloc(length, sizeof (value_t)), .length = length};
+    array_values_t new_array_values = { .is_array_init = false, .values = calloc(length, sizeof (value_t)), .length = length};
     if (values != NULL) {
         memcpy(new_array_values.values, values, old_length * sizeof (unsigned));
     }
@@ -86,14 +86,14 @@ list_t *insert(const char *name, unsigned length, unsigned line_num, bool declar
             fprintf(stderr, "Undeclared identifier %s at line %u\n", name, line_num);
             exit(1);
         }
-        l = (list_t*) malloc(sizeof (list_t));
+        l = (list_t*) calloc(1, sizeof (list_t));
         strncpy(l->name, name, length);
-        /* add to hashtable */
-        l->type = VOID_T;
         l->scope = cur_scope;
-        l->lines = malloc(sizeof (ref_list_t));
+        l->lines = calloc(1, sizeof (ref_list_t));
         l->lines->line_num = line_num;
         l->lines->next = NULL;
+        l->qualifier = NONE_T;
+        l->type = VOID_T;
         l->next = hash_table[hashval];
         hash_table[hashval] = l;
     } else {
@@ -102,13 +102,14 @@ list_t *insert(const char *name, unsigned length, unsigned line_num, bool declar
                 fprintf(stderr, "Multiple declaration of identifier %s at line %u (previous declaration in line %u)\n", name, line_num, l->lines->line_num);
                 exit(1);
             } else {
-                l = malloc(sizeof (list_t));
+                l = calloc(1, sizeof (list_t));
                 strncpy(l->name, name, length);
-                l->type = VOID_T;
                 l->scope = cur_scope;
-                l->lines = malloc(sizeof (ref_list_t));
+                l->lines = calloc(1, sizeof (ref_list_t));
                 l->lines->line_num = line_num;
                 l->lines->next = NULL;
+                l->qualifier = NONE_T;
+                l->type = VOID_T;
                 l->next = hash_table[hashval];
                 hash_table[hashval] = l;
             }
@@ -118,7 +119,7 @@ list_t *insert(const char *name, unsigned length, unsigned line_num, bool declar
                 t = t->next;
             }
             /* add line number to reference list */
-            t->next = malloc(sizeof (ref_list_t));
+            t->next = calloc(1, sizeof (ref_list_t));
             t->next->line_num = line_num;
             t->next->next = NULL;
         }

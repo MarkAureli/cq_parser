@@ -52,6 +52,7 @@ typedef struct type_info {
 } type_info_t;
 
 typedef struct array_values {
+    bool is_array_init;
     value_t *values;
     unsigned length;
 } array_values_t;
