@@ -595,12 +595,10 @@ postfix_expr:
         }
         if (entry->qualifier == CONST_T) {
             unsigned index = 0;
+            unsigned product = 1;
             for (unsigned i = 0; i < depth; ++i) {
-                unsigned factor = i;
-                for (unsigned j = i + 1; j < depth; ++j) {
-                    factor *= $1.indices[j];
-                }
-                index += factor;
+                index += $1.indices[depth - i - 1] * product;
+                product *= entry->sizes[depth - i - 1];
             }
             $$ = new_const_node(entry->type, entry->values[index]);
         } else {
