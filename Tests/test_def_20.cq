@@ -1,1 +1,1 @@
-int[15 / 5 - (2 - 1)] i_array = {var_a * (3 - 4), var_b % 18};
+quantum int[7 / 3] i_array = {3 - var_a / 2, 2 * var_b};

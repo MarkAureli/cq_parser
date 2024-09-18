@@ -1,1 +1,1 @@
-unsigned[] u_array = {12 % (var_a + 3), 3, 2 << 3};
+unsigned[5 % 3] u_array = {17 / 7, var_a + var_b};

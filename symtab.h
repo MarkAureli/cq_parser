@@ -45,18 +45,6 @@ typedef struct func_info {
     unsigned num_of_pars;
 } func_info_t;
 
-typedef struct type_info {
-    type_t type;
-    unsigned sizes[MAXARRAYDEPTH];
-    unsigned depth;
-} type_info_t;
-
-typedef struct array_values {
-    bool is_array_init;
-    value_t *values;
-    unsigned length;
-} array_values_t;
-
 /* a linked list of references (lineno's) for each variable */
 typedef struct ref_list { 
     unsigned line_num;
@@ -81,12 +69,6 @@ typedef struct list {
     struct list *next;
 } list_t;
 
-typedef struct array_access_info {
-    list_t *entry;
-    unsigned indices[MAXARRAYDEPTH];
-    unsigned depth;
-} array_access_info_t;
-
 /* the hash table */
 static list_t **hash_table;
 
@@ -94,13 +76,7 @@ char *qualifier_to_str(qualifier_t qualifier);
 
 char *type_to_str(type_t type);
 
-type_info_t type_info_init(type_t type, unsigned depth);
-
-array_values_t array_values_init(const value_t *values, unsigned old_length, unsigned length);
-
 void init_hash_table();
-
-array_access_info_t array_access_info_init(list_t *entry);
 
 unsigned hash(const char *key);
 

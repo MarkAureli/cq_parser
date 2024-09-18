@@ -1,1 +1,1 @@
-const int[] i_array = {-10, 29 - 10 * 2 / 3};
+const int[9 - (4 + 3)] i_array = {2 % 3, 3 ^ 2};

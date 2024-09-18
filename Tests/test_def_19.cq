@@ -1,1 +1,1 @@
-bool[18 - (3 * 5)] b_array = {true || (4 >= 3), 1 != 2, false};
+quantum bool[3 - 2] b_array = {true};

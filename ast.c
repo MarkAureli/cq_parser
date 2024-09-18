@@ -273,6 +273,25 @@ node_t *new_return_node(type_t ret_type, node_t *ret_val) {
     return (node_t *) new_node;
 }
 
+type_info_t type_info_init(type_t type, unsigned depth) {
+    type_info_t new_type_info = { .type = type, .depth = depth};
+    return new_type_info;
+}
+
+array_var_infos_t array_var_infos_init(const var_info_t *var_infos, unsigned old_length, unsigned length) {
+    array_var_infos_t new_array_var_infos = { .is_array_init = false, .var_infos = calloc(length,
+                                              sizeof (var_info_t)), .length = length};
+    if (var_infos != NULL) {
+        memcpy(new_array_var_infos.var_infos, var_infos, old_length * sizeof (var_info_t));
+    }
+    return new_array_var_infos;
+}
+
+array_access_info_t array_access_info_init(list_t *entry) {
+    array_access_info_t new_array_access = { .entry=entry };
+    return new_array_access;
+}
+
 var_info_t get_var_info_of_node(const node_t *node) {
     switch (node->type) {
         case CONST_NODE_T: {
@@ -955,7 +974,11 @@ void print_node(const node_t *node) {
             var_info_t info = get_var_info_of_node(node);
             printf("reference to %s%s %s", (info.qualifier == QUANTUM_T) ? "quantum " : "", type_to_str(info.type), ((reference_node_t *) node)->entry->name);
             for (unsigned i = 0; i < ((reference_node_t *) node)->depth; ++i) {
-                printf("[%u]", ((reference_node_t *) node)->indices[i]);
+                if (((reference_node_t *) node)->index_is_const[i]) {
+                    printf("[%u]", ((reference_node_t *) node)->indices[i].const_index);
+                } else {
+                    printf("[]");
+                }
             }
             putchar('\n');
             break;

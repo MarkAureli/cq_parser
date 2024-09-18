@@ -1,1 +1,1 @@
-bool[] b_array;
+bool[2 * 3] b_array;

@@ -38,26 +38,8 @@ char *type_to_str(type_t type) {
     }
 }
 
-type_info_t type_info_init(type_t type, unsigned depth) {
-    type_info_t new_type_info = { .type = type, .depth = depth};
-    return new_type_info;
-}
-
-array_values_t array_values_init(const value_t *values, unsigned old_length, unsigned length) {
-    array_values_t new_array_values = { .is_array_init = false, .values = calloc(length, sizeof (value_t)), .length = length};
-    if (values != NULL) {
-        memcpy(new_array_values.values, values, old_length * sizeof (unsigned));
-    }
-    return new_array_values;
-}
-
 void init_hash_table() {
     hash_table = calloc(SIZE, sizeof(list_t*));
-}
-
-array_access_info_t array_access_info_init(list_t *entry) {
-    array_access_info_t new_array_access = { .entry=entry};
-    return new_array_access;
 }
 
 unsigned hash(const char *key) {

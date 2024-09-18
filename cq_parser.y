@@ -25,7 +25,7 @@ char error_msg[ERRORMSGLENGTH];
     list_t *symtab_item;
     node_t *node;
     type_info_t type_info;
-    array_values_t array_values;
+    array_var_infos_t array_var_infos;
     array_access_info_t array_access_info;
     integer_op_t integer_op;
     logical_op_t logical_op;
@@ -71,7 +71,7 @@ char error_msg[ERRORMSGLENGTH];
 %type <type_info> type_specifier
 %type <node> variable_decl variable_def function_def const primary_expr postfix_expr unary_expr mul_expr add_expr
 %type <node> logical_or_expr logical_xor_expr logical_and_expr comparison_expr equality_expr or_expr xor_expr and_expr
-%type <array_values> init init_elem_l
+%type <array_var_infos> init init_elem_l
 %type <array_access_info> array_access
 %define parse.error verbose
 %start program
@@ -173,7 +173,6 @@ variable_def:
 	    }
 	}
 	| CONST type_specifier declarator ASSIGN init SEMICOLON {
-        $$ = new_var_decl_node($3);
         set_type_of_elem($3, CONST_T, $2.type, false, $2.depth, $2.sizes);
 	    if ($3->depth == 0 && $5.is_array_init) {
             if (snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $3->name) > 0) {
@@ -196,11 +195,40 @@ variable_def:
                 yyerror("Too many elements initialized for array");
             }
         }
-        set_values_of_elem($3, $5.values, $5.length);
+        value_t values[$5.length];
+        for (unsigned i = 0; i < $5.length; ++i) {
+            if ($5.var_infos[i].qualifier != CONST_T) {
+                if (snprintf(error_msg, sizeof (error_msg), "Element %u in initializtion of constant array %s is not constant", i, $3->name) > 0) {
+                    yyerror(error_msg);
+                } else {
+                    yyerror("Element in initialization of constant array is not constant");
+                }
+            } else if ($2.type == BOOL_T && $5.var_infos[i].type != BOOL_T) {
+                if (snprintf(error_msg, sizeof (error_msg), "Element %u in initializtion of bool-array %s is of type %s", i, $3->name, type_to_str($5.var_infos[i].type)) > 0) {
+                    yyerror(error_msg);
+                } else {
+                    yyerror("Element in initialization of bool-array is not of type bool");
+                }
+            } else if ($2.type == INT_T && $5.var_infos[i].type != INT_T) {
+                if (snprintf(error_msg, sizeof (error_msg), "Element %u in initializtion of int-array %s is of type %s", i, $3->name, type_to_str($5.var_infos[i].type)) > 0) {
+                    yyerror(error_msg);
+                } else {
+                    yyerror("Element in initialization of int-array is not of type int");
+                }
+            } else if ($2.type == UNSIGNED_T && $5.var_infos[i].type == BOOL_T) {
+                if (snprintf(error_msg, sizeof (error_msg), "Element %u in initializtion of unsigned-array %s is of type bool", i, $3->name) > 0) {
+                    yyerror(error_msg);
+                } else {
+                    yyerror("Element in initialization of unsigned-boolean array is of type bool");
+                }
+            }
+            values[i] = $5.var_infos[i].value;
+        }
+        set_values_of_elem($3, values, $5.length);
+        $$ = new_var_decl_node($3);
     }
 	| type_specifier declarator ASSIGN init SEMICOLON {
-        $$ = new_var_decl_node($2);
-        set_type_of_elem($2, NONE_T, $1.type, false, $1.depth, $1.sizes);
+	    set_type_of_elem($2, NONE_T, $1.type, false, $1.depth, $1.sizes);
 	    if ($2->depth == 0 && $4.is_array_init) {
             if (snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $2->name) > 0) {
                 yyerror(error_msg);
@@ -222,6 +250,34 @@ variable_def:
                 yyerror("Too many elements initialized for array");
             }
         }
+        for (unsigned i = 0; i < $4.length; ++i) {
+            if ($4.var_infos[i].qualifier == QUANTUM_T) {
+                if (snprintf(error_msg, sizeof (error_msg), "Element %u in initializtion of classical array %s is quantum", i, $2->name) > 0) {
+                    yyerror(error_msg);
+                } else {
+                    yyerror("Element in initialization of classical array is quantum");
+                }
+            } else if ($1.type == BOOL_T && $4.var_infos[i].type != BOOL_T) {
+                if (snprintf(error_msg, sizeof (error_msg), "Element %u in initializtion of bool-array %s is of type %s", i, $2->name, type_to_str($4.var_infos[i].type)) > 0) {
+                    yyerror(error_msg);
+                } else {
+                    yyerror("Element in initialization of bool-array is not of type bool");
+                }
+            } else if ($1.type == INT_T && $4.var_infos[i].type != INT_T) {
+                if (snprintf(error_msg, sizeof (error_msg), "Element %u in initializtion of int-array %s is of type %s", i, $2->name, type_to_str($4.var_infos[i].type)) > 0) {
+                    yyerror(error_msg);
+                } else {
+                    yyerror("Element in initialization of int-array is not of type int");
+                }
+            } else if ($1.type == UNSIGNED_T && $4.var_infos[i].type == BOOL_T) {
+                if (snprintf(error_msg, sizeof (error_msg), "Element %u in initializtion of unsigned-array %s is of type bool", i, $2->name) > 0) {
+                    yyerror(error_msg);
+                } else {
+                    yyerror("Element in initialization of unsigned-array is of type bool");
+                }
+            }
+        }
+        $$ = new_var_decl_node($2);
     }
 	;
 
@@ -232,9 +288,9 @@ declarator:
 	;
 
 init:
-    const {
-        $$ = array_values_init(NULL, 0, 1);
-        $$.values[0] = ((const_node_t *) $1)->var_info.value;
+    logical_or_expr {
+        $$ = array_var_infos_init(NULL, 0, 1);
+        $$.var_infos[0] = ((const_node_t *) $1)->var_info;
     }
     | LBRACE init_elem_l RBRACE {
         $$ = $2;
@@ -243,22 +299,28 @@ init:
     ;
 
 init_elem_l:
-    const {
-        $$ = array_values_init(NULL, 0, 1);
-        $$.values[0] = ((const_node_t *) $1)->var_info.value;
+    logical_or_expr {
+        $$ = array_var_infos_init(NULL, 0, 1);
+        $$.var_infos[0] = ((const_node_t *) $1)->var_info;
     }
-    | init_elem_l COMMA const {
-        $$ = array_values_init($1.values, $1.length, $1.length + 1);
-        $$.values[$1.length] = ((const_node_t *) $3)->var_info.value;
-        free($1.values);
+    | init_elem_l COMMA logical_or_expr {
+        $$ = array_var_infos_init($1.var_infos, $1.length, $1.length + 1);
+        $$.var_infos[$1.length] = ((const_node_t *) $3)->var_info;
+        free($1.var_infos);
     }
     ;
 
 type_specifier:
-	BOOL { $$ = type_info_init(BOOL_T, 0); }
-	| INT { $$ = type_info_init(INT_T, 0); }
-	| UNSIGNED { $$ = type_info_init(UNSIGNED_T, 0); }
-	| type_specifier LBRACKET ICONST RBRACKET {
+	BOOL {
+	    $$ = type_info_init(BOOL_T, 0);
+	}
+	| INT {
+	    $$ = type_info_init(INT_T, 0);
+	}
+	| UNSIGNED {
+	    $$ = type_info_init(UNSIGNED_T, 0);
+	}
+	| type_specifier LBRACKET or_expr RBRACKET {
 	    if ($1.depth == MAXARRAYDEPTH) {
 	        if (snprintf(error_msg, sizeof (error_msg), "Exceeding maximal array length of %i", MAXARRAYDEPTH) > 0) {
 	            yyerror(error_msg);
@@ -266,8 +328,23 @@ type_specifier:
 	            yyerror("Exceeding maximal array length");
 	        }
 	    }
-	    $$ = $1;
-	    $$.sizes[($$.depth)++] = $3.uval;
+	    var_info_t size_info = get_var_info_of_node($3);
+	    if (size_info.type == BOOL_T) {
+           if (snprintf(error_msg, sizeof (error_msg), "Size parameter at position %u of array initialization is boolean", $$.depth) > 0) {
+                yyerror(error_msg);
+            } else {
+                yyerror("One size parameter of array initialization is boolean");
+            }
+	    } else if (size_info.qualifier != CONST_T) {
+           if (snprintf(error_msg, sizeof (error_msg), "Size parameter at position %u of array initialization is not constant", $$.depth) > 0) {
+                yyerror(error_msg);
+            } else {
+                yyerror("One size parameter of array initialization is not constant");
+            }
+	    } else {
+            $$ = $1;
+            $$.sizes[($$.depth)++] = size_info.value.uval;
+	    }
 	}
 	;
 
@@ -584,25 +661,28 @@ postfix_expr:
                 yyerror("Too shallow access of array");
             }
         }
+        bool all_indices_const = true;
         for (unsigned i = 0; i < depth; ++i) {
-            if ($1.indices[i] >= entry->sizes[i]) {
-                if (snprintf(error_msg, sizeof (error_msg), "%u-th index (%u) array index of %s out of bounds (%u)", i, $1.indices[i], entry->name, entry->sizes[i]) > 0) {
+            all_indices_const &= $1.index_is_const[i];
+            if ($1.index_is_const[i] && $1.indices[i].const_index >= entry->sizes[i]) {
+                if (snprintf(error_msg, sizeof (error_msg), "%u-th index (%u) array index of %s out of bounds (%u)", i, $1.indices[i].const_index, entry->name, entry->sizes[i]) > 0) {
                     yyerror(error_msg);
                 } else {
                     yyerror("Array index out of bounds");
                 }
             }
         }
-        if (entry->qualifier == CONST_T) {
+        if (entry->qualifier == CONST_T && all_indices_const) {
             unsigned index = 0;
             unsigned product = 1;
             for (unsigned i = 0; i < depth; ++i) {
-                index += $1.indices[depth - i - 1] * product;
+                index += $1.indices[depth - i - 1].const_index * product;
                 product *= entry->sizes[depth - i - 1];
             }
             $$ = new_const_node(entry->type, entry->values[index]);
         } else {
             $$ = new_reference_node(entry);
+            memcpy(((reference_node_t *) $$)->index_is_const, $1.index_is_const, depth * sizeof (unsigned));
             memcpy(((reference_node_t *) $$)->indices, $1.indices, depth * sizeof (unsigned));
             ((reference_node_t *) $$)->depth = depth;
         }
@@ -633,7 +713,7 @@ array_access:
     ID {
         $$ = array_access_info_init(insert($1, strlen($1), yylineno, false));
     }
-    | array_access LBRACKET ICONST RBRACKET {
+    | array_access LBRACKET or_expr RBRACKET {
         $$ = $1;
         if ($$.entry->depth == 0) {
             if (snprintf(error_msg, sizeof (error_msg), "Array access of of scalar %s", $$.entry->name) > 0) {
@@ -648,7 +728,20 @@ array_access:
                 yyerror("Too deep acess of array");
             }
         }
-        $$.indices[($$.depth)++] = $3.uval;
+        var_info_t index_info = get_var_info_of_node($3);
+        if (index_info.type == BOOL_T) {
+           if (snprintf(error_msg, sizeof (error_msg), "Index at position %u of access of depth-%u array %s is boolean", $$.depth, $$.entry->depth, $$.entry->name) > 0) {
+                yyerror(error_msg);
+            } else {
+                yyerror("Index of array access is boolean");
+            }
+        }
+        if (index_info.qualifier == CONST_T) {
+            $$.index_is_const[$$.depth] = true;
+            $$.indices[($$.depth)++].const_index = index_info.value.uval;
+        } else {
+            $$.indices[($$.depth)++].node_index = $3;
+        }
     }
     ;
 

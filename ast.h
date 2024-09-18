@@ -64,6 +64,12 @@ typedef enum node_type {
     RETURN_NODE_T
 } node_type_t;
 
+typedef struct type_info {
+    type_t type;
+    unsigned sizes[MAXARRAYDEPTH];
+    unsigned depth;
+} type_info_t;
+
 typedef struct var_info {
     qualifier_t qualifier;
     type_t type;
@@ -75,6 +81,24 @@ typedef struct node {
     struct node *left;
     struct node *right;
 } node_t;
+
+typedef union array_index {
+    unsigned const_index;
+    node_t *node_index;
+} array_index_t;
+
+typedef struct array_var_infos {
+    bool is_array_init;
+    var_info_t *var_infos;
+    unsigned length;
+} array_var_infos_t;
+
+typedef struct array_access_info {
+    list_t *entry;
+    bool index_is_const[MAXARRAYDEPTH];
+    array_index_t indices[MAXARRAYDEPTH];
+    unsigned depth;
+} array_access_info_t;
 
 typedef struct func_decl_node {
     node_type_t type;
@@ -94,7 +118,8 @@ typedef struct const_node {
 typedef struct reference_node {
     node_type_t type;
     var_info_t var_info;
-    unsigned indices[MAXARRAYDEPTH];
+    bool index_is_const[MAXARRAYDEPTH];
+    array_index_t indices[MAXARRAYDEPTH];
     unsigned depth;
     list_t *entry;
 } reference_node_t;
@@ -252,6 +277,14 @@ node_t *new_assign_node(list_t *entry, node_t *assign_val);
 node_t *new_jump_node(int statement_type);
 
 node_t *new_return_node(type_t ret_type, node_t *ret_val);
+
+type_info_t type_info_init(type_t type, unsigned depth);
+
+array_var_infos_t array_var_infos_init(const var_info_t *var_infos, unsigned old_length, unsigned length);
+
+array_access_info_t array_access_info_init(list_t *entry);
+
+var_info_t get_var_info_of_node(const node_t *node);
 
 node_t *build_logical_op_node(logical_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]);
 
