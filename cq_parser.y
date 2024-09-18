@@ -29,7 +29,7 @@ char error_msg[ERRORMSGLENGTH];
     array_access_info_t array_access_info;
     integer_op_t integer_op;
     logical_op_t logical_op;
-    relation_op_t relation_op;
+    comparison_op_t comparison_op;
     equality_op_t equality_op;
 }
 
@@ -71,7 +71,7 @@ char error_msg[ERRORMSGLENGTH];
 %type <symtab_item> declarator
 %type <type_info> type_specifier
 %type <node> variable_decl variable_def function_def const primary_expr postfix_expr unary_expr mul_expr add_expr
-%type <node> equality_expr or_expr xor_expr and_expr
+%type <node> logical_or_expr logical_xor_expr logical_and_expr comparison_expr equality_expr or_expr xor_expr and_expr
 %type <array_values> init init_elem_l
 %type <array_access_info> array_access
 %define parse.error verbose
@@ -366,16 +366,42 @@ logical_xor_expr:
 	;
 
 logical_and_expr:
-	relational_expr
-	| logical_and_expr LAND relational_expr
+	comparison_expr
+	| logical_and_expr LAND comparison_expr
 	;
 
-relational_expr:
-	equality_expr
-	| relational_expr LE equality_expr
-	| relational_expr GE equality_expr
-	| relational_expr LEQ equality_expr
-	| relational_expr GEQ equality_expr
+comparison_expr:
+	equality_expr {
+	    $$ = $1;
+	}
+	| comparison_expr GE equality_expr {
+	    $$ = build_comparison_op_node(GE_OP, $1, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+        tree_traversal($$);
+	}
+	| comparison_expr GEQ equality_expr {
+	    $$ = build_comparison_op_node(GEQ_OP, $1, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+        tree_traversal($$);
+	}
+	| comparison_expr LE equality_expr {
+	    $$ = build_comparison_op_node(LE_OP, $1, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+        tree_traversal($$);
+	}
+	| comparison_expr LEQ equality_expr {
+	    $$ = build_comparison_op_node(LEQ_OP, $1, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+        tree_traversal($$);
+	}
 	;
 
 equality_expr:

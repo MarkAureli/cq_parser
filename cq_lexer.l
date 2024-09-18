@@ -12,7 +12,6 @@
 extern int yylineno;
 
 bool strtob(const char *str, const char **endptr);
-
 %}
 
 %x COMMENT
@@ -78,6 +77,28 @@ measure				    { return MEASURE; }
 %}
 phase				    { return PHASE; }
 
+%{ /* logical operations */
+%}
+"&&"				    { yylval.logical_op = LAND_OP; return LAND; }
+"||"				    { yylval.logical_op = LOR_OP; return LOR; }
+"^^"				    { yylval.logical_op = LXOR_OP; return LXOR; }
+
+%{ /* comparison operations */
+%}
+">"				        { yylval.comparison_op = GE_OP; return GE; }
+">="				    { yylval.comparison_op = GEQ_OP; return GEQ; }
+"<"				        { yylval.comparison_op = LE_OP; return LE; }
+"<="				    { yylval.comparison_op = LEQ_OP; return LEQ; }
+
+%{ /* equality operations */
+%}
+"=="				    { yylval.equality_op = EQ_OP; return EQ; }
+"!="				    { yylval.equality_op = NEQ_OP; return NEQ; }
+
+%{ /* not operation */
+%}
+"!"                     { return NOT; }
+
 %{ /* integer operations */
 %}
 "+"				        { yylval.integer_op = ADD_OP; return ADD; }
@@ -92,28 +113,6 @@ phase				    { return PHASE; }
 %{ /* invert operation */
 %}
 "~"                     { return INV; }
-
-%{ /* logical operations */
-%}
-"&&"				    { yylval.logical_op = LAND_OP; return LAND; }
-"||"				    { yylval.logical_op = LOR_OP; return LOR; }
-"^^"				    { yylval.logical_op = LXOR_OP; return LXOR; }
-
-%{ /* logical not operation */
-%}
-"!"                     { return NOT; }
-
-%{ /* relation operations */
-%}
-">"				        { yylval.relation_op = GE_OP; return GE; }
-">="				    { yylval.relation_op = GEQ_OP; return GEQ; }
-"<"				        { yylval.relation_op = LE_OP; return LE; }
-"<="				    { yylval.relation_op = LEQ_OP; return LEQ; }
-
-%{ /* equality operations */
-%}
-"=="				    { yylval.equality_op = EQ_OP; return EQ; }
-"!="				    { yylval.equality_op = NEQ_OP; return NEQ; }
 
 %{ /* assignments */
 %}

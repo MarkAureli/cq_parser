@@ -5,7 +5,7 @@
 
 typedef enum op_type {
     LOGICAL_OP,
-    RELATION_OP,
+    COMPARISON_OP,
     EQUALITY_OP,
     NOT_OP,
     INTEGER_OP,
@@ -18,12 +18,12 @@ typedef enum logical_op {
     LXOR_OP
 } logical_op_t;
 
-typedef enum relation_op {
+typedef enum comparison_op {
     GE_OP,
     GEQ_OP,
     LE_OP,
     LEQ_OP
-} relation_op_t;
+} comparison_op_t;
 
 typedef enum equality_op {
     EQ_OP,
@@ -49,7 +49,7 @@ typedef enum node_type {
     REFERENCE_NODE_T,
     FUNC_CALL_NODE_T,
     LOGICAL_OP_NODE_T,
-    RELATION_OP_NODE_T,
+    COMPARISON_OP_NODE_T,
     EQUALITY_OP_NODE_T,
     NOT_OP_NODE_T,
     INTEGER_OP_NODE_T,
@@ -115,13 +115,13 @@ typedef struct logical_op_node {
     node_t *right;
 } logical_op_node_t;
 
-typedef struct relation_op_node {
+typedef struct comparison_op_node {
     node_type_t type;
     var_info_t var_info;
-    relation_op_t op;
+    comparison_op_t op;
     node_t *left;
     node_t *right;
-} relation_op_node_t;
+} comparison_op_node_t;
 
 typedef struct equality_op_node {
     node_type_t type;
@@ -207,7 +207,7 @@ char *op_type_to_str(op_type_t op_type);
 
 char *logical_op_to_str(logical_op_t logical_op);
 
-char *relation_op_to_str(relation_op_t relation_op);
+char *comparison_op_to_str(comparison_op_t comparison_op);
 
 char *equality_op_to_str(equality_op_t equality_op);
 
@@ -227,7 +227,7 @@ node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars);
 
 node_t *new_logical_op_node(logical_op_t op, node_t *left, node_t *right);
 
-node_t *new_relation_op_node(relation_op_t op, node_t *left, node_t *right);
+node_t *new_comparison_op_node(comparison_op_t op, node_t *left, node_t *right);
 
 node_t *new_equality_op_node(equality_op_t op, node_t *left, node_t *right);
 
@@ -252,6 +252,10 @@ node_t *new_assign_node(list_t *entry, node_t *assign_val);
 node_t *new_jump_node(int statement_type);
 
 node_t *new_return_node(type_t ret_type, node_t *ret_val);
+
+node_t *build_logical_op_node(logical_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]);
+
+node_t *build_comparison_op_node(comparison_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]);
 
 node_t *build_equality_op_node(equality_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]);
 
