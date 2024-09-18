@@ -467,13 +467,12 @@ node_t *build_equality_op_node(equality_op_t op, node_t *left, node_t *right, ch
             }
         }
         free(const_node_view_right);
-        return result;
+    } else {
+        result = new_equality_op_node(op, left, right);
+        equality_op_node_t *equality_op_node_view_result = (equality_op_node_t *) result;
+        equality_op_node_view_result->var_info.qualifier = result_qualifier;
+        equality_op_node_view_result->var_info.type = result_type;
     }
-
-    result = new_equality_op_node(op, left, right);
-    equality_op_node_t *equality_op_node_view_result = (equality_op_node_t *) result;
-    equality_op_node_view_result->var_info.qualifier = result_qualifier;
-    equality_op_node_view_result->var_info.type = result_type;
     return result;
 }
 
@@ -491,8 +490,7 @@ node_t *build_not_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
         result = child;
         const_node_t *const_node_view_child = (const_node_t *) child;
         const_node_t *const_node_view_result = (const_node_t *) result;
-        const_node_view_result->var_info.value.bval = !(const_node_view_result->var_info.value.bval);
-        return result;
+        const_node_view_result->var_info.value.bval = !(const_node_view_child->var_info.value.bval);
     } else if (child->type == NOT_OP_NODE_T) {
         not_op_node_t *not_op_node_view_child = (not_op_node_t *) child;
         result = not_op_node_view_child->child;
@@ -507,592 +505,243 @@ node_t *build_not_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
 }
 
 node_t *build_integer_op_node(integer_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]) {
-    node_t *result;
-    const_node_t *const_node_view_left, *const_node_view_right, *const_node_view_result;
-    reference_node_t *reference_node_view_left, *reference_node_view_right;
-    integer_op_node_t *integer_op_node_view_left, *integer_op_node_view_right, *integer_op_node_view_result;
-    invert_op_node_t *invert_op_node_view_left, *invert_op_node_view_right;
-
-    switch (left->type) {
-        case CONST_NODE_T: {
-            const_node_view_left = (const_node_t *) left;
-            if (const_node_view_left->var_info.type == BOOL_T) {
-                snprintf(error_msg, ERRORMSGLENGTH, "Left operand of \"%s\" is a boolean expression",
-                         integer_op_to_str(op));
-                return NULL;
-            }
-            switch (right->type) {
-                case CONST_NODE_T: {
-                    const_node_view_right = (const_node_t *) right;
-                    if (const_node_view_right->var_info.type == BOOL_T) {
-                        snprintf(error_msg, ERRORMSGLENGTH, "Right operand of \"%s\" is a boolean expression",
-                                 integer_op_to_str(op));
-                        return NULL;
-                    }
-                    result = left;
-                    const_node_view_result = (const_node_t *) result;
-                    if (const_node_view_result->var_info.type == INT_T) {
-                        if (const_node_view_right->var_info.type == INT_T) {
-                            switch (op) {
-                                case ADD_OP: {
-                                    const_node_view_result->var_info.value.ival += const_node_view_right->var_info.value.ival;
-                                    break;
-                                }
-                                case AND_OP: {
-                                    const_node_view_result->var_info.value.ival &= const_node_view_right->var_info.value.ival;
-                                    break;
-                                }
-                                case DIV_OP: {
-                                    if (const_node_view_right->var_info.value.ival == 0) {
-                                        snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
-                                        return NULL;
-                                    }
-                                    const_node_view_result->var_info.value.ival /= const_node_view_right->var_info.value.ival;
-                                    break;
-                                }
-                                case MOD_OP: {
-                                    if (const_node_view_right->var_info.value.ival == 0) {
-                                        snprintf(error_msg, ERRORMSGLENGTH, "Modulo by zero");
-                                        return NULL;
-                                    }
-                                    const_node_view_result->var_info.value.ival %= const_node_view_right->var_info.value.ival;
-                                    break;
-                                }
-                                case MUL_OP: {
-                                    const_node_view_result->var_info.value.ival *= const_node_view_right->var_info.value.ival;
-                                    break;
-                                }
-                                case OR_OP: {
-                                    const_node_view_result->var_info.value.ival |= const_node_view_right->var_info.value.ival;
-                                    break;
-                                }
-                                case SUB_OP: {
-                                    const_node_view_result->var_info.value.ival -= const_node_view_right->var_info.value.ival;
-                                    break;
-                                }
-                                case XOR_OP: {
-                                    const_node_view_result->var_info.value.ival ^= const_node_view_right->var_info.value.ival;
-                                    break;
-                                }
-                            }
-                        } else {
-                            switch (op) {
-                                case ADD_OP: {
-                                    const_node_view_result->var_info.value.uval = const_node_view_left->var_info.value.ival + const_node_view_right->var_info.value.uval;
-                                    break;
-                                }
-                                case AND_OP: {
-                                    const_node_view_result->var_info.value.uval = const_node_view_left->var_info.value.ival & const_node_view_right->var_info.value.uval;
-                                    break;
-                                }
-                                case DIV_OP: {
-                                    if (const_node_view_right->var_info.value.uval == 0) {
-                                        snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
-                                        return NULL;
-                                    }
-                                    const_node_view_result->var_info.value.uval = const_node_view_left->var_info.value.ival / const_node_view_right->var_info.value.uval;
-                                    break;
-                                }
-                                case MOD_OP: {
-                                    if (const_node_view_right->var_info.value.uval == 0) {
-                                        snprintf(error_msg, ERRORMSGLENGTH, "Modulo by zero");
-                                        return NULL;
-                                    }
-                                    const_node_view_result->var_info.value.uval = const_node_view_left->var_info.value.ival % const_node_view_right->var_info.value.uval;
-                                    break;
-                                }
-                                case MUL_OP: {
-                                    const_node_view_result->var_info.value.uval = const_node_view_left->var_info.value.ival * const_node_view_right->var_info.value.uval;
-                                    break;
-                                }
-                                case OR_OP: {
-                                    const_node_view_result->var_info.value.uval = const_node_view_left->var_info.value.ival | const_node_view_right->var_info.value.uval;
-                                    break;
-                                }
-                                case SUB_OP: {
-                                    const_node_view_result->var_info.value.uval = const_node_view_left->var_info.value.ival - const_node_view_right->var_info.value.uval;
-                                    break;
-                                }
-                                case XOR_OP: {
-                                    const_node_view_result->var_info.value.uval = const_node_view_left->var_info.value.ival ^ const_node_view_right->var_info.value.uval;
-                                    break;
-                                }
-                            }
-                        }
-                    } else {
-                        if (const_node_view_right->var_info.type == INT_T) {
-                            const_node_view_result->var_info.type = UNSIGNED_T;
-                            switch (op) {
-                                case ADD_OP: {
-                                    const_node_view_result->var_info.value.uval += const_node_view_right->var_info.value.ival;
-                                    break;
-                                }
-                                case AND_OP: {
-                                    const_node_view_result->var_info.value.uval &= const_node_view_right->var_info.value.ival;
-                                    break;
-                                }
-                                case DIV_OP: {
-                                    if (const_node_view_right->var_info.value.ival == 0) {
-                                        snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
-                                        return NULL;
-                                    }
-                                    const_node_view_result->var_info.value.uval /= const_node_view_right->var_info.value.ival;
-                                    break;
-                                }
-                                case MOD_OP: {
-                                    if (const_node_view_right->var_info.value.ival == 0) {
-                                        snprintf(error_msg, ERRORMSGLENGTH, "Modulo by zero");
-                                        return NULL;
-                                    }
-                                    const_node_view_result->var_info.value.uval %= const_node_view_right->var_info.value.ival;
-                                    break;
-                                }
-                                case MUL_OP: {
-                                    const_node_view_result->var_info.value.uval *= const_node_view_right->var_info.value.ival;
-                                    break;
-                                }
-                                case OR_OP: {
-                                    const_node_view_result->var_info.value.uval |= const_node_view_right->var_info.value.ival;
-                                    break;
-                                }
-                                case SUB_OP: {
-                                    const_node_view_result->var_info.value.uval -= const_node_view_right->var_info.value.ival;
-                                    break;
-                                }
-                                case XOR_OP: {
-                                    const_node_view_result->var_info.value.uval ^= const_node_view_right->var_info.value.ival;
-                                    break;
-                                }
-                            }
-                        } else {
-                            switch (op) {
-                                case ADD_OP: {
-                                    const_node_view_result->var_info.value.uval += const_node_view_right->var_info.value.uval;
-                                    break;
-                                }
-                                case AND_OP: {
-                                    const_node_view_result->var_info.value.uval &= const_node_view_right->var_info.value.uval;
-                                    break;
-                                }
-                                case DIV_OP: {
-                                    if (const_node_view_right->var_info.value.uval == 0) {
-                                        snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
-                                        return NULL;
-                                    }
-                                    const_node_view_result->var_info.value.uval /= const_node_view_right->var_info.value.uval;
-                                    break;
-                                }
-                                case MOD_OP: {
-                                    if (const_node_view_right->var_info.value.uval == 0) {
-                                        snprintf(error_msg, ERRORMSGLENGTH, "Modulo by zero");
-                                        return NULL;
-                                    }
-                                    const_node_view_result->var_info.value.uval %= const_node_view_right->var_info.value.uval;
-                                    break;
-                                }
-                                case MUL_OP: {
-                                    const_node_view_result->var_info.value.uval *= const_node_view_right->var_info.value.uval;
-                                    break;
-                                }
-                                case OR_OP: {
-                                    const_node_view_result->var_info.value.uval |= const_node_view_right->var_info.value.uval;
-                                    break;
-                                }
-                                case SUB_OP: {
-                                    const_node_view_result->var_info.value.uval -= const_node_view_right->var_info.value.uval;
-                                    break;
-                                }
-                                case XOR_OP: {
-                                    const_node_view_result->var_info.value.uval ^= const_node_view_right->var_info.value.uval;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    free(const_node_view_right);
-                    return result;
-                }
-                case REFERENCE_NODE_T: {
-                    reference_node_view_right = (reference_node_t *) right;
-                    if (reference_node_view_right->var_info.type == BOOL_T) {
-                        snprintf(error_msg, ERRORMSGLENGTH, "Right operand of \"%s\" is a boolean expression",
-                                 integer_op_to_str(op));
-                        return NULL;
-                    }
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    integer_op_node_view_result->var_info.qualifier = reference_node_view_right->var_info.qualifier;
-                    if (const_node_view_left->var_info.type == reference_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = const_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                case INTEGER_OP_NODE_T: {
-                    integer_op_node_view_right = (integer_op_node_t *) right;
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    integer_op_node_view_result->var_info.qualifier = integer_op_node_view_right->var_info.qualifier;
-                    if (const_node_view_left->var_info.type == integer_op_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = const_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                case INVERT_OP_NODE_T: {
-                    invert_op_node_view_right = (invert_op_node_t *) right;
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    integer_op_node_view_result->var_info.qualifier = invert_op_node_view_right->var_info.qualifier;
-                    if (const_node_view_left->var_info.type == invert_op_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = const_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                default: {
-                    snprintf(error_msg, ERRORMSGLENGTH, "Right operand of \"%s\" is a boolean expression",
-                             integer_op_to_str(op));
-                    return NULL;
-                }
-            }
-        }
-        case REFERENCE_NODE_T: {
-            reference_node_view_left = (reference_node_t *) left;
-            if (reference_node_view_left->var_info.type == BOOL_T) {
-                snprintf(error_msg, ERRORMSGLENGTH, "Left operand of \"%s\" is a boolean expression",
-                         integer_op_to_str(op));
-                return NULL;
-            }
-            switch (right->type) {
-                case CONST_NODE_T: {
-                    const_node_view_right = (const_node_t *) right;
-                    if (const_node_view_right->var_info.type == BOOL_T) {
-                        snprintf(error_msg, ERRORMSGLENGTH, "Right operand of \"%s\" is a boolean expression",
-                                 integer_op_to_str(op));
-                        return NULL;
-                    } else if (const_node_view_right->var_info.value.ival == 0) {
-                        if (op == DIV_OP) {
-                            snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
-                            return NULL;
-                        } else if (op == MOD_OP) {
-                            snprintf(error_msg, ERRORMSGLENGTH, "Modulo by zero");
-                            return NULL;
-                        }
-                    }
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    integer_op_node_view_result->var_info.qualifier = reference_node_view_left->var_info.qualifier;
-                    if (reference_node_view_left->var_info.type == const_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = reference_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                case REFERENCE_NODE_T: {
-                    reference_node_view_right = (reference_node_t *) right;
-                    if (reference_node_view_right->var_info.type == BOOL_T) {
-                        snprintf(error_msg, ERRORMSGLENGTH, "Right operand of \"%s\" is a boolean expression",
-                                 integer_op_to_str(op));
-                        return NULL;
-                    }
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    if (reference_node_view_left->var_info.qualifier == QUANTUM_T || reference_node_view_right->var_info.qualifier == QUANTUM_T) {
-                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
-                    } else {
-                        integer_op_node_view_result->var_info.qualifier = NONE_T;
-                    }
-                    if (reference_node_view_left->var_info.type == reference_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = reference_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                case INTEGER_OP_NODE_T: {
-                    integer_op_node_view_right = (integer_op_node_t *) right;
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    if (reference_node_view_left->var_info.qualifier == QUANTUM_T || integer_op_node_view_right->var_info.qualifier == QUANTUM_T) {
-                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
-                    } else {
-                        integer_op_node_view_result->var_info.qualifier = NONE_T;
-                    }
-                    if (reference_node_view_left->var_info.type == integer_op_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = reference_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                case INVERT_OP_NODE_T: {
-                    invert_op_node_view_right = (invert_op_node_t *) right;
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    if (reference_node_view_left->var_info.qualifier == QUANTUM_T || invert_op_node_view_right->var_info.qualifier == QUANTUM_T) {
-                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
-                    } else {
-                        integer_op_node_view_result->var_info.qualifier = NONE_T;
-                    }
-                    if (reference_node_view_left->var_info.type == invert_op_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = reference_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                default: {
-                    snprintf(error_msg, ERRORMSGLENGTH, "Right operand of \"%s\" is a boolean expression",
-                             integer_op_to_str(op));
-                    return NULL;
-                }
-            }
-        }
-        case INTEGER_OP_NODE_T: {
-            integer_op_node_view_left = (integer_op_node_t *) left;
-            switch (right->type) {
-                case CONST_NODE_T: {
-                    const_node_view_right = (const_node_t *) right;
-                    if (const_node_view_right->var_info.type == BOOL_T) {
-                        snprintf(error_msg, ERRORMSGLENGTH, "Right operand of \"%s\" is a boolean expression",
-                                 integer_op_to_str(op));
-                        return NULL;
-                    } else if (const_node_view_right->var_info.value.ival == 0) {
-                        if (op == DIV_OP) {
-                            snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
-                            return NULL;
-                        } else if (op == MOD_OP) {
-                            snprintf(error_msg, ERRORMSGLENGTH, "Modulo by zero");
-                            return NULL;
-                        }
-                    }
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    integer_op_node_view_result->var_info.qualifier = integer_op_node_view_left->var_info.qualifier;
-                    if (integer_op_node_view_left->var_info.type == const_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = integer_op_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                case REFERENCE_NODE_T: {
-                    reference_node_view_right = (reference_node_t *) right;
-                    if (reference_node_view_right->var_info.type == BOOL_T) {
-                        snprintf(error_msg, ERRORMSGLENGTH, "Right operand of \"%s\" is a boolean expression",
-                                 integer_op_to_str(op));
-                        return NULL;
-                    }
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    if (integer_op_node_view_left->var_info.qualifier == QUANTUM_T || reference_node_view_right->var_info.qualifier == QUANTUM_T) {
-                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
-                    } else {
-                        integer_op_node_view_result->var_info.qualifier = NONE_T;
-                    }
-                    if (integer_op_node_view_left->var_info.type == reference_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = integer_op_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                case INTEGER_OP_NODE_T: {
-                    integer_op_node_view_right = (integer_op_node_t *) right;
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    if (integer_op_node_view_left->var_info.qualifier == QUANTUM_T || integer_op_node_view_right->var_info.qualifier == QUANTUM_T) {
-                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
-                    } else {
-                        integer_op_node_view_result->var_info.qualifier = NONE_T;
-                    }
-                    if (integer_op_node_view_left->var_info.type == integer_op_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = integer_op_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                case INVERT_OP_NODE_T: {
-                    invert_op_node_view_right = (invert_op_node_t *) right;
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    if (integer_op_node_view_left->var_info.qualifier == QUANTUM_T || invert_op_node_view_right->var_info.qualifier == QUANTUM_T) {
-                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
-                    } else {
-                        integer_op_node_view_result->var_info.qualifier = NONE_T;
-                    }
-                    if (integer_op_node_view_left->var_info.type == invert_op_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = integer_op_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                default: {
-                    snprintf(error_msg, ERRORMSGLENGTH, "Right operand of \"%s\" is a boolean expression",
-                             integer_op_to_str(op));
-                    return NULL;
-                }
-            }
-        }
-        case INVERT_OP_NODE_T: {
-            invert_op_node_view_left = (invert_op_node_t *) left;
-            switch (right->type) {
-                case CONST_NODE_T: {
-                    const_node_view_right = (const_node_t *) right;
-                    if (const_node_view_right->var_info.type == BOOL_T) {
-                        snprintf(error_msg, ERRORMSGLENGTH, "Right operand of \"%s\" is a boolean expression",
-                                 integer_op_to_str(op));
-                        return NULL;
-                    } else if (const_node_view_right->var_info.value.ival == 0) {
-                        if (op == DIV_OP) {
-                            snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
-                            return NULL;
-                        } else if (op == MOD_OP) {
-                            snprintf(error_msg, ERRORMSGLENGTH, "Modulo by zero");
-                            return NULL;
-                        }
-                    }
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    integer_op_node_view_result->var_info.qualifier = invert_op_node_view_left->var_info.qualifier;
-                    if (invert_op_node_view_left->var_info.type == const_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = invert_op_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                case REFERENCE_NODE_T: {
-                    reference_node_view_right = (reference_node_t *) right;
-                    if (reference_node_view_right->var_info.type == BOOL_T) {
-                        snprintf(error_msg, ERRORMSGLENGTH, "Right operand of \"%s\" is a boolean expression",
-                                 integer_op_to_str(op));
-                        return NULL;
-                    }
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    if (invert_op_node_view_left->var_info.qualifier == QUANTUM_T || reference_node_view_right->var_info.qualifier == QUANTUM_T) {
-                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
-                    } else {
-                        integer_op_node_view_result->var_info.qualifier = NONE_T;
-                    }
-                    if (invert_op_node_view_left->var_info.type == reference_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = invert_op_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                case INTEGER_OP_NODE_T: {
-                    integer_op_node_view_right = (integer_op_node_t *) right;
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    if (invert_op_node_view_left->var_info.qualifier == QUANTUM_T || integer_op_node_view_right->var_info.qualifier == QUANTUM_T) {
-                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
-                    } else {
-                        integer_op_node_view_result->var_info.qualifier = NONE_T;
-                    }
-                    if (invert_op_node_view_left->var_info.type == integer_op_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = invert_op_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                case INVERT_OP_NODE_T: {
-                    invert_op_node_view_right = (invert_op_node_t *) right;
-                    result = new_integer_op_node(op, left, right);
-                    integer_op_node_view_result = (integer_op_node_t *) result;
-                    if (invert_op_node_view_left->var_info.qualifier == QUANTUM_T || invert_op_node_view_right->var_info.qualifier == QUANTUM_T) {
-                        integer_op_node_view_result->var_info.qualifier = QUANTUM_T;
-                    } else {
-                        integer_op_node_view_result->var_info.qualifier = NONE_T;
-                    }
-                    if (invert_op_node_view_left->var_info.type == invert_op_node_view_right->var_info.type) {
-                        integer_op_node_view_result->var_info.type = invert_op_node_view_left->var_info.type;
-                    } else {
-                        integer_op_node_view_result->var_info.type = UNSIGNED_T;
-                    }
-                    return result;
-                }
-                default: {
-                    snprintf(error_msg, ERRORMSGLENGTH, "Right operand of \"%s\" is a boolean expression",
-                             integer_op_to_str(op));
-                    return NULL;
-                }
-            }
-        }
-        default: {
-            snprintf(error_msg, ERRORMSGLENGTH, "Left operand of \"%s\" is a boolean expression",
-                     integer_op_to_str(op));
-            return NULL;
-        }
+    var_info_t left_var_info = get_var_info_of_node(left);
+    var_info_t right_var_info = get_var_info_of_node(right);
+    /* implement error when nodes are no expression nodes */
+    qualifier_t result_qualifier = propagate_qualifier(left_var_info.qualifier, right_var_info.qualifier);
+    type_t result_type = propagate_type(INTEGER_OP, left_var_info.type, right_var_info.type);
+    if (result_type == VOID_T) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"%s\" to %s and %s", integer_op_to_str(op),
+                 type_to_str(left_var_info.type), type_to_str(right_var_info.type));
+        return NULL;
     }
+
+    node_t *result;
+    if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
+        result = left;
+        const_node_t *const_node_view_left = (const_node_t *) left;
+        const_node_t *const_node_view_right = (const_node_t *) right;
+        const_node_t *const_node_view_result = (const_node_t *) result;
+        const_node_view_result->var_info.type = result_type;
+        if (result_type == INT_T) { /* result is a signed integer, hence left and right are signed integers */
+            switch (op) {
+                case ADD_OP: {
+                    const_node_view_result->var_info.value.ival += right_var_info.value.ival;
+                    break;
+                }
+                case AND_OP: {
+                    const_node_view_result->var_info.value.ival &= right_var_info.value.ival;
+                    break;
+                }
+                case DIV_OP: {
+                    if (const_node_view_right->var_info.value.ival == 0) {
+                        snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
+                        return NULL;
+                    }
+                    const_node_view_result->var_info.value.ival /= right_var_info.value.ival;
+                    break;
+                }
+                case MOD_OP: {
+                    if (const_node_view_right->var_info.value.ival == 0) {
+                        snprintf(error_msg, ERRORMSGLENGTH, "Modulo by zero");
+                        return NULL;
+                    }
+                    const_node_view_result->var_info.value.ival %= right_var_info.value.ival;
+                    break;
+                }
+                case MUL_OP: {
+                    const_node_view_result->var_info.value.ival *= right_var_info.value.ival;
+                    break;
+                }
+                case OR_OP: {
+                    const_node_view_result->var_info.value.ival |= right_var_info.value.ival;
+                    break;
+                }
+                case SUB_OP: {
+                    const_node_view_result->var_info.value.ival -= right_var_info.value.ival;
+                    break;
+                }
+                case XOR_OP: {
+                    const_node_view_result->var_info.value.ival ^= right_var_info.value.ival;
+                    break;
+                }
+            }
+        } else { /* result is an unsigned integer, hence left or right are unsigned integers */
+            if (left_var_info.type== INT_T) { /* left is a signed integer, hence right is an unsigned integer */
+                switch (op) {
+                    case ADD_OP: {
+                        const_node_view_result->var_info.value.uval = left_var_info.value.ival + right_var_info.value.uval;
+                        break;
+                    }
+                    case AND_OP: {
+                        const_node_view_result->var_info.value.uval = left_var_info.value.ival & right_var_info.value.uval;
+                        break;
+                    }
+                    case DIV_OP: {
+                        if (const_node_view_right->var_info.value.uval == 0) {
+                            snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
+                            return NULL;
+                        }
+                        const_node_view_result->var_info.value.uval = left_var_info.value.ival / right_var_info.value.uval;
+                        break;
+                    }
+                    case MOD_OP: {
+                        if (const_node_view_right->var_info.value.uval == 0) {
+                            snprintf(error_msg, ERRORMSGLENGTH, "Modulo by zero");
+                            return NULL;
+                        }
+                        const_node_view_result->var_info.value.uval = left_var_info.value.ival % right_var_info.value.uval;
+                        break;
+                    }
+                    case MUL_OP: {
+                        const_node_view_result->var_info.value.uval = left_var_info.value.ival * right_var_info.value.uval;
+                        break;
+                    }
+                    case OR_OP: {
+                        const_node_view_result->var_info.value.uval = left_var_info.value.ival | right_var_info.value.uval;
+                        break;
+                    }
+                    case SUB_OP: {
+                        const_node_view_result->var_info.value.uval = left_var_info.value.ival - right_var_info.value.uval;
+                        break;
+                    }
+                    case XOR_OP: {
+                        const_node_view_result->var_info.value.uval = left_var_info.value.ival ^ right_var_info.value.uval;
+                        break;
+                    }
+                }
+            } else { /* left is an unsigned integer, hence right is either a signed or unsigned integer */
+                if (right_var_info.type == INT_T) { /* right is a signed integer */
+                    switch (op) {
+                        case ADD_OP: {
+                            const_node_view_result->var_info.value.uval += right_var_info.value.ival;
+                            break;
+                        }
+                        case AND_OP: {
+                            const_node_view_result->var_info.value.uval &= right_var_info.value.ival;
+                            break;
+                        }
+                        case DIV_OP: {
+                            if (right_var_info.value.ival == 0) {
+                                snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
+                                return NULL;
+                            }
+                            const_node_view_result->var_info.value.uval /= right_var_info.value.ival;
+                            break;
+                        }
+                        case MOD_OP: {
+                            if (right_var_info.value.ival == 0) {
+                                snprintf(error_msg, ERRORMSGLENGTH, "Modulo by zero");
+                                return NULL;
+                            }
+                            const_node_view_result->var_info.value.uval %= right_var_info.value.ival;
+                            break;
+                        }
+                        case MUL_OP: {
+                            const_node_view_result->var_info.value.uval *= right_var_info.value.ival;
+                            break;
+                        }
+                        case OR_OP: {
+                            const_node_view_result->var_info.value.uval |= right_var_info.value.ival;
+                            break;
+                        }
+                        case SUB_OP: {
+                            const_node_view_result->var_info.value.uval -= right_var_info.value.ival;
+                            break;
+                        }
+                        case XOR_OP: {
+                            const_node_view_result->var_info.value.uval ^= right_var_info.value.ival;
+                            break;
+                        }
+                    }
+                } else { /* right is an unsigned integer */
+                    switch (op) {
+                        case ADD_OP: {
+                            const_node_view_result->var_info.value.uval += right_var_info.value.uval;
+                            break;
+                        }
+                        case AND_OP: {
+                            const_node_view_result->var_info.value.uval &= right_var_info.value.uval;
+                            break;
+                        }
+                        case DIV_OP: {
+                            if (right_var_info.value.uval == 0) {
+                                snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
+                                return NULL;
+                            }
+                            const_node_view_result->var_info.value.uval /= right_var_info.value.uval;
+                            break;
+                        }
+                        case MOD_OP: {
+                            if (right_var_info.value.uval == 0) {
+                                snprintf(error_msg, ERRORMSGLENGTH, "Modulo by zero");
+                                return NULL;
+                            }
+                            const_node_view_result->var_info.value.uval %= right_var_info.value.uval;
+                            break;
+                        }
+                        case MUL_OP: {
+                            const_node_view_result->var_info.value.uval *= right_var_info.value.uval;
+                            break;
+                        }
+                        case OR_OP: {
+                            const_node_view_result->var_info.value.uval |= right_var_info.value.uval;
+                            break;
+                        }
+                        case SUB_OP: {
+                            const_node_view_result->var_info.value.uval -= right_var_info.value.uval;
+                            break;
+                        }
+                        case XOR_OP: {
+                            const_node_view_result->var_info.value.uval ^= right_var_info.value.uval;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        free(const_node_view_right);
+    } else {
+        result = new_integer_op_node(op, left, right);
+        integer_op_node_t *integer_op_node_view_result = (integer_op_node_t *) result;
+        integer_op_node_view_result->var_info.qualifier = result_qualifier;
+        integer_op_node_view_result->var_info.type = result_type;
+    }
+    return result;
 }
 
 node_t *build_invert_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
-    node_t *result;
-    const_node_t *const_node_view_child, *const_node_view_result;
-    reference_node_t *reference_node_view_child;
-    integer_op_node_t *integer_op_node_view_child;
-    invert_op_node_t *invert_op_node_view_child, *invert_op_node_view_result;
-
-    switch (child->type) {
-        case CONST_NODE_T: {
-            const_node_view_child = (const_node_t *) child;
-            if (const_node_view_child->var_info.type == INT_T) {
-                result = child;
-                const_node_view_result = (const_node_t *) result;
-                const_node_view_result->var_info.value.ival = ~(const_node_view_result->var_info.value.ival);
-            } else if (const_node_view_child->var_info.type == UNSIGNED_T) {
-                result = child;
-                const_node_view_result = (const_node_t *) result;
-                const_node_view_result->var_info.value.uval = ~(const_node_view_result->var_info.value.uval);
-            } else {
-                snprintf(error_msg, ERRORMSGLENGTH, "Applying \"~\" to a boolean expression");
-                return NULL;
-            }
-            return result;
-        }
-        case REFERENCE_NODE_T: {
-            reference_node_view_child = (reference_node_t *) child;
-            if (reference_node_view_child->var_info.type == INT_T || reference_node_view_child->var_info.type == UNSIGNED_T) {
-                result = new_invert_op_node(child);
-                invert_op_node_view_result = (invert_op_node_t *) result;
-                invert_op_node_view_result->var_info.qualifier = reference_node_view_child->var_info.qualifier;
-                invert_op_node_view_result->var_info.type = reference_node_view_child->var_info.type;
-            } else {
-                snprintf(error_msg, ERRORMSGLENGTH, "Applying \"~\" to boolean variable %s", reference_node_view_child->entry->name);
-                return NULL;
-            }
-            return result;
-        }
-        case INTEGER_OP_NODE_T: {
-            integer_op_node_view_child = (integer_op_node_t *) child;
-            result = new_invert_op_node(child);
-            invert_op_node_view_result = (invert_op_node_t *) result;
-            invert_op_node_view_result->var_info.qualifier = integer_op_node_view_child->var_info.qualifier;
-            invert_op_node_view_result->var_info.type = integer_op_node_view_child->var_info.type;
-            return result;
-        }
-        case INVERT_OP_NODE_T: {
-            invert_op_node_view_child = (invert_op_node_t *) child;
-            result = invert_op_node_view_child->child;
-            free(invert_op_node_view_child);
-            return result;
-        }
-        default: {
-            snprintf(error_msg, ERRORMSGLENGTH, "Applying \"~\" to boolean expression");
-            return NULL;
-        }
+    var_info_t child_var_info = get_var_info_of_node(child);
+    /* implement error when child is no expression node */
+    qualifier_t result_qualifier = child_var_info.qualifier;
+    type_t result_type = propagate_type(INVERT_OP, child_var_info.type, VOID_T);
+    if (result_type == VOID_T) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"~\" to expression of type %s", type_to_str(child_var_info.type));
+        return NULL;
     }
+    node_t *result;
+    if (result_qualifier == CONST_T) { /* child is of node_type CONST_NODE_T */
+        result = child;
+        const_node_t *const_node_view_child = (const_node_t *) child;
+        const_node_t *const_node_view_result = (const_node_t *) result;
+        if (child_var_info.type == INT_T) { /* child is a signed integer */
+            const_node_view_result->var_info.value.ival = ~(const_node_view_child->var_info.value.ival);
+        } else { /* child is an unsigned integer */
+            const_node_view_result->var_info.value.uval = ~(const_node_view_child->var_info.value.uval);
+        }
+
+        return result;
+    } else if (child->type == INVERT_OP_NODE_T) {
+        invert_op_node_t *invert_op_node_view_child = (invert_op_node_t *) child;
+        result = invert_op_node_view_child->child;
+        free(invert_op_node_view_child);
+    } else {
+        result = new_invert_op_node(child);
+        invert_op_node_t *invert_op_node_view_result = (invert_op_node_t *) result;
+        invert_op_node_view_result->var_info.qualifier = result_qualifier;
+        invert_op_node_view_result->var_info.type = result_type;
+    }
+    return result;
 }
 
 void print_node(const node_t *node) {
