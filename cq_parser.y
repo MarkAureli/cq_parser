@@ -71,7 +71,7 @@ char error_msg[ERRORMSGLENGTH];
 %type <symtab_item> declarator
 %type <type_info> type_specifier
 %type <node> variable_decl variable_def function_def const primary_expr postfix_expr unary_expr mul_expr add_expr
-%type <node> or_expr xor_expr and_expr
+%type <node> equality_expr or_expr xor_expr and_expr
 %type <array_values> init init_elem_l
 %type <array_access_info> array_access
 %define parse.error verbose
@@ -387,14 +387,14 @@ equality_expr:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
-        print_node($$);
+        tree_traversal($$);
 	}
 	| equality_expr NEQ or_expr {
 	    $$ = build_equality_op_node(NEQ_OP, $1, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
-        print_node($$);
+        tree_traversal($$);
 	}
 	;
 
@@ -407,7 +407,7 @@ or_expr:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
-	    print_node($$);
+	    tree_traversal($$);
 	}
 	;
 
@@ -420,7 +420,7 @@ xor_expr:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
-	    print_node($$);
+	    tree_traversal($$);
 	}
 	;
 
@@ -433,7 +433,7 @@ and_expr:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
-	    print_node($$);
+	    tree_traversal($$);
 	}
 	;
 
@@ -446,14 +446,14 @@ add_expr:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
-	    print_node($$);
+	    tree_traversal($$);
 	}
 	| add_expr SUB mul_expr {
         $$ = build_integer_op_node(SUB_OP, $1, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
-	    print_node($$);
+	    tree_traversal($$);
 	}
 	;
 
@@ -466,21 +466,21 @@ mul_expr:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
-	    print_node($$);
+	    tree_traversal($$);
 	}
 	| mul_expr DIV unary_expr {
         $$ = build_integer_op_node(DIV_OP, $1, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
-        print_node($$);
+        tree_traversal($$);
 	}
 	| mul_expr MOD unary_expr {
         $$ = build_integer_op_node(MOD_OP, $1, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
-	    print_node($$);
+	    tree_traversal($$);
 	}
 	;
 
@@ -493,14 +493,14 @@ unary_expr:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
-        print_node($$);
+        tree_traversal($$);
 	}
 	| NOT unary_expr {
 	    $$ = build_not_op_node($2, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
-        print_node($$);
+        tree_traversal($$);
 	}
 	;
 

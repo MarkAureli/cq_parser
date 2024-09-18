@@ -3,6 +3,15 @@
 #include <stdbool.h>
 #include "symtab.h"
 
+typedef enum op_type {
+    LOGICAL_OP,
+    RELATION_OP,
+    EQUALITY_OP,
+    NOT_OP,
+    INTEGER_OP,
+    INVERT_OP
+} op_type_t;
+
 typedef enum logical_op {
     LAND_OP,
     LOR_OP,
@@ -194,13 +203,15 @@ typedef struct return_node {
     node_t *ret_val;
 } return_node_t;
 
-char *integer_op_to_str(integer_op_t integer_op);
+char *op_type_to_str(op_type_t op_type);
 
 char *logical_op_to_str(logical_op_t logical_op);
 
 char *relation_op_to_str(relation_op_t relation_op);
 
 char *equality_op_to_str(equality_op_t equality_op);
+
+char *integer_op_to_str(integer_op_t integer_op);
 
 node_t *new_node(node_type_t type, node_t *left, node_t *right);
 
