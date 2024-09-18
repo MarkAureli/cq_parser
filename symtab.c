@@ -1,8 +1,10 @@
-#include <__stddef_null.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef NULL
+#include <__stddef_null.h>
+#endif
 #include "symtab.h"
 
 char *qualifier_to_str(qualifier_t qualifier) {

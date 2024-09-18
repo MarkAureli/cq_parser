@@ -1,7 +1,9 @@
-#include <__stddef_null.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef NULL
+#include <__stddef_null.h>
+#endif
 #include "ast.h"
 
 char *op_type_to_string(op_type_t op_type) {
@@ -935,11 +937,11 @@ void print_node(const node_t *node) {
                     break;
                 }
                 case INT_T: {
-                    printf("%d\n", ((const_node_t *) node)->var_info.value.ival);
+                    printf("%d (%s)\n", ((const_node_t *) node)->var_info.value.ival, type_to_str(((const_node_t *) node)->var_info.type));
                     break;
                 }
                 case UNSIGNED_T: {
-                    printf("%u\n", ((const_node_t *) node)->var_info.value.uval);
+                    printf("%u (%s)\n", ((const_node_t *) node)->var_info.value.uval, type_to_str(((const_node_t *) node)->var_info.type));
                     break;
                 }
                 case VOID_T: {

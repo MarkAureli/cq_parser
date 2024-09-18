@@ -36,7 +36,6 @@ char error_msg[ERRORMSGLENGTH];
 %token <name> ID
 %token <value> BCONST
 %token <value> ICONST
-%token <value> UCONST
 %token <value> BOOL INT UNSIGNED VOID
 %token <value> CONST QUANTUM
 %token <value> BREAK CONTINUE DO FOR RETURN WHILE
@@ -259,7 +258,7 @@ type_specifier:
 	BOOL { $$ = type_info_init(BOOL_T, 0); }
 	| INT { $$ = type_info_init(INT_T, 0); }
 	| UNSIGNED { $$ = type_info_init(UNSIGNED_T, 0); }
-	| type_specifier LBRACKET UCONST RBRACKET {
+	| type_specifier LBRACKET ICONST RBRACKET {
 	    if ($1.depth == MAXARRAYDEPTH) {
 	        if (snprintf(error_msg, sizeof (error_msg), "Exceeding maximal array length of %i", MAXARRAYDEPTH) > 0) {
 	            yyerror(error_msg);
@@ -636,7 +635,7 @@ array_access:
     ID {
         $$ = array_access_info_init(insert($1, strlen($1), yylineno, false));
     }
-    | array_access LBRACKET UCONST RBRACKET {
+    | array_access LBRACKET ICONST RBRACKET {
         $$ = $1;
         if ($$.entry->depth == 0) {
             if (snprintf(error_msg, sizeof (error_msg), "Array access of of scalar %s", $$.entry->name) > 0) {
@@ -675,9 +674,6 @@ const:
     }
     | ICONST {
         $$ = new_const_node(INT_T, $1);
-    }
-    | UCONST {
-        $$ = new_const_node(UNSIGNED_T, $1);
     }
 	;
 
