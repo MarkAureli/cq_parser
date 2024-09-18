@@ -339,9 +339,7 @@ jump_stmt:
 	;
 
 expr:
-	logical_or_expr {
-	    $$ = $1;
-	}
+	logical_or_expr
 	| unary_expr assignment_operator logical_or_expr
 	;
 
@@ -560,17 +558,11 @@ postfix_expr:
 	primary_expr {
 	    $$ = $1;
 	}
-	| array_access LBRACKET UCONST RBRACKET {
+	| array_access {
 	    unsigned depth = $1.depth;
 	    list_t *entry = $1.entry;
-        if (depth == entry->depth) {
-            if (snprintf(error_msg, sizeof (error_msg), "Depth-%u access of depth-%u array %s", depth + 1, entry->depth, entry->name) > 0) {
-                yyerror(error_msg);
-            } else {
-                yyerror("Too deep access of array");
-            }
-        } else if (depth + 1 != entry->depth) {
-            if (snprintf(error_msg, sizeof (error_msg), "Insufficient depth-%u access of depth-%u array %s", depth + 1, entry->depth, entry->name) > 0) {
+        if (depth != entry->depth) {
+            if (snprintf(error_msg, sizeof (error_msg), "Insufficient depth-%u access of depth-%u array %s", depth, entry->depth, entry->name) > 0) {
                 yyerror(error_msg);
             } else {
                 yyerror("Too shallow access of array");
@@ -585,13 +577,6 @@ postfix_expr:
                 }
             }
         }
-        if ($3.uval >= entry->sizes[depth]) {
-            if (snprintf(error_msg, sizeof (error_msg), "%u-th index (%u) array index of %s out of bounds (%u)", depth, $3.uval, entry->name, entry->sizes[depth]) > 0) {
-                yyerror(error_msg);
-            } else {
-                yyerror("Array index out of bounds");
-            }
-        }
         if (entry->qualifier == CONST_T) {
             unsigned index = 0;
             for (unsigned i = 0; i < depth; ++i) {
@@ -601,12 +586,10 @@ postfix_expr:
                 }
                 index += factor;
             }
-            index += $3.uval;
             $$ = new_const_node(entry->type, entry->values[index]);
         } else {
             $$ = new_reference_node(entry);
             memcpy(((reference_node_t *) $$)->indices, $1.indices, depth * sizeof (unsigned));
-            ((reference_node_t *) $$)->indices[depth++] = $3.uval;
             ((reference_node_t *) $$)->depth = depth;
         }
 	}
@@ -635,17 +618,16 @@ postfix_expr:
 array_access:
     ID {
         $$ = array_access_info_init(insert($1, strlen($1), yylineno, false));
+    }
+    | array_access LBRACKET UCONST RBRACKET {
+        $$ = $1;
         if ($$.entry->depth == 0) {
-            if (snprintf(error_msg, sizeof (error_msg), "Array access of scalar %s", $$.entry->name) > 0) {
+            if (snprintf(error_msg, sizeof (error_msg), "Array access of of scalar %s", $$.entry->name) > 0) {
                 yyerror(error_msg);
             } else {
                 yyerror("Array access of scalar");
             }
-        }
-    }
-    | array_access LBRACKET UCONST RBRACKET {
-        $$ = $1;
-        if ($$.depth == $$.entry->depth) {
+        } else if ($$.depth == $$.entry->depth) {
             if (snprintf(error_msg, sizeof (error_msg), "Depth-%u access of depth-%u array %s", $$.depth + 1, $$.entry->depth, $$.entry->name) > 0) {
                 yyerror(error_msg);
             } else {
@@ -657,26 +639,11 @@ array_access:
     ;
 
 primary_expr:
-	ID {
-	    list_t *entry = insert($1, strlen($1), yylineno, false);
-	    if (entry->depth != 0) {
-	        if (snprintf(error_msg, sizeof (error_msg), "Depth-%u array %s is not indexed", entry->depth, entry->name) > 0 ) {
-	            yyerror(error_msg);
-	        } else {
-	            yyerror("Array is not index");
-	        }
-	    }
-	    if (entry->qualifier == CONST_T) {
-	        $$ = new_const_node(entry->type, entry->values[0]);
-	    } else {
-	        $$ = new_reference_node(entry);
-	    }
-	}
-	| const {
+	const {
 	    $$ = $1;
 	}
 	| LPAREN logical_or_expr RPAREN {
-	    $$ = new_node(BASIC_NODE_T, NULL, NULL); /* dummy node */
+	    $$ = $2;
 	}
 	;
 
