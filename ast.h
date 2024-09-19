@@ -256,6 +256,8 @@ char *assign_op_to_str(assign_op_t assign_op);
 
 void apply_logical_op(logical_op_t op, value_t *out, value_t in_1, value_t in_2);
 
+void apply_comparison_op(comparison_op_t op, value_t *out, type_t in_type_1, value_t in_value_1, type_t in_type_2, value_t in_value_2);
+
 unsigned get_length_of_array(const unsigned sizes[MAXARRAYDEPTH], unsigned depth);
 
 node_t *new_node(node_type_t type, node_t *left, node_t *right);
@@ -272,15 +274,15 @@ node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars);
 
 node_t *new_logical_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, logical_op_t op, node_t *left, node_t *right);
 
-node_t *new_comparison_op_node(comparison_op_t op, node_t *left, node_t *right);
+node_t *new_comparison_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, comparison_op_t op, node_t *left, node_t *right);
 
-node_t *new_equality_op_node(equality_op_t op, node_t *left, node_t *right);
+node_t *new_equality_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, equality_op_t op, node_t *left, node_t *right);
 
-node_t *new_not_op_node(node_t *child);
+node_t *new_not_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, node_t *child);
 
 node_t *new_integer_op_node(integer_op_t op, node_t *left, node_t *right);
 
-node_t *new_invert_op_node(node_t *child);
+node_t *new_invert_op_node(qualifier_t qualifier, type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, node_t *child);
 
 node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branches, unsigned elseif_count, node_t *else_branch);
 

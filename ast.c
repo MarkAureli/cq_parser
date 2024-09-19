@@ -138,12 +138,74 @@ void apply_logical_op(logical_op_t op, value_t *out, value_t in_1, value_t in_2)
     switch (op) {
         case LOR_OP: {
             out->bval = in_1.bval || in_2.bval;
+            break;
         }
         case LXOR_OP: {
             out->bval = in_1.bval && !in_2.bval || !in_1.bval && in_2.bval;
+            break;
         }
         case LAND_OP: {
             out->bval = in_1.bval && in_2.bval;
+            break;
+        }
+    }
+}
+
+void apply_comparison_op(comparison_op_t op, value_t *out, type_t in_type_1, value_t in_value_1, type_t in_type_2, value_t in_value_2) {
+    switch (op) {
+        case GE_OP: {
+            if (in_type_1 == INT_T && in_type_2 == INT_T) {
+                out->bval = in_value_1.ival > in_value_2.ival;
+            } else {
+                out->bval = in_value_1.uval > in_value_2.uval;
+            }
+            break;
+        }
+        case GEQ_OP: {
+            if (in_type_1 == INT_T && in_type_2 == INT_T) {
+                out->bval = in_value_1.ival >= in_value_2.ival;
+            } else {
+                out->bval = in_value_1.ival >= in_value_2.uval;
+            }
+            break;
+        }
+        case LE_OP: {
+            if (in_type_1 == INT_T && in_type_2 == INT_T) {
+                out->bval = in_value_1.ival < in_value_2.ival;
+            } else {
+                out->bval = in_value_1.ival < in_value_2.uval;
+            }
+            break;
+        }
+        case LEQ_OP: {
+            if (in_type_1 == INT_T && in_type_2 == INT_T) {
+                out->bval = in_value_1.ival >= in_value_2.ival;
+            } else {
+                out->bval = in_value_1.ival >= in_value_2.uval;
+            }
+            break;
+        }
+    }
+}
+
+void apply_equality_op(equality_op_t op, value_t *out, type_t in_type_1, value_t in_value_1, type_t in_type_2, value_t in_value_2) {
+    if (in_type_1 == BOOL_T) {
+        if (op == EQ_OP) {
+            out->bval = in_value_1.bval == in_value_2.bval;
+        } else {
+            out->bval = in_value_1.bval != in_value_2.bval;
+        }
+    } else if (in_type_1 == INT_T && in_type_2 == INT_T) {
+        if (op == EQ_OP) {
+            out->bval = in_value_1.ival == in_value_2.ival;
+        } else {
+            out->bval = in_value_1.ival != in_value_2.ival;
+        }
+    } else {
+        if (op == EQ_OP) {
+            out->bval = in_value_1.uval == in_value_2.uval;
+        } else {
+            out->bval = in_value_1.uval != in_value_2.uval;
         }
     }
 }
@@ -227,31 +289,40 @@ node_t *new_logical_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAY
     return (node_t *) new_node;
 }
 
-node_t *new_comparison_op_node(comparison_op_t op, node_t *left, node_t *right) {
+node_t *new_comparison_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, comparison_op_t op, node_t *left, node_t *right) {
     comparison_op_node_t *new_node = calloc(1, sizeof (comparison_op_node_t));
     new_node->type = COMPARISON_OP_NODE_T;
+    new_node->type_info.qualifier = qualifier;
+    new_node->type_info.type = BOOL_T;
+    memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+    new_node->type_info.depth = depth;
     new_node->op = op;
     new_node->left = left;
     new_node->right = right;
     return (node_t *) new_node;
 }
 
-node_t *new_equality_op_node(equality_op_t op, node_t *left, node_t *right) {
+node_t *new_equality_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, equality_op_t op, node_t *left, node_t *right) {
     equality_op_node_t *new_node = calloc(1, sizeof (equality_op_node_t));
     new_node->type = EQUALITY_OP_NODE_T;
+    new_node->type_info.qualifier = qualifier;
     new_node->type_info.type = BOOL_T;
+    memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+    new_node->type_info.depth = depth;
     new_node->op = op;
     new_node->left = left;
     new_node->right = right;
     return (node_t *) new_node;
 }
 
-node_t *new_not_op_node(node_t *child) {
+node_t *new_not_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, node_t *child) {
     not_op_node_t *new_node = calloc(1, sizeof (not_op_node_t));
     new_node->type = NOT_OP_NODE_T;
+    new_node->type_info.qualifier = qualifier;
     new_node->type_info.type = BOOL_T;
+    memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+    new_node->type_info.depth = depth;
     new_node->child = child;
-    return (node_t *) new_node;
 }
 
 node_t *new_integer_op_node(integer_op_t op, node_t *left, node_t *right) {
@@ -263,11 +334,14 @@ node_t *new_integer_op_node(integer_op_t op, node_t *left, node_t *right) {
     return (node_t *) new_node;
 }
 
-node_t *new_invert_op_node(node_t *child) {
-    invert_op_node_t *new_node = calloc(1, sizeof (invert_op_node_t));
+node_t *new_invert_op_node(qualifier_t qualifier, type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, node_t *child) {
+    invert_op_node_t *new_node = calloc(1, sizeof(invert_op_node_t));
     new_node->type = INVERT_OP_NODE_T;
+    new_node->type_info.qualifier = qualifier;
+    new_node->type_info.type = type;
+    memcpy(new_node->type_info.sizes, sizes, depth * sizeof(unsigned));
+    new_node->type_info.depth = depth;
     new_node->child = child;
-    return (node_t *) new_node;
 }
 
 node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branches, unsigned elseif_count, node_t *else_branch) {
@@ -542,217 +616,138 @@ node_t *build_logical_op_node(logical_op_t op, node_t *left, node_t *right, char
 }
 
 node_t *build_comparison_op_node(comparison_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]) {
-    var_info_t left_var_info = get_var_info_of_node(left);
-    var_info_t right_var_info = get_var_info_of_node(right);
+    type_info_t *left_type_info = get_type_info_of_node(left);
+    type_info_t *right_type_info = get_type_info_of_node(right);
     /* implement error when nodes are no expression nodes */
-    qualifier_t result_qualifier = propagate_qualifier(left_var_info.qualifier, right_var_info.qualifier);
-    type_t result_type = propagate_type(COMPARISON_OP, left_var_info.type, right_var_info.type);
+    qualifier_t result_qualifier = propagate_qualifier(left_type_info->qualifier, right_type_info->qualifier);
+    type_t result_type = propagate_type(COMPARISON_OP, left_type_info->type, right_type_info->type);
     if (result_type == VOID_T) {
         snprintf(error_msg, ERRORMSGLENGTH, "\"%s\"-comparison of %s and %s", comparison_op_to_str(op),
-                 type_to_str(left_var_info.type), type_to_str(right_var_info.type));
+                 type_to_str(left_type_info->type), type_to_str(right_type_info->type));
         return NULL;
     }
+
+    if (left_type_info->depth == 0 && right_type_info->depth != 0) {
+        snprintf(error_msg, ERRORMSGLENGTH, "\"%s\"-comparison of scalar and array of depth %u)", comparison_op_to_str(op), right_type_info->depth);
+        return NULL;
+    } else if (left_type_info->depth != 0 && right_type_info->depth == 0) {
+        snprintf(error_msg, ERRORMSGLENGTH, "\"%s\"-comparison of array of depth %u and scalar)", comparison_op_to_str(op), left_type_info->depth);
+        return NULL;
+    } else if (left_type_info->depth != right_type_info->depth) {
+        snprintf(error_msg, ERRORMSGLENGTH, "\"%s\"-comparison of arrays of different depths (%u != %u)", comparison_op_to_str(op),
+                 left_type_info->depth, right_type_info->depth);
+        return NULL;
+    }
+    unsigned depth = left_type_info->depth;
+
+    for (unsigned i = 0; i < depth; ++i) {
+        if (left_type_info->sizes[i] != right_type_info->sizes[i]) {
+            snprintf(error_msg, ERRORMSGLENGTH, "\"%s\"-comparison of arrays of different sizes in dimension %u (%u != %u)", comparison_op_to_str(op),
+                     depth, left_type_info->sizes[i], right_type_info->sizes[i]);
+            return NULL;
+        }
+    }
+    unsigned *sizes = left_type_info->sizes;
+    unsigned length = get_length_of_array(sizes, depth);
 
     node_t *result;
     if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
         result = left;
+        const_node_t *const_node_view_left = (const_node_t *) left;
         const_node_t *const_node_view_right = (const_node_t *) right;
         const_node_t *const_node_view_result = (const_node_t *) result;
-        const_node_view_result->var_info.type = BOOL_T;
-        switch (left_var_info.type) {
-            case INT_T: { /* left is a signed integer, right is either a signed or unsigned integer */
-                if (right_var_info.type == INT_T) { /* left and right are integers */
-                    switch (op) {
-                        case GE_OP: {
-                            const_node_view_result->var_info.value.bval = left_var_info.value.ival > right_var_info.value.ival;
-                            break;
-                        }
-                        case GEQ_OP: {
-                            const_node_view_result->var_info.value.bval = left_var_info.value.ival >= right_var_info.value.ival;
-                            break;
-                        }
-                        case LE_OP: {
-                            const_node_view_result->var_info.value.bval = left_var_info.value.ival < right_var_info.value.ival;
-                            break;
-                        }
-                        case LEQ_OP: {
-                            const_node_view_result->var_info.value.bval = left_var_info.value.ival <= right_var_info.value.ival;
-                            break;
-                        }
-                    }
-                } else {
-                    switch (op) {
-                        case GE_OP: {
-                            const_node_view_result->var_info.value.bval = left_var_info.value.ival > right_var_info.value.uval;
-                            break;
-                        }
-                        case GEQ_OP: {
-                            const_node_view_result->var_info.value.bval = left_var_info.value.ival >= right_var_info.value.uval;
-                            break;
-                        }
-                        case LE_OP: {
-                            const_node_view_result->var_info.value.bval = left_var_info.value.ival < right_var_info.value.uval;
-                            break;
-                        }
-                        case LEQ_OP: {
-                            const_node_view_result->var_info.value.bval = left_var_info.value.ival <= right_var_info.value.uval;
-                            break;
-                        }
-                    }
-                }
-                break;
-            }
-            case UNSIGNED_T: { /* left is an unsigned integer, right is either a signed or unsigned integer */
-                if (right_var_info.type == INT_T) { /* left is an unsigned integer, right is a signed integer */
-                    switch (op) {
-                        case GE_OP: {
-                            const_node_view_result->var_info.value.bval = left_var_info.value.uval > right_var_info.value.ival;
-                            break;
-                        }
-                        case GEQ_OP: {
-                            const_node_view_result->var_info.value.bval = left_var_info.value.uval >= right_var_info.value.ival;
-                            break;
-                        }
-                        case LE_OP: {
-                            const_node_view_result->var_info.value.bval = left_var_info.value.uval < right_var_info.value.ival;
-                            break;
-                        }
-                        case LEQ_OP: {
-                            const_node_view_result->var_info.value.bval = left_var_info.value.uval <= right_var_info.value.ival;
-                            break;
-                        }
-                    }
-                } else {
-                    switch (op) {
-                        case GE_OP: {
-                            const_node_view_result->var_info.value.bval = left_var_info.value.uval > right_var_info.value.uval;
-                            break;
-                        }
-                        case GEQ_OP: {
-                            const_node_view_result->var_info.value.bval = left_var_info.value.uval >= right_var_info.value.uval;
-                            break;
-                        }
-                        case LE_OP: {
-                            const_node_view_result->var_info.value.bval = left_var_info.value.uval < right_var_info.value.uval;
-                            break;
-                        }
-                        case LEQ_OP: {
-                            const_node_view_result->var_info.value.bval = left_var_info.value.uval <= right_var_info.value.uval;
-                            break;
-                        }
-                    }
-                }
-                break;
-            }
-            case BOOL_T: case VOID_T: { /* case not possible due to previous type checking */
-                break;
-            }
+        const_node_view_result->type_info.type = BOOL_T;
+
+        for (unsigned i = 0; i < length; ++i) {
+            apply_comparison_op(op, const_node_view_result->values + i, left_type_info->type, const_node_view_left->values[i], right_type_info->type, const_node_view_right->values[i]);
         }
+        free(const_node_view_right->values);
         free(const_node_view_right);
     } else {
-        result = new_comparison_op_node(op, left, right);
-        comparison_op_node_t *comparison_op_node_view_result = (comparison_op_node_t *) result;
-        comparison_op_node_view_result->var_info.qualifier = result_qualifier;
-        comparison_op_node_view_result->var_info.type = result_type;
+        result = new_comparison_op_node(result_qualifier, sizes, depth, op, left, right);
     }
     return result;
 }
 
 node_t *build_equality_op_node(equality_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]) {
-    var_info_t left_var_info = get_var_info_of_node(left);
-    var_info_t right_var_info = get_var_info_of_node(right);
+    type_info_t *left_type_info = get_type_info_of_node(left);
+    type_info_t *right_type_info = get_type_info_of_node(right);
     /* implement error when nodes are no expression nodes */
-    qualifier_t result_qualifier = propagate_qualifier(left_var_info.qualifier, right_var_info.qualifier);
-    type_t result_type = propagate_type(EQUALITY_OP, left_var_info.type, right_var_info.type);
+    qualifier_t result_qualifier = propagate_qualifier(left_type_info->qualifier, right_type_info->qualifier);
+    type_t result_type = propagate_type(EQUALITY_OP, left_type_info->type, right_type_info->type);
     if (result_type == VOID_T) {
-        snprintf(error_msg, ERRORMSGLENGTH, "Checking %s of %s and %s", (op == EQ_OP) ? "equality" : "inequality",
-                 type_to_str(left_var_info.type), type_to_str(right_var_info.type));
+        snprintf(error_msg, ERRORMSGLENGTH, "Checking %sequality of %s and %s", (op == EQ_OP) ? "" : "in",
+                 type_to_str(left_type_info->type), type_to_str(right_type_info->type));
         return NULL;
     }
+
+    if (left_type_info->depth == 0 && right_type_info->depth != 0) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Checking %sequality of scalar and array of depth %u)", (op == EQ_OP) ? "" : "in", right_type_info->depth);
+        return NULL;
+    } else if (left_type_info->depth != 0 && right_type_info->depth == 0) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Checking %sequality of array of depth %u and scalar)", (op == EQ_OP) ? "" : "in", left_type_info->depth);
+        return NULL;
+    } else if (left_type_info->depth != right_type_info->depth) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Checking %sequality of arrays of different depths (%u != %u)", (op == EQ_OP) ? "" : "in",
+                 left_type_info->depth, right_type_info->depth);
+        return NULL;
+    }
+    unsigned depth = left_type_info->depth;
+
+    for (unsigned i = 0; i < depth; ++i) {
+        if (left_type_info->sizes[i] != right_type_info->sizes[i]) {
+            snprintf(error_msg, ERRORMSGLENGTH, "Checking %sequality of arrays of different sizes in dimension %u (%u != %u)", (op == EQ_OP) ? "" : "in",
+                     depth, left_type_info->sizes[i], right_type_info->sizes[i]);
+            return NULL;
+        }
+    }
+    unsigned *sizes = left_type_info->sizes;
+    unsigned length = get_length_of_array(sizes, depth);
 
     node_t *result;
     if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
         result = left;
+        const_node_t *const_node_view_left = (const_node_t *) left;
         const_node_t *const_node_view_right = (const_node_t *) right;
         const_node_t *const_node_view_result = (const_node_t *) result;
-        const_node_view_result->var_info.type = BOOL_T;
-        switch (left_var_info.type) {
-            case BOOL_T: { /* left and right are booleans */
-                if (op == EQ_OP) {
-                    const_node_view_result->var_info.value.bval = left_var_info.value.bval == right_var_info.value.bval;
-                } else {
-                    const_node_view_result->var_info.value.bval = left_var_info.value.bval != right_var_info.value.bval;
-                }
-                break;
-            }
-            case INT_T: { /* left is a signed integer, right is either a signed or unsigned integer */
-                if (right_var_info.type == INT_T) { /* left and right are integers */
-                    if (op == EQ_OP) {
-                        const_node_view_result->var_info.value.bval = left_var_info.value.ival == right_var_info.value.ival;
-                    } else {
-                        const_node_view_result->var_info.value.bval = left_var_info.value.ival != right_var_info.value.ival;
-                    }
-                } else {
-                    if (op == EQ_OP) { /* left is a signed integer, right is an unsigned integer */
-                        const_node_view_result->var_info.value.bval = left_var_info.value.ival == right_var_info.value.uval;
-                    } else {
-                        const_node_view_result->var_info.value.bval = left_var_info.value.ival != right_var_info.value.uval;
-                    }
-                }
-                break;
-            }
-            case UNSIGNED_T: { /* left is an unsigned integer, right is either a signed or unsigned integer */
-                if (right_var_info.type == INT_T) { /* left is an unsigned integer, right is a signed integer */
-                    if (op == EQ_OP) {
-                        const_node_view_result->var_info.value.bval = left_var_info.value.uval == right_var_info.value.ival;
-                    } else {
-                        const_node_view_result->var_info.value.bval = left_var_info.value.uval != right_var_info.value.ival;
-                    }
-                } else {
-                    if (op == EQ_OP) { /* left and right are unsigned integers */
-                        const_node_view_result->var_info.value.bval = left_var_info.value.uval == right_var_info.value.uval;
-                    } else {
-                        const_node_view_result->var_info.value.bval = left_var_info.value.uval != right_var_info.value.uval;
-                    }
-                }
-                break;
-            }
-            case VOID_T: { /* case not possible due to previous type checking */
-                break;
-            }
+        const_node_view_result->type_info.type = BOOL_T;
+
+        for (unsigned i = 0; i < length; ++i) {
+            apply_equality_op(op, const_node_view_result->values + i, left_type_info->type, const_node_view_left->values[i], right_type_info->type, const_node_view_right->values[i]);
         }
+        free(const_node_view_right->values);
         free(const_node_view_right);
     } else {
-        result = new_equality_op_node(op, left, right);
-        equality_op_node_t *equality_op_node_view_result = (equality_op_node_t *) result;
-        equality_op_node_view_result->var_info.qualifier = result_qualifier;
-        equality_op_node_view_result->var_info.type = result_type;
+        result = new_equality_op_node(result_qualifier, sizes, depth, op, left, right);
     }
     return result;
 }
 
 node_t *build_not_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
-    var_info_t child_var_info = get_var_info_of_node(child);
+    type_info_t *child_type_info = get_type_info_of_node(child);
     /* implement error when child is no expression node */
-    qualifier_t result_qualifier = child_var_info.qualifier;
-    type_t result_type = propagate_type(NOT_OP, child_var_info.type, VOID_T);
+    qualifier_t result_qualifier = child_type_info->qualifier;
+    type_t result_type = propagate_type(NOT_OP, child_type_info->type, VOID_T);
     if (result_type == VOID_T) {
-        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"!\" to expression of type %s", type_to_str(child_var_info.type));
+        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"!\" to expression of type %s", type_to_str(child_type_info->type));
         return NULL;
     }
+
     node_t *result;
     if (result_qualifier == CONST_T) { /* child is of node_type CONST_NODE_T */
+        unsigned length = get_length_of_array(child_type_info->sizes, child_type_info->depth);
         result = child;
+        const_node_t *const_node_view_child = (const_node_t *) child;
         const_node_t *const_node_view_result = (const_node_t *) result;
-        const_node_view_result->var_info.value.bval = !(child_var_info.value.bval);
+        for (unsigned i = 0; i < length; ++i) {
+            const_node_view_result->values[i].bval = !(const_node_view_child->values[i].bval);
+        }
     } else if (child->type == NOT_OP_NODE_T) {
         not_op_node_t *not_op_node_view_child = (not_op_node_t *) child;
         result = not_op_node_view_child->child;
         free(not_op_node_view_child);
     } else {
-        result = new_not_op_node(child);
-        not_op_node_t *not_op_node_view_result = (not_op_node_t *) result;
-        not_op_node_view_result->var_info.qualifier = result_qualifier;
+        result = new_not_op_node(result_qualifier, child_type_info->sizes, child_type_info->depth, child);
     }
     return result;
 }
@@ -963,33 +958,37 @@ node_t *build_integer_op_node(integer_op_t op, node_t *left, node_t *right, char
 }
 
 node_t *build_invert_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
-    var_info_t child_var_info = get_var_info_of_node(child);
+    type_info_t *child_type_info = get_type_info_of_node(child);
     /* implement error when child is no expression node */
-    qualifier_t result_qualifier = child_var_info.qualifier;
-    type_t result_type = propagate_type(INVERT_OP, child_var_info.type, VOID_T);
+    qualifier_t result_qualifier = child_type_info->qualifier;
+    type_t result_type = propagate_type(INVERT_OP, child_type_info->type, VOID_T);
     if (result_type == VOID_T) {
-        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"~\" to expression of type %s", type_to_str(child_var_info.type));
+        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"~\" to expression of type %s", type_to_str(child_type_info->type));
         return NULL;
     }
+
     node_t *result;
     if (result_qualifier == CONST_T) { /* child is of node_type CONST_NODE_T */
+        unsigned length = get_length_of_array(child_type_info->sizes, child_type_info->depth);
         result = child;
+        const_node_t *const_node_view_child = (const_node_t *) child;
         const_node_t *const_node_view_result = (const_node_t *) result;
-        if (child_var_info.type == INT_T) { /* child is a signed integer */
-            const_node_view_result->var_info.value.ival = ~(child_var_info.value.ival);
-        } else { /* child is an unsigned integer */
-            const_node_view_result->var_info.value.uval = ~(child_var_info.value.uval);
+        if (result_type == INT_T) {
+            for (unsigned i = 0; i < length; ++i) {
+                const_node_view_result->values[i].ival = ~(const_node_view_child->values[i].ival);
+            }
+        } else {
+            for (unsigned i = 0; i < length; ++i) {
+                const_node_view_result->values[i].uval = ~(const_node_view_child->values[i].uval);
+            }
         }
-        return result;
+
     } else if (child->type == INVERT_OP_NODE_T) {
         invert_op_node_t *invert_op_node_view_child = (invert_op_node_t *) child;
         result = invert_op_node_view_child->child;
         free(invert_op_node_view_child);
     } else {
-        result = new_invert_op_node(child);
-        invert_op_node_t *invert_op_node_view_result = (invert_op_node_t *) result;
-        invert_op_node_view_result->var_info.qualifier = result_qualifier;
-        invert_op_node_view_result->var_info.type = result_type;
+        result = new_invert_op_node(result_qualifier, result_type, child_type_info->sizes, child_type_info->depth, child);
     }
     return result;
 }
