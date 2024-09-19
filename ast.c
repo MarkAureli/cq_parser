@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <tclDecls.h>
+
 #ifndef NULL
 #include <__stddef_null.h>
 #endif
@@ -132,6 +134,28 @@ char *assign_op_to_str(assign_op_t assign_op) {
     }
 }
 
+void apply_logical_op(logical_op_t op, value_t *out, value_t in_1, value_t in_2) {
+    switch (op) {
+        case LOR_OP: {
+            out->bval = in_1.bval || in_2.bval;
+        }
+        case LXOR_OP: {
+            out->bval = in_1.bval && !in_2.bval || !in_1.bval && in_2.bval;
+        }
+        case LAND_OP: {
+            out->bval = in_1.bval && in_2.bval;
+        }
+    }
+}
+
+unsigned get_length_of_array(const unsigned sizes[MAXARRAYDEPTH], unsigned depth) {
+    unsigned result = 1;
+    for (unsigned i = 0; i < depth; ++i) {
+        result *= sizes[i];
+    }
+    return result;
+}
+
 node_t *new_node(node_type_t type, node_t *left, node_t *right) {
     node_t *new_node = calloc(1, sizeof (node_t));
     new_node->type = type;
@@ -154,20 +178,23 @@ node_t *new_var_decl_node(list_t *entry) {
     return (node_t *) new_node;
 }
 
-node_t *new_const_node(type_t type, value_t value) {
+node_t *new_const_node(type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, value_t *values) {
     const_node_t *new_node = calloc(1, sizeof (const_node_t));
     new_node->type = CONST_NODE_T;
-    new_node->var_info.qualifier = true;
-    new_node->var_info.type = type;
-    new_node->var_info.value = value;
+    new_node->type_info.qualifier = CONST_T;
+    new_node->type_info.type = type;
+    memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+    new_node->type_info.depth = depth;
+    memcpy(new_node->values, values, get_length_of_array(sizes, depth) * sizeof (value_t));
     return (node_t *) new_node;
 }
 
 node_t *new_reference_node(list_t *entry) {
     reference_node_t *new_node = calloc(1, sizeof (reference_node_t));
     new_node->type = REFERENCE_NODE_T;
-    new_node->var_info.type = entry->type;
-    new_node->var_info.qualifier = entry->qualifier;
+    // TODO: properly set the sizes and depth when altered in reference
+    new_node->type_info.qualifier = entry->qualifier;
+    new_node->type_info.type = entry->type;
     new_node->entry = entry;
     return (node_t *) new_node;
 }
@@ -178,17 +205,22 @@ node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars) {
     }
     func_call_node_t *new_node = calloc(1, sizeof (func_call_node_t));
     new_node->type = FUNC_CALL_NODE_T;
-    new_node->var_info.qualifier = entry->qualifier;
-    new_node->var_info.type = entry->type;
+    // TODO: properly set the sizes and depth when altered in reference (maybe not necessary)
+    new_node->type_info.qualifier = entry->qualifier;
+    new_node->type_info.type = entry->type;
     new_node->entry = entry;
     new_node->pars = pars;
     new_node->num_of_pars = num_of_pars;
     return (node_t *) new_node;
 }
 
-node_t *new_logical_op_node(logical_op_t op, node_t *left, node_t *right) {
+node_t *new_logical_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, logical_op_t op, node_t *left, node_t *right) {
     logical_op_node_t *new_node = calloc(1, sizeof (logical_op_node_t));
     new_node->type = LOGICAL_OP_NODE_T;
+    new_node->type_info.qualifier = qualifier;
+    new_node->type_info.type = BOOL_T;
+    memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+    new_node->type_info.depth = depth;
     new_node->op = op;
     new_node->left = left;
     new_node->right = right;
@@ -207,6 +239,7 @@ node_t *new_comparison_op_node(comparison_op_t op, node_t *left, node_t *right) 
 node_t *new_equality_op_node(equality_op_t op, node_t *left, node_t *right) {
     equality_op_node_t *new_node = calloc(1, sizeof (equality_op_node_t));
     new_node->type = EQUALITY_OP_NODE_T;
+    new_node->type_info.type = BOOL_T;
     new_node->op = op;
     new_node->left = left;
     new_node->right = right;
@@ -216,7 +249,7 @@ node_t *new_equality_op_node(equality_op_t op, node_t *left, node_t *right) {
 node_t *new_not_op_node(node_t *child) {
     not_op_node_t *new_node = calloc(1, sizeof (not_op_node_t));
     new_node->type = NOT_OP_NODE_T;
-    new_node->var_info.type = BOOL_T;
+    new_node->type_info.type = BOOL_T;
     new_node->child = child;
     return (node_t *) new_node;
 }
@@ -324,35 +357,34 @@ array_access_info_t array_access_info_init(list_t *entry) {
     return new_array_access;
 }
 
-var_info_t get_var_info_of_node(const node_t *node) {
+type_info_t *get_type_info_of_node(const node_t *node) {
     switch (node->type) {
         case CONST_NODE_T: {
-            return ((const_node_t *) node)->var_info;
+            return &(((const_node_t *) node)->type_info);
         }
         case REFERENCE_NODE_T: {
-            return ((reference_node_t *) node)->var_info;
+            return &(((reference_node_t *) node)->type_info);
         }
         case LOGICAL_OP_NODE_T: {
-            return ((logical_op_node_t *) node)->var_info;
+            return &(((logical_op_node_t *) node)->type_info);
         }
         case COMPARISON_OP_NODE_T: {
-            return ((comparison_op_node_t *) node)->var_info;
+            return &(((comparison_op_node_t *) node)->type_info);
         }
         case EQUALITY_OP_NODE_T: {
-            return ((equality_op_node_t *) node)->var_info;
+            return &(((equality_op_node_t *) node)->type_info);
         }
         case NOT_OP_NODE_T: {
-            return ((not_op_node_t *) node)->var_info;
+            return &(((not_op_node_t *) node)->type_info);
         }
         case INTEGER_OP_NODE_T: {
-            return ((integer_op_node_t *) node)->var_info;
+            return &(((integer_op_node_t *) node)->type_info);
         }
         case INVERT_OP_NODE_T: {
-            return ((invert_op_node_t *) node)->var_info;
+            return &(((invert_op_node_t *) node)->type_info);
         }
         default: {
-            var_info_t undefined_result = { .qualifier=NONE_T, .type=VOID_T, .value.bval=false};
-            return undefined_result;
+            return NULL;
         }
     }
 }
@@ -456,43 +488,55 @@ type_t propagate_type(op_type_t op_type, type_t type_1, type_t type_2) {
 }
 
 node_t *build_logical_op_node(logical_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]) {
-    var_info_t left_var_info = get_var_info_of_node(left);
-    var_info_t right_var_info = get_var_info_of_node(right);
+    type_info_t *left_type_info = get_type_info_of_node(left);
+    type_info_t *right_type_info = get_type_info_of_node(right);
     /* implement error when nodes are no expression nodes */
-    qualifier_t result_qualifier = propagate_qualifier(left_var_info.qualifier, right_var_info.qualifier);
-    type_t result_type = propagate_type(LOGICAL_OP, left_var_info.type, right_var_info.type);
+    qualifier_t result_qualifier = propagate_qualifier(left_type_info->qualifier, right_type_info->qualifier);
+    type_t result_type = propagate_type(LOGICAL_OP, left_type_info->type, right_type_info->type);
     if (result_type == VOID_T) {
         snprintf(error_msg, ERRORMSGLENGTH, "Applying \"%s\" to %s and %s", logical_op_to_str(op),
-                 type_to_str(left_var_info.type), type_to_str(right_var_info.type));
+                 type_to_str(left_type_info->type), type_to_str(right_type_info->type));
         return NULL;
     }
+
+    if (left_type_info->depth == 0 && right_type_info->depth != 0) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"%s\" to scalar and array of depth %u)", logical_op_to_str(op), right_type_info->depth);
+        return NULL;
+    } else if (left_type_info->depth != 0 && right_type_info->depth == 0) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"%s\" to array of depth %u and scalar)", logical_op_to_str(op), left_type_info->depth);
+        return NULL;
+    } else if (left_type_info->depth != right_type_info->depth) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"%s\" to arrays of different depth (%u != %u)", logical_op_to_str(op),
+                 left_type_info->depth, right_type_info->depth);
+        return NULL;
+    }
+    unsigned depth = left_type_info->depth;
+
+    for (unsigned i = 0; i < depth; ++i) {
+        if (left_type_info->sizes[i] != right_type_info->sizes[i]) {
+            snprintf(error_msg, ERRORMSGLENGTH, "Applying \"%s\" to arrays of different sizes in dimension %u (%u != %u)", logical_op_to_str(op),
+                     depth, left_type_info->sizes[i], right_type_info->sizes[i]);
+            return NULL;
+        }
+    }
+    unsigned *sizes = left_type_info->sizes;
+    unsigned length = get_length_of_array(sizes, depth);
 
     node_t *result;
     if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
         result = left;
+        const_node_t *const_node_view_left = (const_node_t *) left;
         const_node_t *const_node_view_right = (const_node_t *) right;
         const_node_t *const_node_view_result = (const_node_t *) result;
-        const_node_view_result->var_info.type = BOOL_T;
-        switch (op) {
-            case LOR_OP: {
-                const_node_view_result->var_info.value.bval = left_var_info.value.bval || right_var_info.value.bval;
-                break;
-            }
-            case LXOR_OP: {
-                const_node_view_result->var_info.value.bval = left_var_info.value.bval && !right_var_info.value.bval
-                        || !left_var_info.value.bval && right_var_info.value.bval;
-                break;
-            }
-            case LAND_OP: {
-                const_node_view_result->var_info.value.bval = left_var_info.value.bval && right_var_info.value.bval;
-                break;
-            }
+        const_node_view_result->type_info.type = BOOL_T;
+
+        for (unsigned i = 0; i < length; ++i) {
+            apply_logical_op(op, const_node_view_result->values + i, const_node_view_left->values[i], const_node_view_right->values[i]);
         }
+        free(const_node_view_right->values);
         free(const_node_view_right);
     } else {
-        result = new_logical_op_node(op, left, right);
-        logical_op_node_t *logical_op_node_view_result = (logical_op_node_t *) result;
-        logical_op_node_view_result->var_info.qualifier = result_qualifier;
+        result = new_logical_op_node(result_qualifier, sizes, depth, op, left, right);
     }
     return result;
 }

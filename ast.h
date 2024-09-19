@@ -77,6 +77,7 @@ typedef enum node_type {
 } node_type_t;
 
 typedef struct type_info {
+    qualifier_t qualifier;
     type_t type;
     unsigned sizes[MAXARRAYDEPTH];
     unsigned depth;
@@ -107,9 +108,9 @@ typedef struct array_var_infos {
 
 typedef struct array_access_info {
     list_t *entry;
+    bool is_indexed[MAXARRAYDEPTH];
     bool index_is_const[MAXARRAYDEPTH];
     array_index_t indices[MAXARRAYDEPTH];
-    unsigned depth;
 } array_access_info_t;
 
 typedef struct func_decl_node {
@@ -124,21 +125,22 @@ typedef struct var_decl_node {
 
 typedef struct const_node {
     node_type_t type;
-    var_info_t var_info;
+    type_info_t type_info;
+    value_t *values;
 } const_node_t;
 
 typedef struct reference_node {
     node_type_t type;
-    var_info_t var_info;
+    type_info_t type_info;
+    bool is_indexed[MAXARRAYDEPTH];
     bool index_is_const[MAXARRAYDEPTH];
     array_index_t indices[MAXARRAYDEPTH];
-    unsigned depth;
     list_t *entry;
 } reference_node_t;
 
 typedef struct func_call_node {
     node_type_t type;
-    var_info_t var_info;
+    type_info_t type_info;
     list_t *entry;
     node_t **pars;
     unsigned num_of_pars;
@@ -146,7 +148,7 @@ typedef struct func_call_node {
 
 typedef struct logical_op_node {
     node_type_t type;
-    var_info_t var_info;
+    type_info_t type_info;
     logical_op_t op;
     node_t *left;
     node_t *right;
@@ -154,7 +156,7 @@ typedef struct logical_op_node {
 
 typedef struct comparison_op_node {
     node_type_t type;
-    var_info_t var_info;
+    type_info_t type_info;
     comparison_op_t op;
     node_t *left;
     node_t *right;
@@ -162,7 +164,7 @@ typedef struct comparison_op_node {
 
 typedef struct equality_op_node {
     node_type_t type;
-    var_info_t var_info;
+    type_info_t type_info;
     equality_op_t op;
     node_t *left;
     node_t *right;
@@ -170,13 +172,13 @@ typedef struct equality_op_node {
 
 typedef struct not_op_node {
     node_type_t type;
-    var_info_t var_info;
+    type_info_t type_info;
     node_t *child;
 } not_op_node_t;
 
 typedef struct integer_op_node {
     node_type_t type;
-    var_info_t var_info;
+    type_info_t type_info;
     integer_op_t op;
     node_t *left;
     node_t *right;
@@ -184,7 +186,7 @@ typedef struct integer_op_node {
 
 typedef struct invert_op_node {
     node_type_t type;
-    var_info_t var_info;
+    type_info_t type_info;
     node_t *child;
 } invert_op_node_t;
 
@@ -252,19 +254,23 @@ char *integer_op_to_str(integer_op_t integer_op);
 
 char *assign_op_to_str(assign_op_t assign_op);
 
+void apply_logical_op(logical_op_t op, value_t *out, value_t in_1, value_t in_2);
+
+unsigned get_length_of_array(const unsigned sizes[MAXARRAYDEPTH], unsigned depth);
+
 node_t *new_node(node_type_t type, node_t *left, node_t *right);
 
 node_t *new_func_decl_node(list_t *entry);
 
 node_t *new_var_decl_node(list_t *entry);
 
-node_t *new_const_node(type_t type, value_t value);
+node_t *new_const_node(type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, value_t *values);
 
 node_t *new_reference_node(list_t *entry);
 
 node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars);
 
-node_t *new_logical_op_node(logical_op_t op, node_t *left, node_t *right);
+node_t *new_logical_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, logical_op_t op, node_t *left, node_t *right);
 
 node_t *new_comparison_op_node(comparison_op_t op, node_t *left, node_t *right);
 
@@ -298,7 +304,7 @@ array_var_infos_t array_var_infos_init(const var_info_t *var_infos, unsigned old
 
 array_access_info_t array_access_info_init(list_t *entry);
 
-var_info_t get_var_info_of_node(const node_t *node);
+type_info_t *get_type_info_of_node(const node_t *node);
 
 node_t *build_logical_op_node(logical_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]);
 
