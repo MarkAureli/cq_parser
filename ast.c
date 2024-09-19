@@ -100,6 +100,38 @@ char *integer_op_to_str(integer_op_t integer_op) {
     }
 }
 
+char *assign_op_to_str(assign_op_t assign_op) {
+    switch (assign_op) {
+        case ASSIGN_OP: {
+            return "=";
+        }
+        case ASSIGN_OR_OP: {
+            return "|=";
+        }
+        case ASSIGN_XOR_OP: {
+            return "^=";
+        }
+        case ASSIGN_AND_OP: {
+            return "&=";
+        }
+        case ASSIGN_ADD_OP: {
+            return "+=";
+        }
+        case ASSIGN_SUB_OP: {
+            return "-=";
+        }
+        case ASSIGN_MUL_OP: {
+            return "*=";
+        }
+        case ASSIGN_DIV_OP: {
+            return "/=";
+        }
+        case ASSIGN_MOD_OP: {
+            return "%=";
+        }
+    }
+}
+
 node_t *new_node(node_type_t type, node_t *left, node_t *right) {
     node_t *new_node = calloc(1, sizeof (node_t));
     new_node->type = type;

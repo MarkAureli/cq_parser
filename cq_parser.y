@@ -27,6 +27,7 @@ char error_msg[ERRORMSGLENGTH];
     type_info_t type_info;
     array_var_infos_t array_var_infos;
     array_access_info_t array_access_info;
+    assign_op_t assign_op;
     integer_op_t integer_op;
     logical_op_t logical_op;
     comparison_op_t comparison_op;
@@ -71,6 +72,7 @@ char error_msg[ERRORMSGLENGTH];
 %type <type_info> type_specifier
 %type <node> variable_decl variable_def function_def const primary_expr postfix_expr unary_expr mul_expr add_expr
 %type <node> logical_or_expr logical_xor_expr logical_and_expr comparison_expr equality_expr or_expr xor_expr and_expr
+%type <node> array_access_expr function_call
 %type <array_var_infos> init init_elem_l
 %type <array_access_info> array_access
 %define parse.error verbose
@@ -433,19 +435,19 @@ jump_stmt:
 
 expr:
 	logical_or_expr
-	| unary_expr assignment_operator logical_or_expr
+	| postfix_expr assignment_operator logical_or_expr
 	;
 
 assignment_operator:
-	ASSIGN_AND
+    ASSIGN
 	| ASSIGN_OR
 	| ASSIGN_XOR
+    | ASSIGN_AND
+	| ASSIGN_ADD
+	| ASSIGN_SUB
 	| ASSIGN_MUL
 	| ASSIGN_DIV
 	| ASSIGN_MOD
-	| ASSIGN_ADD
-	| ASSIGN_SUB
-	| ASSIGN
 	;
 
 logical_or_expr:
@@ -648,31 +650,30 @@ unary_expr:
 	;
 
 postfix_expr:
-	primary_expr {
-	    $$ = $1;
-	}
-	| array_access {
+    primary_expr {
+        $$ = $1;
+    }
+    | array_access_expr {
+        $$ = $1;
+    }
+    ;
+
+array_access_expr:
+	array_access {
 	    unsigned depth = $1.depth;
 	    list_t *entry = $1.entry;
-        if (depth != entry->depth) {
-            if (snprintf(error_msg, sizeof (error_msg), "Insufficient depth-%u access of depth-%u array %s", depth, entry->depth, entry->name) > 0) {
-                yyerror(error_msg);
-            } else {
-                yyerror("Too shallow access of array");
-            }
-        }
         bool all_indices_const = true;
         for (unsigned i = 0; i < depth; ++i) {
             all_indices_const &= $1.index_is_const[i];
             if ($1.index_is_const[i] && $1.indices[i].const_index >= entry->sizes[i]) {
-                if (snprintf(error_msg, sizeof (error_msg), "%u-th index (%u) array index of %s out of bounds (%u)", i, $1.indices[i].const_index, entry->name, entry->sizes[i]) > 0) {
+                if (snprintf(error_msg, sizeof (error_msg), "%u-th index (%u) of array %s%s out of bounds (%u)", i, $1.indices[i].const_index, ($1.entry->is_function) ? "returned by " : "", entry->name, entry->sizes[i]) > 0) {
                     yyerror(error_msg);
                 } else {
                     yyerror("Array index out of bounds");
                 }
             }
         }
-        if (entry->qualifier == CONST_T && all_indices_const) {
+        if (entry->qualifier == CONST_T && all_indices_const && depth == entry->depth) {
             unsigned index = 0;
             unsigned product = 1;
             for (unsigned i = 0; i < depth; ++i) {
@@ -687,31 +688,14 @@ postfix_expr:
             ((reference_node_t *) $$)->depth = depth;
         }
 	}
-	| ID LPAREN argument_expr_l RPAREN {
-	    $$ = new_func_call_node(insert($1, strlen($1), yylineno, false), NULL, 0); /* dummy implementation */
-        if ($$ == NULL) {
-            if (snprintf(error_msg, sizeof (error_msg), "Tried to call non-function %s", $1) > 0) {
-                yyerror(error_msg);
-            } else {
-                yyerror("Tried to call non-function");
-            }
-        }
-	}
-	| ID LPAREN RPAREN {
-	    $$ = new_func_call_node(insert($1, strlen($1), yylineno, false), NULL, 0);
-	    if ($$ == NULL) {
-	        if (snprintf(error_msg, sizeof (error_msg), "Tried to call non-function %s", $1) > 0) {
-	            yyerror(error_msg);
-	        } else {
-	            yyerror("Tried to call non-function");
-	        }
-	    }
-	}
 	;
 
 array_access:
     ID {
         $$ = array_access_info_init(insert($1, strlen($1), yylineno, false));
+    }
+    | function_call {
+        $$ = array_access_info_init(((func_call_node_t *) $1)->entry);
     }
     | array_access LBRACKET or_expr RBRACKET {
         $$ = $1;
@@ -754,11 +738,6 @@ primary_expr:
 	}
 	;
 
-argument_expr_l:
-	logical_or_expr
-	| argument_expr_l COMMA logical_or_expr
-	;
-
 const:
     BCONST {
         $$ = new_const_node(BOOL_T, $1);
@@ -766,6 +745,33 @@ const:
     | ICONST {
         $$ = new_const_node(INT_T, $1);
     }
+	;
+
+function_call:
+	ID LPAREN argument_expr_l RPAREN {
+	    $$ = new_func_call_node(insert($1, strlen($1), yylineno, false), NULL, 0); /* dummy implementation */
+        if ($$ == NULL) {
+            if (snprintf(error_msg, sizeof (error_msg), "Tried to call non-function %s", $1) > 0) {
+                yyerror(error_msg);
+            } else {
+                yyerror("Tried to call non-function");
+            }
+        }
+	}
+	| ID LPAREN RPAREN {
+	    $$ = new_func_call_node(insert($1, strlen($1), yylineno, false), NULL, 0);
+	    if ($$ == NULL) {
+	        if (snprintf(error_msg, sizeof (error_msg), "Tried to call non-function %s", $1) > 0) {
+	            yyerror(error_msg);
+	        } else {
+	            yyerror("Tried to call non-function");
+	        }
+	    }
+	}
+
+argument_expr_l:
+	logical_or_expr
+	| argument_expr_l COMMA logical_or_expr
 	;
 
 %%

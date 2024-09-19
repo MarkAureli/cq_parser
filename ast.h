@@ -41,6 +41,18 @@ typedef enum integer_op {
     XOR_OP
 } integer_op_t;
 
+typedef enum assign_op {
+    ASSIGN_OP,
+    ASSIGN_OR_OP,
+    ASSIGN_XOR_OP,
+    ASSIGN_AND_OP,
+    ASSIGN_ADD_OP,
+    ASSIGN_SUB_OP,
+    ASSIGN_MUL_OP,
+    ASSIGN_DIV_OP,
+    ASSIGN_MOD_OP
+} assign_op_t;
+
 typedef enum node_type {
     BASIC_NODE_T,
     VAR_DECL_NODE_T,
@@ -237,6 +249,8 @@ char *comparison_op_to_str(comparison_op_t comparison_op);
 char *equality_op_to_str(equality_op_t equality_op);
 
 char *integer_op_to_str(integer_op_t integer_op);
+
+char *assign_op_to_str(assign_op_t assign_op);
 
 node_t *new_node(node_type_t type, node_t *left, node_t *right);
 

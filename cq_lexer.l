@@ -80,19 +80,19 @@ phase				    { return PHASE; }
 %{ /* logical operations */
 %}
 "&&"				    { yylval.logical_op = LAND_OP; return LAND; }
-"||"				    { yylval.logical_op = LOR_OP; return LOR; }
+"||"				    { yylval.logical_op = LOR_OP;  return LOR;  }
 "^^"				    { yylval.logical_op = LXOR_OP; return LXOR; }
 
 %{ /* comparison operations */
 %}
-">"				        { yylval.comparison_op = GE_OP; return GE; }
+">"				        { yylval.comparison_op = GE_OP;  return GE;  }
 ">="				    { yylval.comparison_op = GEQ_OP; return GEQ; }
-"<"				        { yylval.comparison_op = LE_OP; return LE; }
+"<"				        { yylval.comparison_op = LE_OP;  return LE;  }
 "<="				    { yylval.comparison_op = LEQ_OP; return LEQ; }
 
 %{ /* equality operations */
 %}
-"=="				    { yylval.equality_op = EQ_OP; return EQ; }
+"=="				    { yylval.equality_op = EQ_OP;  return EQ;  }
 "!="				    { yylval.equality_op = NEQ_OP; return NEQ; }
 
 %{ /* not operation */
@@ -106,7 +106,7 @@ phase				    { return PHASE; }
 "/"				        { yylval.integer_op = DIV_OP; return DIV; }
 "%"				        { yylval.integer_op = MOD_OP; return MOD; }
 "*"				        { yylval.integer_op = MUL_OP; return MUL; }
-"|"				        { yylval.integer_op = OR_OP; return OR;   }
+"|"				        { yylval.integer_op = OR_OP;  return OR;  }
 "-"				        { yylval.integer_op = SUB_OP; return SUB; }
 "^"				        { yylval.integer_op = XOR_OP; return XOR; }
 
@@ -116,15 +116,15 @@ phase				    { return PHASE; }
 
 %{ /* assignments */
 %}
-"="				        { return ASSIGN; }
-"+="				    { return ASSIGN_ADD; }
-"&="				    { return ASSIGN_AND; }
-"/="				    { return ASSIGN_DIV; }
-"%="				    { return ASSIGN_MOD; }
-"*="				    { return ASSIGN_MUL; }
-"|="				    { return ASSIGN_OR; }
-"-="				    { return ASSIGN_SUB; }
-"^="				    { return ASSIGN_XOR; }
+"="				        { yylval.assign_op = ASSIGN_OP;     return ASSIGN;     }
+"|="				    { yylval.assign_op = ASSIGN_OR_OP;  return ASSIGN_OR;  }
+"^="				    { yylval.assign_op = ASSIGN_XOR_OP; return ASSIGN_XOR; }
+"&="				    { yylval.assign_op = ASSIGN_AND_OP; return ASSIGN_AND; }
+"+="				    { yylval.assign_op = ASSIGN_ADD_OP; return ASSIGN_ADD; }
+"-="				    { yylval.assign_op = ASSIGN_SUB_OP; return ASSIGN_SUB; }
+"*="				    { yylval.assign_op = ASSIGN_MUL_OP; return ASSIGN_MUL; }
+"/="				    { yylval.assign_op = ASSIGN_DIV_OP; return ASSIGN_DIV; }
+"%="				    { yylval.assign_op = ASSIGN_MOD_OP; return ASSIGN_MOD; }
 
 %{ /* delimiters */
 %}
