@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <tclDecls.h>
 
 #ifndef NULL
 #include <__stddef_null.h>
@@ -210,12 +209,152 @@ void apply_equality_op(equality_op_t op, value_t *out, type_t in_type_1, value_t
     }
 }
 
+int apply_integer_op(integer_op_t op, value_t *out, type_t in_type_1, value_t in_value_1, type_t in_type_2, value_t in_value_2) {
+    if (in_type_1 == INT_T && in_type_2 == INT_T) {
+        switch (op) {
+            case ADD_OP: {
+                out->ival = in_value_1.ival + in_value_2.ival;
+                break;
+            }
+            case AND_OP: {
+                out->ival = in_value_1.ival & in_value_2.ival;
+                break;
+            }
+            case DIV_OP: {
+                if (in_value_2.ival == 0) {
+                    return 1;
+                }
+                out->ival = in_value_1.ival / in_value_2.ival;
+                break;
+            }
+            case MOD_OP: {
+                if (in_value_2.ival == 0) {
+                    return 2;
+                }
+                out->ival = in_value_1.ival % in_value_2.ival;
+                break;
+            }
+            case MUL_OP: {
+                out->ival = in_value_1.ival * in_value_2.ival;
+                break;
+            }
+            case OR_OP: {
+                out->ival = in_value_1.ival | in_value_2.ival;
+                break;
+            }
+            case SUB_OP: {
+                out->ival = in_value_1.ival - in_value_2.ival;
+                break;
+            }
+            case XOR_OP: {
+                out->ival = in_value_1.ival ^ in_value_2.ival;
+                break;
+            }
+        }
+    } else {
+        switch (op) {
+            case ADD_OP: {
+                out->uval = in_value_1.uval + in_value_2.uval;
+                break;
+            }
+            case AND_OP: {
+                out->uval = in_value_1.uval & in_value_2.uval;
+                break;
+            }
+            case DIV_OP: {
+                if (in_value_2.uval == 0) {
+                    return 1;
+                }
+                out->uval = in_value_1.uval / in_value_2.uval;
+                break;
+            }
+            case MOD_OP: {
+                if (in_value_2.uval == 0) {
+                    return 2;
+                }
+                out->uval = in_value_1.uval % in_value_2.uval;
+                break;
+            }
+            case MUL_OP: {
+                out->uval = in_value_1.uval * in_value_2.uval;
+                break;
+            }
+            case OR_OP: {
+                out->uval = in_value_1.uval | in_value_2.uval;
+                break;
+            }
+            case SUB_OP: {
+                out->uval = in_value_1.uval - in_value_2.uval;
+                break;
+            }
+            case XOR_OP: {
+                out->uval = in_value_1.uval ^ in_value_2.uval;
+                break;
+            }
+        }
+    }
+    return 0;
+}
+
 unsigned get_length_of_array(const unsigned sizes[MAXARRAYDEPTH], unsigned depth) {
     unsigned result = 1;
     for (unsigned i = 0; i < depth; ++i) {
         result *= sizes[i];
     }
     return result;
+}
+
+void slice_array(const value_t *in_values, const unsigned sizes[MAXARRAYDEPTH], const bool is_indexed[MAXARRAYDEPTH],
+                 const unsigned indices[MAXARRAYDEPTH], value_t *out_values, unsigned *output_index,
+                 unsigned current_dim, unsigned depth, unsigned current_index) {
+    if (current_dim == depth) {
+        out_values[(*output_index)++] = in_values[current_index];
+        return;
+    }
+
+    if (!is_indexed[current_dim]) { // full axis is addressed
+        for (unsigned i = 0; i < sizes[current_dim]; ++i) {
+            unsigned next_index = current_index + i;
+            for (unsigned j = current_dim + 1; j < depth; ++j) {
+                next_index *= sizes[j];
+            }
+            slice_array(in_values, sizes, is_indexed, indices, out_values, output_index,
+                        current_dim + 1, depth, next_index);
+        }
+    } else { // specific index is addressed
+        unsigned next_index = current_index + indices[current_dim];
+        for (unsigned j = current_dim + 1; j < depth; ++j) {
+            next_index *= sizes[j];
+        }
+        slice_array(in_values, sizes, is_indexed, indices, out_values, output_index,
+                    current_dim + 1, depth, next_index);
+    }
+}
+
+value_t *get_sliced_array(const value_t *values, const unsigned sizes[MAXARRAYDEPTH],
+                          const bool is_indexed[MAXARRAYDEPTH], const unsigned indices[MAXARRAYDEPTH], unsigned depth) {
+    // Calculate the length of the output values
+    unsigned out_length = 1;
+    for (unsigned i = 0; i < depth; ++i) {
+        if (indices[i] == -1) {
+            out_length *= sizes[i];
+        }
+    }
+
+    // Allocate memory for the output values
+    value_t* output = malloc( out_length * sizeof (value_t));
+    if (output == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return NULL;
+    }
+
+    // Initialize the output index
+    unsigned output_index = 0;
+
+    // Start the recursive slicing
+    slice_array(values, sizes, is_indexed, indices, output, &output_index, 0, depth, 0);
+
+    return output;
 }
 
 node_t *new_node(node_type_t type, node_t *left, node_t *right) {
@@ -240,6 +379,15 @@ node_t *new_var_decl_node(list_t *entry) {
     return (node_t *) new_node;
 }
 
+node_t *new_var_def_node(list_t *entry, bool *value_is_const, array_value_t *values) {
+    var_def_node_t *new_node = calloc(1, sizeof (var_def_node_t));
+    new_node->type = VAR_DEF_NODE_T;
+    new_node->entry = entry;
+    new_node->value_is_const = value_is_const;
+    new_node->values = values;
+    return (node_t *) new_node;
+}
+
 node_t *new_const_node(type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, value_t *values) {
     const_node_t *new_node = calloc(1, sizeof (const_node_t));
     new_node->type = CONST_NODE_T;
@@ -247,16 +395,22 @@ node_t *new_const_node(type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigne
     new_node->type_info.type = type;
     memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
     new_node->type_info.depth = depth;
-    memcpy(new_node->values, values, get_length_of_array(sizes, depth) * sizeof (value_t));
+    new_node->values = values;
     return (node_t *) new_node;
 }
 
-node_t *new_reference_node(list_t *entry) {
+node_t *new_reference_node(const unsigned sizes[MAXARRAYDEPTH], unsigned depth,
+                           bool is_indexed[MAXARRAYDEPTH], bool index_is_const[MAXARRAYDEPTH],
+                           array_index_t indices[MAXARRAYDEPTH], list_t *entry) {
     reference_node_t *new_node = calloc(1, sizeof (reference_node_t));
     new_node->type = REFERENCE_NODE_T;
-    // TODO: properly set the sizes and depth when altered in reference
     new_node->type_info.qualifier = entry->qualifier;
     new_node->type_info.type = entry->type;
+    memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned ));
+    new_node->type_info.depth = depth;
+    memcpy(new_node->is_indexed, is_indexed, entry->depth * sizeof(bool));
+    memcpy(new_node->index_is_const, index_is_const, entry->depth * sizeof(bool));
+    memcpy(new_node->indices, indices, entry->depth * sizeof(array_index_t));
     new_node->entry = entry;
     return (node_t *) new_node;
 }
@@ -323,11 +477,16 @@ node_t *new_not_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPT
     memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
     new_node->type_info.depth = depth;
     new_node->child = child;
+    return (node_t *) new_node;
 }
 
-node_t *new_integer_op_node(integer_op_t op, node_t *left, node_t *right) {
+node_t *new_integer_op_node(qualifier_t qualifier, type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, integer_op_t op, node_t *left, node_t *right) {
     integer_op_node_t *new_node = calloc(1, sizeof (integer_op_node_t));
     new_node->type = INTEGER_OP_NODE_T;
+    new_node->type_info.qualifier = qualifier;
+    new_node->type_info.type = type;
+    memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+    new_node->type_info.depth = depth;
     new_node->op = op;
     new_node->left = left;
     new_node->right = right;
@@ -342,6 +501,7 @@ node_t *new_invert_op_node(qualifier_t qualifier, type_t type, const unsigned si
     memcpy(new_node->type_info.sizes, sizes, depth * sizeof(unsigned));
     new_node->type_info.depth = depth;
     new_node->child = child;
+    return (node_t *) new_node;
 }
 
 node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branches, unsigned elseif_count, node_t *else_branch) {
@@ -673,8 +833,11 @@ node_t *build_equality_op_node(equality_op_t op, node_t *left, node_t *right, ch
     type_info_t *left_type_info = get_type_info_of_node(left);
     type_info_t *right_type_info = get_type_info_of_node(right);
     /* implement error when nodes are no expression nodes */
-    qualifier_t result_qualifier = propagate_qualifier(left_type_info->qualifier, right_type_info->qualifier);
-    type_t result_type = propagate_type(EQUALITY_OP, left_type_info->type, right_type_info->type);
+    qualifier_t result_qualifier = propagate_qualifier(left_type_info->qualifier,
+                                                       right_type_info->qualifier);
+    type_t result_type = propagate_type(EQUALITY_OP,
+                                        left_type_info->type,
+                                        right_type_info->type);
     if (result_type == VOID_T) {
         snprintf(error_msg, ERRORMSGLENGTH, "Checking %sequality of %s and %s", (op == EQ_OP) ? "" : "in",
                  type_to_str(left_type_info->type), type_to_str(right_type_info->type));
@@ -682,22 +845,25 @@ node_t *build_equality_op_node(equality_op_t op, node_t *left, node_t *right, ch
     }
 
     if (left_type_info->depth == 0 && right_type_info->depth != 0) {
-        snprintf(error_msg, ERRORMSGLENGTH, "Checking %sequality of scalar and array of depth %u)", (op == EQ_OP) ? "" : "in", right_type_info->depth);
+        snprintf(error_msg, ERRORMSGLENGTH, "Checking %sequality of scalar and array of depth %u)",
+                 (op == EQ_OP) ? "" : "in", right_type_info->depth);
         return NULL;
     } else if (left_type_info->depth != 0 && right_type_info->depth == 0) {
-        snprintf(error_msg, ERRORMSGLENGTH, "Checking %sequality of array of depth %u and scalar)", (op == EQ_OP) ? "" : "in", left_type_info->depth);
+        snprintf(error_msg, ERRORMSGLENGTH, "Checking %sequality of array of depth %u and scalar)",
+                 (op == EQ_OP) ? "" : "in", left_type_info->depth);
         return NULL;
     } else if (left_type_info->depth != right_type_info->depth) {
-        snprintf(error_msg, ERRORMSGLENGTH, "Checking %sequality of arrays of different depths (%u != %u)", (op == EQ_OP) ? "" : "in",
-                 left_type_info->depth, right_type_info->depth);
+        snprintf(error_msg, ERRORMSGLENGTH, "Checking %sequality of arrays of different depths (%u != %u)",
+                 (op == EQ_OP) ? "" : "in", left_type_info->depth, right_type_info->depth);
         return NULL;
     }
     unsigned depth = left_type_info->depth;
 
     for (unsigned i = 0; i < depth; ++i) {
         if (left_type_info->sizes[i] != right_type_info->sizes[i]) {
-            snprintf(error_msg, ERRORMSGLENGTH, "Checking %sequality of arrays of different sizes in dimension %u (%u != %u)", (op == EQ_OP) ? "" : "in",
-                     depth, left_type_info->sizes[i], right_type_info->sizes[i]);
+            snprintf(error_msg, ERRORMSGLENGTH,
+                     "Checking %sequality of arrays of different sizes in dimension %u (%u != %u)",
+                     (op == EQ_OP) ? "" : "in", depth, left_type_info->sizes[i], right_type_info->sizes[i]);
             return NULL;
         }
     }
@@ -713,7 +879,12 @@ node_t *build_equality_op_node(equality_op_t op, node_t *left, node_t *right, ch
         const_node_view_result->type_info.type = BOOL_T;
 
         for (unsigned i = 0; i < length; ++i) {
-            apply_equality_op(op, const_node_view_result->values + i, left_type_info->type, const_node_view_left->values[i], right_type_info->type, const_node_view_right->values[i]);
+            apply_equality_op(op,
+                              const_node_view_result->values + i,
+                              left_type_info->type,
+                              const_node_view_left->values[i],
+                              right_type_info->type,
+                              const_node_view_right->values[i]);
         }
         free(const_node_view_right->values);
         free(const_node_view_right);
@@ -729,7 +900,8 @@ node_t *build_not_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
     qualifier_t result_qualifier = child_type_info->qualifier;
     type_t result_type = propagate_type(NOT_OP, child_type_info->type, VOID_T);
     if (result_type == VOID_T) {
-        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"!\" to expression of type %s", type_to_str(child_type_info->type));
+        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"!\" to expression of type %s",
+                 type_to_str(child_type_info->type));
         return NULL;
     }
 
@@ -753,206 +925,73 @@ node_t *build_not_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
 }
 
 node_t *build_integer_op_node(integer_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]) {
-    var_info_t left_var_info = get_var_info_of_node(left);
-    var_info_t right_var_info = get_var_info_of_node(right);
+    type_info_t *left_type_info = get_type_info_of_node(left);
+    type_info_t *right_type_info = get_type_info_of_node(right);
     /* implement error when nodes are no expression nodes */
-    qualifier_t result_qualifier = propagate_qualifier(left_var_info.qualifier, right_var_info.qualifier);
-    type_t result_type = propagate_type(INTEGER_OP, left_var_info.type, right_var_info.type);
+    qualifier_t result_qualifier = propagate_qualifier(left_type_info->qualifier,
+                                                       right_type_info->qualifier);
+    type_t result_type = propagate_type(INTEGER_OP,
+                                        left_type_info->type,
+                                        right_type_info->type);
     if (result_type == VOID_T) {
         snprintf(error_msg, ERRORMSGLENGTH, "Applying \"%s\" to %s and %s", integer_op_to_str(op),
-                 type_to_str(left_var_info.type), type_to_str(right_var_info.type));
+                 type_to_str(left_type_info->type), type_to_str(right_type_info->type));
         return NULL;
     }
+
+    if (left_type_info->depth == 0 && right_type_info->depth != 0) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"%s\" to scalar and array of depth %u)",
+                 integer_op_to_str(op), right_type_info->depth);
+        return NULL;
+    } else if (left_type_info->depth != 0 && right_type_info->depth == 0) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"%s\" to array of depth %u and scalar)",
+                 integer_op_to_str(op), left_type_info->depth);
+        return NULL;
+    } else if (left_type_info->depth != right_type_info->depth) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"%s\" to arrays of different depths (%u != %u)",
+                 integer_op_to_str(op), left_type_info->depth, right_type_info->depth);
+        return NULL;
+    }
+    unsigned depth = left_type_info->depth;
+
+    for (unsigned i = 0; i < depth; ++i) {
+        if (left_type_info->sizes[i] != right_type_info->sizes[i]) {
+            snprintf(error_msg, ERRORMSGLENGTH,
+                     "Applying \"%s\" to arrays of different sizes in dimension %u (%u != %u)",
+                     integer_op_to_str(op), depth, left_type_info->sizes[i], right_type_info->sizes[i]);
+            return NULL;
+        }
+    }
+    unsigned *sizes = left_type_info->sizes;
+    unsigned length = get_length_of_array(sizes, depth);
 
     node_t *result;
     if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
         result = left;
+        const_node_t *const_node_view_left = (const_node_t *) left;
         const_node_t *const_node_view_right = (const_node_t *) right;
         const_node_t *const_node_view_result = (const_node_t *) result;
-        const_node_view_result->var_info.type = result_type;
-        if (result_type == INT_T) { /* result is a signed integer, hence left and right are signed integers */
-            switch (op) {
-                case ADD_OP: {
-                    const_node_view_result->var_info.value.ival += right_var_info.value.ival;
-                    break;
-                }
-                case AND_OP: {
-                    const_node_view_result->var_info.value.ival &= right_var_info.value.ival;
-                    break;
-                }
-                case DIV_OP: {
-                    if (const_node_view_right->var_info.value.ival == 0) {
-                        snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
-                        return NULL;
-                    }
-                    const_node_view_result->var_info.value.ival /= right_var_info.value.ival;
-                    break;
-                }
-                case MOD_OP: {
-                    if (const_node_view_right->var_info.value.ival == 0) {
-                        snprintf(error_msg, ERRORMSGLENGTH, "Modulo by zero");
-                        return NULL;
-                    }
-                    const_node_view_result->var_info.value.ival %= right_var_info.value.ival;
-                    break;
-                }
-                case MUL_OP: {
-                    const_node_view_result->var_info.value.ival *= right_var_info.value.ival;
-                    break;
-                }
-                case OR_OP: {
-                    const_node_view_result->var_info.value.ival |= right_var_info.value.ival;
-                    break;
-                }
-                case SUB_OP: {
-                    const_node_view_result->var_info.value.ival -= right_var_info.value.ival;
-                    break;
-                }
-                case XOR_OP: {
-                    const_node_view_result->var_info.value.ival ^= right_var_info.value.ival;
-                    break;
-                }
-            }
-        } else { /* result is an unsigned integer, hence left or right are unsigned integers */
-            if (left_var_info.type== INT_T) { /* left is a signed integer, hence right is an unsigned integer */
-                switch (op) {
-                    case ADD_OP: {
-                        const_node_view_result->var_info.value.uval = left_var_info.value.ival + right_var_info.value.uval;
-                        break;
-                    }
-                    case AND_OP: {
-                        const_node_view_result->var_info.value.uval = left_var_info.value.ival & right_var_info.value.uval;
-                        break;
-                    }
-                    case DIV_OP: {
-                        if (const_node_view_right->var_info.value.uval == 0) {
-                            snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
-                            return NULL;
-                        }
-                        const_node_view_result->var_info.value.uval = left_var_info.value.ival / right_var_info.value.uval;
-                        break;
-                    }
-                    case MOD_OP: {
-                        if (const_node_view_right->var_info.value.uval == 0) {
-                            snprintf(error_msg, ERRORMSGLENGTH, "Modulo by zero");
-                            return NULL;
-                        }
-                        const_node_view_result->var_info.value.uval = left_var_info.value.ival % right_var_info.value.uval;
-                        break;
-                    }
-                    case MUL_OP: {
-                        const_node_view_result->var_info.value.uval = left_var_info.value.ival * right_var_info.value.uval;
-                        break;
-                    }
-                    case OR_OP: {
-                        const_node_view_result->var_info.value.uval = left_var_info.value.ival | right_var_info.value.uval;
-                        break;
-                    }
-                    case SUB_OP: {
-                        const_node_view_result->var_info.value.uval = left_var_info.value.ival - right_var_info.value.uval;
-                        break;
-                    }
-                    case XOR_OP: {
-                        const_node_view_result->var_info.value.uval = left_var_info.value.ival ^ right_var_info.value.uval;
-                        break;
-                    }
-                }
-            } else { /* left is an unsigned integer, hence right is either a signed or unsigned integer */
-                if (right_var_info.type == INT_T) { /* right is a signed integer */
-                    switch (op) {
-                        case ADD_OP: {
-                            const_node_view_result->var_info.value.uval += right_var_info.value.ival;
-                            break;
-                        }
-                        case AND_OP: {
-                            const_node_view_result->var_info.value.uval &= right_var_info.value.ival;
-                            break;
-                        }
-                        case DIV_OP: {
-                            if (right_var_info.value.ival == 0) {
-                                snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
-                                return NULL;
-                            }
-                            const_node_view_result->var_info.value.uval /= right_var_info.value.ival;
-                            break;
-                        }
-                        case MOD_OP: {
-                            if (right_var_info.value.ival == 0) {
-                                snprintf(error_msg, ERRORMSGLENGTH, "Modulo by zero");
-                                return NULL;
-                            }
-                            const_node_view_result->var_info.value.uval %= right_var_info.value.ival;
-                            break;
-                        }
-                        case MUL_OP: {
-                            const_node_view_result->var_info.value.uval *= right_var_info.value.ival;
-                            break;
-                        }
-                        case OR_OP: {
-                            const_node_view_result->var_info.value.uval |= right_var_info.value.ival;
-                            break;
-                        }
-                        case SUB_OP: {
-                            const_node_view_result->var_info.value.uval -= right_var_info.value.ival;
-                            break;
-                        }
-                        case XOR_OP: {
-                            const_node_view_result->var_info.value.uval ^= right_var_info.value.ival;
-                            break;
-                        }
-                    }
-                } else { /* right is an unsigned integer */
-                    switch (op) {
-                        case ADD_OP: {
-                            const_node_view_result->var_info.value.uval += right_var_info.value.uval;
-                            break;
-                        }
-                        case AND_OP: {
-                            const_node_view_result->var_info.value.uval &= right_var_info.value.uval;
-                            break;
-                        }
-                        case DIV_OP: {
-                            if (right_var_info.value.uval == 0) {
-                                snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
-                                return NULL;
-                            }
-                            const_node_view_result->var_info.value.uval /= right_var_info.value.uval;
-                            break;
-                        }
-                        case MOD_OP: {
-                            if (right_var_info.value.uval == 0) {
-                                snprintf(error_msg, ERRORMSGLENGTH, "Modulo by zero");
-                                return NULL;
-                            }
-                            const_node_view_result->var_info.value.uval %= right_var_info.value.uval;
-                            break;
-                        }
-                        case MUL_OP: {
-                            const_node_view_result->var_info.value.uval *= right_var_info.value.uval;
-                            break;
-                        }
-                        case OR_OP: {
-                            const_node_view_result->var_info.value.uval |= right_var_info.value.uval;
-                            break;
-                        }
-                        case SUB_OP: {
-                            const_node_view_result->var_info.value.uval -= right_var_info.value.uval;
-                            break;
-                        }
-                        case XOR_OP: {
-                            const_node_view_result->var_info.value.uval ^= right_var_info.value.uval;
-                            break;
-                        }
-                    }
-                }
+        const_node_view_result->type_info.type = BOOL_T;
+
+        for (unsigned i = 0; i < length; ++i) {
+            int validity_check = apply_integer_op(op,
+                                                  const_node_view_result->values + i,
+                                                  left_type_info->type,
+                                                  const_node_view_left->values[i],
+                                                  right_type_info->type,
+                                                  const_node_view_right->values[i]);
+            if (validity_check == 1) {
+                snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
+                return NULL;
+            } else if (validity_check == 2) {
+                snprintf(error_msg, ERRORMSGLENGTH, "Modulo by zero");
+                return NULL;
             }
         }
+        free(const_node_view_right->values);
         free(const_node_view_right);
     } else {
-        result = new_integer_op_node(op, left, right);
-        integer_op_node_t *integer_op_node_view_result = (integer_op_node_t *) result;
-        integer_op_node_view_result->var_info.qualifier = result_qualifier;
-        integer_op_node_view_result->var_info.type = result_type;
+        result = new_integer_op_node(result_qualifier, result_type, sizes, depth, op, left, right);
     }
     return result;
 }
@@ -993,69 +1032,129 @@ node_t *build_invert_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
     return result;
 }
 
+void print_type_info(const type_info_t *type_info) {
+    switch (type_info->qualifier) {
+        case NONE_T: {
+            break;
+        }
+        case CONST_T: {
+            printf("const ");
+            break;
+        }
+        case QUANTUM_T: {
+            printf("quantum ");
+            break;
+        }
+    }
+    printf("%s", type_to_str(type_info->type));
+    for (unsigned i = 0; i < type_info->depth; ++i) {
+        printf("[%u]", type_info->sizes[i]);
+    }
+}
+
+void print_array(type_t type, const value_t *values, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, unsigned current_depth, unsigned index) {
+    if (current_depth == depth - 1) {
+        putchar('{');
+        for (unsigned i = 0; i < sizes[current_depth]; ++i) {
+            switch (type) {
+                case BOOL_T: {
+                    printf("%s", (values[index + i].bval) ? "true" : "false");
+                    break;
+                }
+                case INT_T: {
+                    printf("%d", values[index + i].ival);
+                    break;
+                }
+                case UNSIGNED_T: {
+                    printf("%u", values[index + i].uval);
+                    break;
+                }
+                case VOID_T: {
+                    printf("undefined");
+                    break;
+                }
+            }
+            if (i < sizes[current_depth] - 1) {
+                printf(", ");
+            }
+        }
+    } else {
+        putchar('{');
+        for (unsigned i = 0; i < sizes[current_depth]; ++i) {
+            unsigned stride = 1;
+            for (unsigned j = current_depth + 1; j < depth; ++j) {
+                stride *= sizes[j];
+            }
+            print_array(type, values, sizes, depth, current_depth + 1, index + i * stride);
+            if (i < sizes[current_depth] - 1) {
+                printf(", ");
+            }
+        }
+        putchar('}');
+    }
+    putchar('\n');
+}
+
 void print_node(const node_t *node) {
     switch (node->type) {
         case BASIC_NODE_T: {
             printf("Basic node\n");
             break;
         }
-        case VAR_DECL_NODE_T: {
-            switch (((var_decl_node_t *) node)->entry->qualifier) {
-                case NONE_T: {
-                    break;
-                }
-                case CONST_T: {
-                    printf("const ");
-                    break;
-                }
-                case QUANTUM_T: {
-                    printf("quantum ");
-                    break;
-                }
-            }
-            printf("%s", type_to_str(((var_decl_node_t *) node)->entry->type));
-            for (unsigned i = 0; i < ((var_decl_node_t *) node)->entry->depth; ++i) {
-                printf("[]");
-            }
-            putchar('\n');
-            break;
-        }
         case FUNC_DECL_NODE_T: {
             printf("Function declaration node for %s\n", ((func_decl_node_t *) node)->entry->name);
             break;
         }
-        case CONST_NODE_T: {
-            switch (((const_node_t *) node)->var_info.type) {
-                case BOOL_T: {
-                    printf("%s\n", ((const_node_t *) node)->var_info.value.bval ? "true" : "false");
-                    break;
-                }
-                case INT_T: {
-                    printf("%d (%s)\n", ((const_node_t *) node)->var_info.value.ival, type_to_str(((const_node_t *) node)->var_info.type));
-                    break;
-                }
-                case UNSIGNED_T: {
-                    printf("%u (%s)\n", ((const_node_t *) node)->var_info.value.uval, type_to_str(((const_node_t *) node)->var_info.type));
-                    break;
-                }
-                case VOID_T: {
-                    printf("undefined\n");
-                    break;
-                }
-            }
+        case VAR_DECL_NODE_T: {
+            var_decl_node_t *var_decl_node_view = ((var_decl_node_t *) node);
+            type_info_t info = { .qualifier = var_decl_node_view->entry->qualifier,
+                                 .type = var_decl_node_view->entry->type,
+                                 .depth = var_decl_node_view->entry->depth};
+            memcpy(info.sizes, var_decl_node_view->entry->sizes, info.depth * sizeof (unsigned));
+            print_type_info(&info);
+            printf(" %s\n", var_decl_node_view->entry->name);
             break;
         }
-        case REFERENCE_NODE_T: {
-            var_info_t info = get_var_info_of_node(node);
-            printf("reference to %s%s %s", (info.qualifier == QUANTUM_T) ? "quantum " : "", type_to_str(info.type), ((reference_node_t *) node)->entry->name);
-            for (unsigned i = 0; i < ((reference_node_t *) node)->depth; ++i) {
-                if (((reference_node_t *) node)->index_is_const[i]) {
-                    printf("[%u]", ((reference_node_t *) node)->indices[i].const_index);
-                } else {
-                    printf("[]");
+        case VAR_DEF_NODE_T: {
+            var_def_node_t *var_def_node_view = ((var_def_node_t *) node);
+            type_info_t info = { .qualifier = var_def_node_view->entry->qualifier,
+                    .type = var_def_node_view->entry->type,
+                    .depth = var_def_node_view->entry->depth};
+            memcpy(info.sizes, var_def_node_view->entry->sizes, info.depth * sizeof (unsigned));
+            print_type_info(&info);
+            printf(" %s\n", var_def_node_view->entry->name);
+            break;
+        }
+        case CONST_NODE_T: {
+            type_info_t *info = get_type_info_of_node(node);
+            if (info->depth == 0) {
+                switch (info->type) {
+                    case BOOL_T: {
+                        printf("%s\n", ((const_node_t *) node)->values[0].bval ? "true" : "false");
+                        break;
+                    }
+                    case INT_T: {
+                        printf("%d\n", ((const_node_t *) node)->values[0].ival);
+                        break;
+                    }
+                    case UNSIGNED_T: {
+                        printf("%u\n", ((const_node_t *) node)->values[0].uval);
+                        break;
+                    }
+                    case VOID_T: {
+                        printf("undefined\n");
+                        break;
+                    }
                 }
+            } else {
+                print_array(info->type, ((const_node_t *) node)->values, info->sizes, info->depth, 0, 0);
             }
-            putchar('\n');
+        }
+        case REFERENCE_NODE_T: {
+            type_info_t *info = get_type_info_of_node(node);
+            printf("reference to ");
+            print_type_info(info);
+            printf(" %s\n", ((reference_node_t *) node)->entry->name);
             break;
         }
         case FUNC_CALL_NODE_T: {
@@ -1064,106 +1163,74 @@ void print_node(const node_t *node) {
         }
         case LOGICAL_OP_NODE_T: {
             putchar('(');
-            var_info_t left_info = get_var_info_of_node(((logical_op_node_t *) node)->left);
-            if (left_info.qualifier == QUANTUM_T) {
-                printf("quantum ");
-            }
-            printf("%s) %s (", type_to_str(left_info.type), logical_op_to_str(((logical_op_node_t *) node)->op));
-            var_info_t right_info = get_var_info_of_node(((logical_op_node_t *) node)->right);
-            if (right_info.qualifier == QUANTUM_T) {
-                printf("quantum ");
-            }
-            printf("%s) -> (", type_to_str(right_info.type));
-            var_info_t info = get_var_info_of_node(node);
-            if (info.qualifier == QUANTUM_T) {
-                printf("quantum ");
-            }
-            printf("%s)\n", type_to_str(info.type));
+            type_info_t *left_info = get_type_info_of_node(((logical_op_node_t *) node)->left);
+            type_info_t *right_info = get_type_info_of_node(((logical_op_node_t *) node)->right);
+            type_info_t *result_info = get_type_info_of_node(node);
+            print_type_info(left_info);
+            printf(") %s (", logical_op_to_str(((logical_op_node_t *) node)->op));
+            print_type_info(right_info);
+            printf(") -> (");
+            print_type_info(result_info);
+            printf(")\n");
             break;
         }
         case COMPARISON_OP_NODE_T: {
             putchar('(');
-            var_info_t left_info = get_var_info_of_node(((comparison_op_node_t *) node)->left);
-            if (left_info.qualifier == QUANTUM_T) {
-                printf("quantum ");
-            }
-            printf("%s) %s (", type_to_str(left_info.type), comparison_op_to_str(((comparison_op_node_t *) node)->op));
-            var_info_t right_info = get_var_info_of_node(((comparison_op_node_t *) node)->right);
-            if (right_info.qualifier == QUANTUM_T) {
-                printf("quantum ");
-            }
-            printf("%s) -> (", type_to_str(right_info.type));
-            var_info_t info = get_var_info_of_node(node);
-            if (info.qualifier == QUANTUM_T) {
-                printf("quantum ");
-            }
-            printf("%s)\n", type_to_str(info.type));
+            type_info_t *left_info = get_type_info_of_node(((comparison_op_node_t *) node)->left);
+            type_info_t *right_info = get_type_info_of_node(((comparison_op_node_t *) node)->right);
+            type_info_t *result_info = get_type_info_of_node(node);
+            print_type_info(left_info);
+            printf(") %s (", comparison_op_to_str(((comparison_op_node_t *) node)->op));
+            print_type_info(right_info);
+            printf(") -> (");
+            print_type_info(result_info);
+            printf(")\n");
             break;
         }
         case EQUALITY_OP_NODE_T: {
             putchar('(');
-            var_info_t left_info = get_var_info_of_node(((equality_op_node_t *) node)->left);
-            if (left_info.qualifier == QUANTUM_T) {
-                printf("quantum ");
-            }
-            printf("%s) %s (", type_to_str(left_info.type), equality_op_to_str(((equality_op_node_t *) node)->op));
-            var_info_t right_info = get_var_info_of_node(((equality_op_node_t *) node)->right);
-            if (right_info.qualifier == QUANTUM_T) {
-                printf("quantum ");
-            }
-            printf("%s) -> (", type_to_str(right_info.type));
-            var_info_t info = get_var_info_of_node(node);
-            if (info.qualifier == QUANTUM_T) {
-                printf("quantum ");
-            }
-            printf("%s)\n", type_to_str(info.type));
+            type_info_t *left_info = get_type_info_of_node(((equality_op_node_t *) node)->left);
+            type_info_t *right_info = get_type_info_of_node(((equality_op_node_t *) node)->right);
+            type_info_t *result_info = get_type_info_of_node(node);
+            print_type_info(left_info);
+            printf(") %s (", equality_op_to_str(((equality_op_node_t *) node)->op));
+            print_type_info(right_info);
+            printf(") -> (");
+            print_type_info(result_info);
+            printf(")\n");
             break;
         }
         case NOT_OP_NODE_T: {
             printf("!(");
-            var_info_t child_info = get_var_info_of_node(((invert_op_node_t *) node)->child);
-            if (child_info.qualifier == QUANTUM_T) {
-                printf("quantum ");
-            }
-            printf("%s) -> (", type_to_str(child_info.type));
-            var_info_t info = get_var_info_of_node(node);
-            if (info.qualifier == QUANTUM_T) {
-                printf("quantum ");
-            }
-            printf("%s)\n", type_to_str(info.type));
+            type_info_t *child_info = get_type_info_of_node(((invert_op_node_t *) node)->child);
+            type_info_t *result_info = get_type_info_of_node(node);
+            print_type_info(child_info);
+            printf(") -> (");
+            print_type_info(result_info);
+            printf(")\n");
             break;
         }
         case INTEGER_OP_NODE_T: {
             putchar('(');
-            var_info_t left_info = get_var_info_of_node(((integer_op_node_t *) node)->left);
-            if (left_info.qualifier == QUANTUM_T) {
-                printf("quantum ");
-            }
-            printf("%s) %s (", type_to_str(left_info.type), integer_op_to_str(((integer_op_node_t *) node)->op));
-            var_info_t right_info = get_var_info_of_node(((integer_op_node_t *) node)->right);
-            if (right_info.qualifier == QUANTUM_T) {
-                printf("quantum ");
-            }
-            printf("%s) -> (", type_to_str(right_info.type));
-            var_info_t info = get_var_info_of_node(node);
-            if (info.qualifier == QUANTUM_T) {
-                printf("quantum ");
-            }
-            printf("%s)\n", type_to_str(info.type));
+            type_info_t *left_info = get_type_info_of_node(((integer_op_node_t *) node)->left);
+            type_info_t *right_info = get_type_info_of_node(((integer_op_node_t *) node)->right);
+            type_info_t *result_info = get_type_info_of_node(node);
+            print_type_info(left_info);
+            printf(") %s (", integer_op_to_str(((integer_op_node_t *) node)->op));
+            print_type_info(right_info);
+            printf(") -> (");
+            print_type_info(result_info);
+            printf(")\n");
             break;
         }
         case INVERT_OP_NODE_T: {
             printf("~(");
-            var_info_t child_info = get_var_info_of_node(((invert_op_node_t *) node)->child);
-            if (child_info.qualifier == QUANTUM_T) {
-                printf("quantum ");
-            }
-            printf("%s) -> (", type_to_str(child_info.type));
-            var_info_t info = get_var_info_of_node(node);
-            if (info.qualifier == QUANTUM_T) {
-                printf("quantum ");
-            }
-            printf("%s)\n", type_to_str(info.type));
+            type_info_t *child_info = get_type_info_of_node(((invert_op_node_t *) node)->child);
+            type_info_t *result_info = get_type_info_of_node(node);
+            print_type_info(child_info);
+            printf(") -> (");
+            print_type_info(result_info);
+            printf(")\n");
             break;
         }
         case IF_NODE_T: {
@@ -1210,6 +1277,15 @@ void tree_traversal(const node_t *node) {
         case BASIC_NODE_T: {
             tree_traversal(node->left);
             tree_traversal(node->right);
+            break;
+        }
+        case VAR_DEF_NODE_T: {
+            for (unsigned i = 0; i < get_length_of_array(((var_def_node_t *) node)->entry->sizes,
+                                                         ((var_def_node_t *) node)->entry->depth); ++i) {
+                if (!(((var_def_node_t *) node)->value_is_const)) {
+                    tree_traversal(((var_def_node_t *) node)->values[i].node_value);
+                }
+            }
             break;
         }
         case INTEGER_OP_NODE_T: {

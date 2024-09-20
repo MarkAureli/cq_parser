@@ -55,8 +55,9 @@ typedef enum assign_op {
 
 typedef enum node_type {
     BASIC_NODE_T,
-    VAR_DECL_NODE_T,
     FUNC_DECL_NODE_T,
+    VAR_DECL_NODE_T,
+    VAR_DEF_NODE_T,
     CONST_NODE_T,
     REFERENCE_NODE_T,
     FUNC_CALL_NODE_T,
@@ -100,6 +101,11 @@ typedef union array_index {
     node_t *node_index;
 } array_index_t;
 
+typedef union array_value {
+    value_t *const_value;
+    node_t *node_value;
+} array_value_t;
+
 typedef struct array_var_infos {
     bool is_array_init;
     var_info_t *var_infos;
@@ -122,6 +128,13 @@ typedef struct var_decl_node {
     node_type_t type;
     list_t *entry;
 } var_decl_node_t;
+
+typedef struct var_def_node {
+    node_type_t type;
+    list_t *entry;
+    bool *value_is_const;
+    array_value_t *values;
+} var_def_node_t;
 
 typedef struct const_node {
     node_type_t type;
@@ -256,9 +269,17 @@ char *assign_op_to_str(assign_op_t assign_op);
 
 void apply_logical_op(logical_op_t op, value_t *out, value_t in_1, value_t in_2);
 
-void apply_comparison_op(comparison_op_t op, value_t *out, type_t in_type_1, value_t in_value_1, type_t in_type_2, value_t in_value_2);
+void apply_comparison_op(comparison_op_t op, value_t *out, type_t in_type_1, value_t in_value_1, type_t in_type_2,
+                         value_t in_value_2);
+
+int apply_integer_op(integer_op_t op, value_t *out, type_t in_type_1, value_t in_value_1, type_t in_type_2,
+                     value_t in_value_2);
 
 unsigned get_length_of_array(const unsigned sizes[MAXARRAYDEPTH], unsigned depth);
+
+value_t *get_sliced_array(const value_t *values, const unsigned sizes[MAXARRAYDEPTH],
+                          const bool is_indexed[MAXARRAYDEPTH], const unsigned indices[MAXARRAYDEPTH],
+                          unsigned depth);
 
 node_t *new_node(node_type_t type, node_t *left, node_t *right);
 
@@ -266,25 +287,35 @@ node_t *new_func_decl_node(list_t *entry);
 
 node_t *new_var_decl_node(list_t *entry);
 
+node_t *new_var_def_node(list_t *entry, bool *value_is_const, array_value_t *values);
+
 node_t *new_const_node(type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, value_t *values);
 
-node_t *new_reference_node(list_t *entry);
+node_t *new_reference_node(const unsigned sizes[MAXARRAYDEPTH], unsigned depth,
+                           bool is_indexed[MAXARRAYDEPTH], bool index_is_const[MAXARRAYDEPTH],
+                           array_index_t indices[MAXARRAYDEPTH], list_t *entry);
 
 node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars);
 
-node_t *new_logical_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, logical_op_t op, node_t *left, node_t *right);
+node_t *new_logical_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth,
+                            logical_op_t op, node_t *left, node_t *right);
 
-node_t *new_comparison_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, comparison_op_t op, node_t *left, node_t *right);
+node_t *new_comparison_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth,
+                               comparison_op_t op, node_t *left, node_t *right);
 
-node_t *new_equality_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, equality_op_t op, node_t *left, node_t *right);
+node_t *new_equality_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth,
+                             equality_op_t op, node_t *left, node_t *right);
 
 node_t *new_not_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, node_t *child);
 
-node_t *new_integer_op_node(integer_op_t op, node_t *left, node_t *right);
+node_t *new_integer_op_node(qualifier_t qualifier, type_t type, const unsigned sizes[MAXARRAYDEPTH],
+                            unsigned depth, integer_op_t op, node_t *left, node_t *right);
 
-node_t *new_invert_op_node(qualifier_t qualifier, type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, node_t *child);
+node_t *new_invert_op_node(qualifier_t qualifier, type_t type, const unsigned sizes[MAXARRAYDEPTH],
+                           unsigned depth, node_t *child);
 
-node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branches, unsigned elseif_count, node_t *else_branch);
+node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branches, unsigned elseif_count,
+                    node_t *else_branch);
 
 node_t *new_else_node(node_t *condition, node_t *elseif_branch);
 

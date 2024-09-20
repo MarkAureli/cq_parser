@@ -303,6 +303,15 @@ init:
 init_elem_l:
     logical_or_expr {
         $$ = array_var_infos_init(NULL, 0, 1);
+        type_info_t *info = get_type_info_of_node($1);
+        if (info->depth != 0) {
+            if (snprintf(error_msg, sizeof (error_msg), "Element of array initializer list is itself a depth-%u array",
+                         info->depth) > 0) {
+                yyerror(error_msg);
+            } else {
+                yyerror("Element of array initializer list is itself an array");
+            }
+        }
         $$.var_infos[0] = ((const_node_t *) $1)->var_info;
     }
     | init_elem_l COMMA logical_or_expr {
@@ -660,32 +669,29 @@ postfix_expr:
 
 array_access_expr:
 	array_access {
-	    unsigned depth = $1.depth;
 	    list_t *entry = $1.entry;
         bool all_indices_const = true;
-        for (unsigned i = 0; i < depth; ++i) {
+        unsigned new_depth = 0;
+        unsigned new_sizes[MAXARRAYLENGTH] = {0};
+        for (unsigned i = 0; i < $1.depth; ++i) {
             all_indices_const &= $1.index_is_const[i];
-            if ($1.index_is_const[i] && $1.indices[i].const_index >= entry->sizes[i]) {
-                if (snprintf(error_msg, sizeof (error_msg), "%u-th index (%u) of array %s%s out of bounds (%u)", i, $1.indices[i].const_index, ($1.entry->is_function) ? "returned by " : "", entry->name, entry->sizes[i]) > 0) {
-                    yyerror(error_msg);
-                } else {
-                    yyerror("Array index out of bounds");
+            if ($1.is_indexed[i]) {
+                if ($1.index_is_const[i] && $1.indices[i].const_index >= entry->sizes[i]) {
+                    if (snprintf(error_msg, sizeof (error_msg), "%u-th index (%u) of array %s%s out of bounds (%u)", i, $1.indices[i].const_index, ($1.entry->is_function) ? "returned by " : "", entry->name, entry->sizes[i]) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Array index out of bounds");
+                    }
                 }
+            } else {
+                new_sizes[new_depth++] = entry->sizes[i];
             }
         }
-        if (entry->qualifier == CONST_T && all_indices_const && depth == entry->depth) {
-            unsigned index = 0;
-            unsigned product = 1;
-            for (unsigned i = 0; i < depth; ++i) {
-                index += $1.indices[depth - i - 1].const_index * product;
-                product *= entry->sizes[depth - i - 1];
-            }
-            $$ = new_const_node(entry->type, entry->values[index]);
+        if (entry->qualifier == CONST_T && all_indices_const && $1.depth == entry->depth) {
+            value_t *new_values = get_sliced_array(entry->values, entry->sizes, $1.is_indexed, $1.indices, $1.depth);
+            $$ = new_const_node(entry->type, new_sizes, new_depth, new_values);
         } else {
-            $$ = new_reference_node(entry);
-            memcpy(((reference_node_t *) $$)->index_is_const, $1.index_is_const, depth * sizeof (unsigned));
-            memcpy(((reference_node_t *) $$)->indices, $1.indices, depth * sizeof (unsigned));
-            ((reference_node_t *) $$)->depth = depth;
+            $$ = new_reference_node(new_sizes, new_depth, $1.is_indexed, $1.index_is_const, $1.indices, entry);
         }
 	}
 	;
@@ -700,7 +706,7 @@ array_access:
     | array_access LBRACKET or_expr RBRACKET {
         $$ = $1;
         if ($$.entry->depth == 0) {
-            if (snprintf(error_msg, sizeof (error_msg), "Array access of of scalar %s", $$.entry->name) > 0) {
+            if (snprintf(error_msg, sizeof (error_msg), "Array access of scalar %s", $$.entry->name) > 0) {
                 yyerror(error_msg);
             } else {
                 yyerror("Array access of scalar");
@@ -712,20 +718,54 @@ array_access:
                 yyerror("Too deep acess of array");
             }
         }
-        var_info_t index_info = get_var_info_of_node($3);
-        if (index_info.type == BOOL_T) {
-           if (snprintf(error_msg, sizeof (error_msg), "Index at position %u of access of depth-%u array %s is boolean", $$.depth, $$.entry->depth, $$.entry->name) > 0) {
+        type_info_t *index_info = get_type_info_of_node($3);
+        if (index_info->qualifier == QUANTUM_T) {
+           if (snprintf(error_msg, sizeof (error_msg), "Index at position %u of access of depth-%u array %s is quantum", $$.depth, $$.entry->depth, $$.entry->name) > 0) {
                 yyerror(error_msg);
             } else {
-                yyerror("Index of array access is boolean");
+                yyerror("Index of array access is quantum");
             }
         }
-        if (index_info.qualifier == CONST_T) {
+        if (index_info->type == BOOL_T) {
+           if (snprintf(error_msg, sizeof (error_msg), "Index at position %u of access of depth-%u array %s is of type bool", $$.depth, $$.entry->depth, $$.entry->name) > 0) {
+                yyerror(error_msg);
+            } else {
+                yyerror("Index of array access is of type bool");
+            }
+        }
+        if (index_info->depth != 0) {
+           if (snprintf(error_msg, sizeof (error_msg), "Index at position %u of access of depth-%u array %s is array-valued", $$.depth, $$.entry->depth, $$.entry->name) > 0) {
+                yyerror(error_msg);
+            } else {
+                yyerror("Index of array access is array-valued");
+            }
+        }
+        $$.is_indexed[$$.depth] = true;
+        if (index_info->qualifier == CONST_T) {
             $$.index_is_const[$$.depth] = true;
-            $$.indices[($$.depth)++].const_index = index_info.value.uval;
+            $$.indices[($$.depth)++].const_index = ((const_node_t *) $3)->values[0].uval;
         } else {
+            $$.index_is_const[$$.depth] = false;
             $$.indices[($$.depth)++].node_index = $3;
         }
+    }
+    | array_access LBRACKET COLON RBRACKET {
+        $$ = $1;
+        if ($$.entry->depth == 0) {
+            if (snprintf(error_msg, sizeof (error_msg), "Array access of scalar %s", $$.entry->name) > 0) {
+                yyerror(error_msg);
+            } else {
+                yyerror("Array access of scalar");
+            }
+        } else if ($$.depth == $$.entry->depth) {
+            if (snprintf(error_msg, sizeof (error_msg), "Depth-%u access of depth-%u array %s", $$.depth + 1, $$.entry->depth, $$.entry->name) > 0) {
+                yyerror(error_msg);
+            } else {
+                yyerror("Too deep acess of array");
+            }
+        }
+        $$.is_indexed[($$.depth)] = false;
+        $$.index_is_const[($$.depth)++] = true;
     }
     ;
 
