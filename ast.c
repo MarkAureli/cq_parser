@@ -577,13 +577,23 @@ type_info_t type_info_init(type_t type, unsigned depth) {
     return new_type_info;
 }
 
-array_var_infos_t array_var_infos_init(const var_info_t *var_infos, unsigned old_length, unsigned length) {
-    array_var_infos_t new_array_var_infos = { .is_array_init = false, .var_infos = calloc(length,
-                                              sizeof (var_info_t)), .length = length};
-    if (var_infos != NULL) {
-        memcpy(new_array_var_infos.var_infos, var_infos, old_length * sizeof (var_info_t));
-    }
-    return new_array_var_infos;
+array_var_infos_t *new_array_var_infos(bool value_is_const, array_value_t value) {
+    array_var_infos_t *new_infos = calloc(1, sizeof (array_var_infos_t));
+    new_infos->is_array_init = false;
+    new_infos->value_is_const = calloc(1, sizeof (bool));
+    new_infos->value_is_const[0] = value_is_const;
+    new_infos->values = calloc(1, sizeof (array_value_t));
+    new_infos->values[0] = value;
+    new_infos->length = 1;
+    return new_infos;
+}
+
+void append_to_array_var_infos(array_var_infos_t *array_var_infos, bool value_is_const,
+                               array_value_t value) {
+    array_var_infos->value_is_const = realloc(array_var_infos->value_is_const,
+                                          ++(array_var_infos->length) * sizeof (bool));
+    array_var_infos->values = realloc(array_var_infos->values,
+                                      array_var_infos->length * sizeof (array_value_t));
 }
 
 array_access_info_t array_access_info_init(list_t *entry) {

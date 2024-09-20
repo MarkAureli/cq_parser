@@ -102,13 +102,14 @@ typedef union array_index {
 } array_index_t;
 
 typedef union array_value {
-    value_t *const_value;
+    value_t const_value;
     node_t *node_value;
 } array_value_t;
 
 typedef struct array_var_infos {
     bool is_array_init;
-    var_info_t *var_infos;
+    bool *value_is_const;
+    array_value_t *values;
     unsigned length;
 } array_var_infos_t;
 
@@ -333,7 +334,9 @@ node_t *new_return_node(type_t ret_type, node_t *ret_val);
 
 type_info_t type_info_init(type_t type, unsigned depth);
 
-array_var_infos_t array_var_infos_init(const var_info_t *var_infos, unsigned old_length, unsigned length);
+array_var_infos_t *new_array_var_infos(bool value_is_const, array_value_t value);
+
+void append_to_array_var_infos(array_var_infos_t *array_var_infos, bool value_is_const, array_value_t value);
 
 array_access_info_t array_access_info_init(list_t *entry);
 

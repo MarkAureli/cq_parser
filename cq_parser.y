@@ -25,7 +25,7 @@ char error_msg[ERRORMSGLENGTH];
     list_t *symtab_item;
     node_t *node;
     type_info_t type_info;
-    array_var_infos_t array_var_infos;
+    array_var_infos_t *array_var_infos;
     array_access_info_t array_access_info;
     assign_op_t assign_op;
     integer_op_t integer_op;
@@ -150,24 +150,24 @@ variable_decl:
 
 variable_def:
 	QUANTUM type_specifier declarator ASSIGN init SEMICOLON {
-	    $$ = new_var_decl_node($3);
+	    $$ = new_var_def_node($3, value_is_const, values);
 	    set_type_of_elem($3, QUANTUM_T, $2.type, false, $2.depth, $2.sizes);
-	    if ($3->depth == 0 && $5.is_array_init) {
+	    if ($3->depth == 0 && $5->is_array_init) {
             if (snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $3->name) > 0) {
                 yyerror(error_msg);
             } else {
                 yyerror("Attempt to initialize scalar as array");
             }
 	    }
-	    if ($3->depth != 0 && !$5.is_array_init) {
+	    if ($3->depth != 0 && !$5->is_array_init) {
             if (snprintf(error_msg, sizeof (error_msg), "%s is an array, but not is initialized as such", $3->name) > 0) {
                 yyerror(error_msg);
             } else {
                 yyerror("Attempt to initialize scalar as array");
             }
 	    }
-	    if ($5.length > $3->length) {
-            if (snprintf(error_msg, sizeof (error_msg), "Too many (%u) elements initialized for array %s of total length %u", $5.length, $3->name, $3->length) > 0) {
+	    if ($5->length > $3->length) {
+            if (snprintf(error_msg, sizeof (error_msg), "Too many (%u) elements initialized for array %s of total length %u", $5->length, $3->name, $3->length) > 0) {
                 yyerror(error_msg);
             } else {
                 yyerror("Too many elements initialized for array");
@@ -279,7 +279,7 @@ variable_def:
                 }
             }
         }
-        $$ = new_var_decl_node($2);
+        $$ = new_var_def_node($2, value_is_const, values);
     }
 	;
 
@@ -296,13 +296,11 @@ init:
     }
     | LBRACE init_elem_l RBRACE {
         $$ = $2;
-        $$.is_array_init = true;
     }
     ;
 
 init_elem_l:
     logical_or_expr {
-        $$ = array_var_infos_init(NULL, 0, 1);
         type_info_t *info = get_type_info_of_node($1);
         if (info->depth != 0) {
             if (snprintf(error_msg, sizeof (error_msg), "Element of array initializer list is itself a depth-%u array",
@@ -312,12 +310,33 @@ init_elem_l:
                 yyerror("Element of array initializer list is itself an array");
             }
         }
-        $$.var_infos[0] = ((const_node_t *) $1)->var_info;
+        array_value_t value;
+        if (info->qualifier == CONST_T) {
+            value.const_value = ((const_node_t *) $1)->values[0];
+        } else {
+            values.node_value = $1;
+        }
+        $$ = new_array_var_infos(info->qualifier == CONST_T, value);
+        $$->is_array_init = true;
     }
     | init_elem_l COMMA logical_or_expr {
-        $$ = array_var_infos_init($1.var_infos, $1.length, $1.length + 1);
-        $$.var_infos[$1.length] = ((const_node_t *) $3)->var_info;
-        free($1.var_infos);
+        type_info_t *info = get_type_info_of_node($3);
+        if (info->depth != 0) {
+            if (snprintf(error_msg, sizeof (error_msg), "Element of array initializer list is itself a depth-%u array",
+                         info->depth) > 0) {
+                yyerror(error_msg);
+            } else {
+                yyerror("Element of array initializer list is itself an array");
+            }
+        }
+        $$ = $1;
+        array_value_t value;
+        if (info->qualifier == CONST_T) {
+            value.const_value = ((const_node_t *) $3)->values[0];
+        } else {
+            values.node_value = $3;
+        }
+        append_to_array_var_infos($$, info->qualifier == CONST_T, value);
     }
     ;
 
