@@ -84,11 +84,10 @@ typedef struct type_info {
     unsigned depth;
 } type_info_t;
 
-typedef struct var_info {
+typedef struct qualified_type {
     qualifier_t qualifier;
     type_t type;
-    value_t value;
-} var_info_t;
+} qualified_type_t;
 
 typedef struct node {
     node_type_t type;
@@ -106,18 +105,31 @@ typedef union array_value {
     node_t *node_value;
 } array_value_t;
 
-typedef struct array_var_infos {
-    bool is_array_init;
+typedef struct array_values_info {
     bool *value_is_const;
     array_value_t *values;
+} array_values_info_t;
+
+typedef struct array_init_list {
+    qualified_type_t *qualified_types;
+    array_value_t *values;
     unsigned length;
-} array_var_infos_t;
+} array_init_list_t;
+
+typedef struct array_init_info {
+    bool is_init_list;
+    union {
+        node_t *node;
+        array_init_list_t array_init_list;
+    };
+} array_init_info_t;
 
 typedef struct array_access_info {
     list_t *entry;
     bool is_indexed[MAXARRAYDEPTH];
     bool index_is_const[MAXARRAYDEPTH];
     array_index_t indices[MAXARRAYDEPTH];
+    unsigned depth;
 } array_access_info_t;
 
 typedef struct func_decl_node {
@@ -133,8 +145,11 @@ typedef struct var_decl_node {
 typedef struct var_def_node {
     node_type_t type;
     list_t *entry;
-    bool *value_is_const;
-    array_value_t *values;
+    bool is_init_list;
+    union {
+        node_t *node;
+        array_values_info_t array_values_info;
+    };
 } var_def_node_t;
 
 typedef struct const_node {
@@ -288,7 +303,9 @@ node_t *new_func_decl_node(list_t *entry);
 
 node_t *new_var_decl_node(list_t *entry);
 
-node_t *new_var_def_node(list_t *entry, bool *value_is_const, array_value_t *values);
+node_t *new_var_def_node_from_node(list_t *entry, node_t *node);
+
+node_t *new_var_def_node_from_init_list(list_t *entry, bool *value_is_const, array_value_t *values);
 
 node_t *new_const_node(type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, value_t *values);
 
@@ -334,9 +351,12 @@ node_t *new_return_node(type_t ret_type, node_t *ret_val);
 
 type_info_t type_info_init(type_t type, unsigned depth);
 
-array_var_infos_t *new_array_var_infos(bool value_is_const, array_value_t value);
+array_init_info_t *new_array_init_info_from_node(node_t *node);
 
-void append_to_array_var_infos(array_var_infos_t *array_var_infos, bool value_is_const, array_value_t value);
+array_init_info_t *new_array_init_info_from_init_list(qualified_type_t qualified_type, array_value_t value);
+
+void append_to_array_init_info(array_init_info_t *array_init_info, qualified_type_t qualified_type,
+                               array_value_t value);
 
 array_access_info_t array_access_info_init(list_t *entry);
 

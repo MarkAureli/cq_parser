@@ -92,8 +92,6 @@ void set_type_of_elem(list_t *entry, qualifier_t qualifier, type_t type, bool is
 
 void set_type(const char *name, qualifier_t qualifier, type_t type, bool is_function, unsigned depth, const unsigned sizes[MAXARRAYDEPTH]);
 
-void set_values_of_elem(list_t *entry, value_t *values, unsigned length);
-
 type_t get_type(const char *name);
 
 param_t def_param(const char *name, type_t type);

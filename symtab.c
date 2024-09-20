@@ -145,7 +145,6 @@ void set_type_of_elem(list_t *entry, qualifier_t qualifier, type_t type, bool is
     entry->qualifier = qualifier;
     entry->type = type;
     entry->is_function = is_function;
-    entry->depth = depth;
     unsigned length = 1;
     if (sizes != NULL) {
         memcpy(entry->sizes, sizes, MAXARRAYDEPTH * sizeof (unsigned));
@@ -154,16 +153,13 @@ void set_type_of_elem(list_t *entry, qualifier_t qualifier, type_t type, bool is
         }
     }
     entry->length = length;
+    entry->depth = depth;
+    entry->values = calloc(length, sizeof (value_t));
 }
 
 void set_type(const char *name, qualifier_t qualifier, type_t type, bool is_function, unsigned depth, const unsigned sizes[MAXARRAYDEPTH]) {
     list_t *l = lookup(name);
     set_type_of_elem(l, qualifier, type, is_function, depth, sizes);
-}
-
-void set_values_of_elem(list_t *entry, value_t *values, unsigned length) {
-    entry->values = calloc(entry->length, sizeof (value_t));
-    memcpy(entry->values, values, length * sizeof (value_t));
 }
 
 type_t get_type(const char *name) {

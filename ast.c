@@ -150,7 +150,8 @@ void apply_logical_op(logical_op_t op, value_t *out, value_t in_1, value_t in_2)
     }
 }
 
-void apply_comparison_op(comparison_op_t op, value_t *out, type_t in_type_1, value_t in_value_1, type_t in_type_2, value_t in_value_2) {
+void apply_comparison_op(comparison_op_t op, value_t *out, type_t in_type_1,
+                         value_t in_value_1, type_t in_type_2, value_t in_value_2) {
     switch (op) {
         case GE_OP: {
             if (in_type_1 == INT_T && in_type_2 == INT_T) {
@@ -187,7 +188,8 @@ void apply_comparison_op(comparison_op_t op, value_t *out, type_t in_type_1, val
     }
 }
 
-void apply_equality_op(equality_op_t op, value_t *out, type_t in_type_1, value_t in_value_1, type_t in_type_2, value_t in_value_2) {
+void apply_equality_op(equality_op_t op, value_t *out, type_t in_type_1,
+                       value_t in_value_1, type_t in_type_2, value_t in_value_2) {
     if (in_type_1 == BOOL_T) {
         if (op == EQ_OP) {
             out->bval = in_value_1.bval == in_value_2.bval;
@@ -209,7 +211,8 @@ void apply_equality_op(equality_op_t op, value_t *out, type_t in_type_1, value_t
     }
 }
 
-int apply_integer_op(integer_op_t op, value_t *out, type_t in_type_1, value_t in_value_1, type_t in_type_2, value_t in_value_2) {
+int apply_integer_op(integer_op_t op, value_t *out, type_t in_type_1,
+                     value_t in_value_1, type_t in_type_2, value_t in_value_2) {
     if (in_type_1 == INT_T && in_type_2 == INT_T) {
         switch (op) {
             case ADD_OP: {
@@ -352,7 +355,8 @@ value_t *get_sliced_array(const value_t *values, const unsigned sizes[MAXARRAYDE
     unsigned output_index = 0;
 
     // Start the recursive slicing
-    slice_array(values, sizes, is_indexed, indices, output, &output_index, 0, depth, 0);
+    slice_array(values, sizes, is_indexed, indices, output,
+                &output_index, 0, depth, 0);
 
     return output;
 }
@@ -379,12 +383,22 @@ node_t *new_var_decl_node(list_t *entry) {
     return (node_t *) new_node;
 }
 
-node_t *new_var_def_node(list_t *entry, bool *value_is_const, array_value_t *values) {
+node_t *new_var_def_node_from_node(list_t *entry, node_t *node) {
     var_def_node_t *new_node = calloc(1, sizeof (var_def_node_t));
     new_node->type = VAR_DEF_NODE_T;
     new_node->entry = entry;
-    new_node->value_is_const = value_is_const;
-    new_node->values = values;
+    new_node->is_init_list = false;
+    new_node->node = node;
+    return (node_t *) new_node;
+}
+
+node_t *new_var_def_node_from_init_list(list_t *entry, bool *value_is_const, array_value_t *values) {
+    var_def_node_t *new_node = calloc(1, sizeof (var_def_node_t));
+    new_node->type = VAR_DEF_NODE_T;
+    new_node->entry = entry;
+    new_node->is_init_list = true;
+    new_node->array_values_info.value_is_const = value_is_const;
+    new_node->array_values_info.values = values;
     return (node_t *) new_node;
 }
 
@@ -393,7 +407,9 @@ node_t *new_const_node(type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigne
     new_node->type = CONST_NODE_T;
     new_node->type_info.qualifier = CONST_T;
     new_node->type_info.type = type;
-    memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+    if (sizes != NULL) {
+        memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+    }
     new_node->type_info.depth = depth;
     new_node->values = values;
     return (node_t *) new_node;
@@ -406,7 +422,7 @@ node_t *new_reference_node(const unsigned sizes[MAXARRAYDEPTH], unsigned depth,
     new_node->type = REFERENCE_NODE_T;
     new_node->type_info.qualifier = entry->qualifier;
     new_node->type_info.type = entry->type;
-    memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned ));
+    memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
     new_node->type_info.depth = depth;
     memcpy(new_node->is_indexed, is_indexed, entry->depth * sizeof(bool));
     memcpy(new_node->index_is_const, index_is_const, entry->depth * sizeof(bool));
@@ -430,7 +446,8 @@ node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars) {
     return (node_t *) new_node;
 }
 
-node_t *new_logical_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, logical_op_t op, node_t *left, node_t *right) {
+node_t *new_logical_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, logical_op_t op,
+                            node_t *left, node_t *right) {
     logical_op_node_t *new_node = calloc(1, sizeof (logical_op_node_t));
     new_node->type = LOGICAL_OP_NODE_T;
     new_node->type_info.qualifier = qualifier;
@@ -443,7 +460,8 @@ node_t *new_logical_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAY
     return (node_t *) new_node;
 }
 
-node_t *new_comparison_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, comparison_op_t op, node_t *left, node_t *right) {
+node_t *new_comparison_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth,
+                               comparison_op_t op, node_t *left, node_t *right) {
     comparison_op_node_t *new_node = calloc(1, sizeof (comparison_op_node_t));
     new_node->type = COMPARISON_OP_NODE_T;
     new_node->type_info.qualifier = qualifier;
@@ -456,7 +474,8 @@ node_t *new_comparison_op_node(qualifier_t qualifier, const unsigned sizes[MAXAR
     return (node_t *) new_node;
 }
 
-node_t *new_equality_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, equality_op_t op, node_t *left, node_t *right) {
+node_t *new_equality_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth,
+                             equality_op_t op, node_t *left, node_t *right) {
     equality_op_node_t *new_node = calloc(1, sizeof (equality_op_node_t));
     new_node->type = EQUALITY_OP_NODE_T;
     new_node->type_info.qualifier = qualifier;
@@ -480,7 +499,8 @@ node_t *new_not_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPT
     return (node_t *) new_node;
 }
 
-node_t *new_integer_op_node(qualifier_t qualifier, type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, integer_op_t op, node_t *left, node_t *right) {
+node_t *new_integer_op_node(qualifier_t qualifier, type_t type, const unsigned sizes[MAXARRAYDEPTH],
+                            unsigned depth, integer_op_t op, node_t *left, node_t *right) {
     integer_op_node_t *new_node = calloc(1, sizeof (integer_op_node_t));
     new_node->type = INTEGER_OP_NODE_T;
     new_node->type_info.qualifier = qualifier;
@@ -493,7 +513,8 @@ node_t *new_integer_op_node(qualifier_t qualifier, type_t type, const unsigned s
     return (node_t *) new_node;
 }
 
-node_t *new_invert_op_node(qualifier_t qualifier, type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, node_t *child) {
+node_t *new_invert_op_node(qualifier_t qualifier, type_t type, const unsigned sizes[MAXARRAYDEPTH],
+                           unsigned depth, node_t *child) {
     invert_op_node_t *new_node = calloc(1, sizeof(invert_op_node_t));
     new_node->type = INVERT_OP_NODE_T;
     new_node->type_info.qualifier = qualifier;
@@ -504,7 +525,8 @@ node_t *new_invert_op_node(qualifier_t qualifier, type_t type, const unsigned si
     return (node_t *) new_node;
 }
 
-node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branches, unsigned elseif_count, node_t *else_branch) {
+node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branches, unsigned elseif_count,
+                    node_t *else_branch) {
     if_node_t *new_node = calloc(1, sizeof (if_node_t));
     new_node->type = IF_NODE_T;
     new_node->condition = condition;
@@ -577,23 +599,34 @@ type_info_t type_info_init(type_t type, unsigned depth) {
     return new_type_info;
 }
 
-array_var_infos_t *new_array_var_infos(bool value_is_const, array_value_t value) {
-    array_var_infos_t *new_infos = calloc(1, sizeof (array_var_infos_t));
-    new_infos->is_array_init = false;
-    new_infos->value_is_const = calloc(1, sizeof (bool));
-    new_infos->value_is_const[0] = value_is_const;
-    new_infos->values = calloc(1, sizeof (array_value_t));
-    new_infos->values[0] = value;
-    new_infos->length = 1;
+array_init_info_t *new_array_init_info_from_node(node_t *node) {
+    array_init_info_t *new_infos = calloc(1, sizeof (array_init_info_t));
+    new_infos->is_init_list = false;
+    new_infos->node = node;
     return new_infos;
 }
 
-void append_to_array_var_infos(array_var_infos_t *array_var_infos, bool value_is_const,
+array_init_info_t *new_array_init_info_from_init_list(qualified_type_t qualified_type, array_value_t value) {
+    array_init_info_t *new_infos = calloc(1, sizeof (array_init_info_t));
+    new_infos->is_init_list = true;
+    new_infos->array_init_list.qualified_types = calloc(1, sizeof (qualified_type_t));
+    new_infos->array_init_list.qualified_types[0] = qualified_type;
+    new_infos->array_init_list.values = calloc(1, sizeof (array_value_t));
+    new_infos->array_init_list.values[0] = value;
+    new_infos->array_init_list.length = 1;
+    return new_infos;
+}
+
+void append_to_array_init_info(array_init_info_t *array_init_info, qualified_type_t qualified_type,
                                array_value_t value) {
-    array_var_infos->value_is_const = realloc(array_var_infos->value_is_const,
-                                          ++(array_var_infos->length) * sizeof (bool));
-    array_var_infos->values = realloc(array_var_infos->values,
-                                      array_var_infos->length * sizeof (array_value_t));
+    unsigned current_length = (array_init_info->array_init_list.length)++;
+    array_init_info->array_init_list.qualified_types = realloc(array_init_info->array_init_list.qualified_types,
+                                                               (current_length + 1)
+                                                               * sizeof (qualified_type_t));
+    array_init_info->array_init_list.values = realloc(array_init_info->array_init_list.values,
+                                                      (current_length + 1)
+                                                      * sizeof (array_value_t));
+    array_init_info->array_init_list.qualified_types[current_length] = qualified_type;
 }
 
 array_access_info_t array_access_info_init(list_t *entry) {
@@ -735,8 +768,11 @@ node_t *build_logical_op_node(logical_op_t op, node_t *left, node_t *right, char
     type_info_t *left_type_info = get_type_info_of_node(left);
     type_info_t *right_type_info = get_type_info_of_node(right);
     /* implement error when nodes are no expression nodes */
-    qualifier_t result_qualifier = propagate_qualifier(left_type_info->qualifier, right_type_info->qualifier);
-    type_t result_type = propagate_type(LOGICAL_OP, left_type_info->type, right_type_info->type);
+    qualifier_t result_qualifier = propagate_qualifier(left_type_info->qualifier,
+                                                       right_type_info->qualifier);
+    type_t result_type = propagate_type(LOGICAL_OP,
+                                        left_type_info->type,
+                                        right_type_info->type);
     if (result_type == VOID_T) {
         snprintf(error_msg, ERRORMSGLENGTH, "Applying \"%s\" to %s and %s", logical_op_to_str(op),
                  type_to_str(left_type_info->type), type_to_str(right_type_info->type));
@@ -744,22 +780,25 @@ node_t *build_logical_op_node(logical_op_t op, node_t *left, node_t *right, char
     }
 
     if (left_type_info->depth == 0 && right_type_info->depth != 0) {
-        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"%s\" to scalar and array of depth %u)", logical_op_to_str(op), right_type_info->depth);
+        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"%s\" to scalar and array of depth %u)",
+                 logical_op_to_str(op), right_type_info->depth);
         return NULL;
     } else if (left_type_info->depth != 0 && right_type_info->depth == 0) {
-        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"%s\" to array of depth %u and scalar)", logical_op_to_str(op), left_type_info->depth);
+        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"%s\" to array of depth %u and scalar)",
+                 logical_op_to_str(op), left_type_info->depth);
         return NULL;
     } else if (left_type_info->depth != right_type_info->depth) {
-        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"%s\" to arrays of different depth (%u != %u)", logical_op_to_str(op),
-                 left_type_info->depth, right_type_info->depth);
+        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"%s\" to arrays of different depth (%u != %u)",
+                 logical_op_to_str(op), left_type_info->depth, right_type_info->depth);
         return NULL;
     }
     unsigned depth = left_type_info->depth;
 
     for (unsigned i = 0; i < depth; ++i) {
         if (left_type_info->sizes[i] != right_type_info->sizes[i]) {
-            snprintf(error_msg, ERRORMSGLENGTH, "Applying \"%s\" to arrays of different sizes in dimension %u (%u != %u)", logical_op_to_str(op),
-                     depth, left_type_info->sizes[i], right_type_info->sizes[i]);
+            snprintf(error_msg, ERRORMSGLENGTH,
+                     "Applying \"%s\" to arrays of different sizes in dimension %u (%u != %u)",
+                     logical_op_to_str(op), depth, left_type_info->sizes[i], right_type_info->sizes[i]);
             return NULL;
         }
     }
@@ -775,7 +814,10 @@ node_t *build_logical_op_node(logical_op_t op, node_t *left, node_t *right, char
         const_node_view_result->type_info.type = BOOL_T;
 
         for (unsigned i = 0; i < length; ++i) {
-            apply_logical_op(op, const_node_view_result->values + i, const_node_view_left->values[i], const_node_view_right->values[i]);
+            apply_logical_op(op,
+                             const_node_view_result->values + i,
+                             const_node_view_left->values[i],
+                             const_node_view_right->values[i]);
         }
         free(const_node_view_right->values);
         free(const_node_view_right);
@@ -789,8 +831,11 @@ node_t *build_comparison_op_node(comparison_op_t op, node_t *left, node_t *right
     type_info_t *left_type_info = get_type_info_of_node(left);
     type_info_t *right_type_info = get_type_info_of_node(right);
     /* implement error when nodes are no expression nodes */
-    qualifier_t result_qualifier = propagate_qualifier(left_type_info->qualifier, right_type_info->qualifier);
-    type_t result_type = propagate_type(COMPARISON_OP, left_type_info->type, right_type_info->type);
+    qualifier_t result_qualifier = propagate_qualifier(left_type_info->qualifier,
+                                                       right_type_info->qualifier);
+    type_t result_type = propagate_type(COMPARISON_OP,
+                                        left_type_info->type,
+                                        right_type_info->type);
     if (result_type == VOID_T) {
         snprintf(error_msg, ERRORMSGLENGTH, "\"%s\"-comparison of %s and %s", comparison_op_to_str(op),
                  type_to_str(left_type_info->type), type_to_str(right_type_info->type));
@@ -798,22 +843,25 @@ node_t *build_comparison_op_node(comparison_op_t op, node_t *left, node_t *right
     }
 
     if (left_type_info->depth == 0 && right_type_info->depth != 0) {
-        snprintf(error_msg, ERRORMSGLENGTH, "\"%s\"-comparison of scalar and array of depth %u)", comparison_op_to_str(op), right_type_info->depth);
+        snprintf(error_msg, ERRORMSGLENGTH, "\"%s\"-comparison of scalar and array of depth %u)",
+                 comparison_op_to_str(op), right_type_info->depth);
         return NULL;
     } else if (left_type_info->depth != 0 && right_type_info->depth == 0) {
-        snprintf(error_msg, ERRORMSGLENGTH, "\"%s\"-comparison of array of depth %u and scalar)", comparison_op_to_str(op), left_type_info->depth);
+        snprintf(error_msg, ERRORMSGLENGTH, "\"%s\"-comparison of array of depth %u and scalar)",
+                 comparison_op_to_str(op), left_type_info->depth);
         return NULL;
     } else if (left_type_info->depth != right_type_info->depth) {
-        snprintf(error_msg, ERRORMSGLENGTH, "\"%s\"-comparison of arrays of different depths (%u != %u)", comparison_op_to_str(op),
-                 left_type_info->depth, right_type_info->depth);
+        snprintf(error_msg, ERRORMSGLENGTH, "\"%s\"-comparison of arrays of different depths (%u != %u)",
+                 comparison_op_to_str(op), left_type_info->depth, right_type_info->depth);
         return NULL;
     }
     unsigned depth = left_type_info->depth;
 
     for (unsigned i = 0; i < depth; ++i) {
         if (left_type_info->sizes[i] != right_type_info->sizes[i]) {
-            snprintf(error_msg, ERRORMSGLENGTH, "\"%s\"-comparison of arrays of different sizes in dimension %u (%u != %u)", comparison_op_to_str(op),
-                     depth, left_type_info->sizes[i], right_type_info->sizes[i]);
+            snprintf(error_msg, ERRORMSGLENGTH,
+                     "\"%s\"-comparison of arrays of different sizes in dimension %u (%u != %u)",
+                     comparison_op_to_str(op), depth, left_type_info->sizes[i], right_type_info->sizes[i]);
             return NULL;
         }
     }
@@ -829,7 +877,9 @@ node_t *build_comparison_op_node(comparison_op_t op, node_t *left, node_t *right
         const_node_view_result->type_info.type = BOOL_T;
 
         for (unsigned i = 0; i < length; ++i) {
-            apply_comparison_op(op, const_node_view_result->values + i, left_type_info->type, const_node_view_left->values[i], right_type_info->type, const_node_view_right->values[i]);
+            apply_comparison_op(op, const_node_view_result->values + i, left_type_info->type,
+                                const_node_view_left->values[i], right_type_info->type,
+                                const_node_view_right->values[i]);
         }
         free(const_node_view_right->values);
         free(const_node_view_right);
@@ -981,7 +1031,7 @@ node_t *build_integer_op_node(integer_op_t op, node_t *left, node_t *right, char
         const_node_t *const_node_view_left = (const_node_t *) left;
         const_node_t *const_node_view_right = (const_node_t *) right;
         const_node_t *const_node_view_result = (const_node_t *) result;
-        const_node_view_result->type_info.type = BOOL_T;
+        const_node_view_result->type_info.type = INT_T;
 
         for (unsigned i = 0; i < length; ++i) {
             int validity_check = apply_integer_op(op,
@@ -1012,7 +1062,8 @@ node_t *build_invert_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
     qualifier_t result_qualifier = child_type_info->qualifier;
     type_t result_type = propagate_type(INVERT_OP, child_type_info->type, VOID_T);
     if (result_type == VOID_T) {
-        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"~\" to expression of type %s", type_to_str(child_type_info->type));
+        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"~\" to expression of type %s",
+                 type_to_str(child_type_info->type));
         return NULL;
     }
 
@@ -1037,7 +1088,8 @@ node_t *build_invert_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
         result = invert_op_node_view_child->child;
         free(invert_op_node_view_child);
     } else {
-        result = new_invert_op_node(result_qualifier, result_type, child_type_info->sizes, child_type_info->depth, child);
+        result = new_invert_op_node(result_qualifier, result_type, child_type_info->sizes,
+                                    child_type_info->depth, child);
     }
     return result;
 }
@@ -1062,7 +1114,8 @@ void print_type_info(const type_info_t *type_info) {
     }
 }
 
-void print_array(type_t type, const value_t *values, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, unsigned current_depth, unsigned index) {
+void print_array(type_t type, const value_t *values, const unsigned sizes[MAXARRAYDEPTH], unsigned depth,
+                 unsigned current_depth, unsigned index) {
     if (current_depth == depth - 1) {
         putchar('{');
         for (unsigned i = 0; i < sizes[current_depth]; ++i) {
@@ -1157,8 +1210,10 @@ void print_node(const node_t *node) {
                     }
                 }
             } else {
-                print_array(info->type, ((const_node_t *) node)->values, info->sizes, info->depth, 0, 0);
+                print_array(info->type, ((const_node_t *) node)->values, info->sizes,
+                            info->depth, 0, 0);
             }
+            break;
         }
         case REFERENCE_NODE_T: {
             type_info_t *info = get_type_info_of_node(node);
@@ -1168,7 +1223,8 @@ void print_node(const node_t *node) {
             break;
         }
         case FUNC_CALL_NODE_T: {
-            printf("Function call node for %s with %u parameters\n", ((func_call_node_t *) node)->entry->name, ((func_call_node_t *) node)->num_of_pars);
+            printf("Function call node for %s with %u parameters\n", ((func_call_node_t *) node)->entry->name,
+                   ((func_call_node_t *) node)->num_of_pars);
             break;
         }
         case LOGICAL_OP_NODE_T: {
@@ -1290,11 +1346,15 @@ void tree_traversal(const node_t *node) {
             break;
         }
         case VAR_DEF_NODE_T: {
-            for (unsigned i = 0; i < get_length_of_array(((var_def_node_t *) node)->entry->sizes,
-                                                         ((var_def_node_t *) node)->entry->depth); ++i) {
-                if (!(((var_def_node_t *) node)->value_is_const)) {
-                    tree_traversal(((var_def_node_t *) node)->values[i].node_value);
+            if (((var_def_node_t *) node)->is_init_list) {
+                for (unsigned i = 0; i < get_length_of_array(((var_def_node_t *) node)->entry->sizes,
+                                                             ((var_def_node_t *) node)->entry->depth); ++i) {
+                    if (!(((var_def_node_t *) node)->array_values_info.value_is_const[i])) {
+                        tree_traversal(((var_def_node_t *) node)->array_values_info.values[i].node_value);
+                    }
                 }
+            } else {
+                tree_traversal(((var_def_node_t *) node)->node);
             }
             break;
         }
