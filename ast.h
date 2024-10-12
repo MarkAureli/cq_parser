@@ -256,8 +256,9 @@ typedef struct while_node {
 
 typedef struct assign_node {
     node_type_t type;
-    list_t *entry;
-    node_t *assign_val;
+    assign_op_t op;
+    node_t *left;
+    node_t *right;
 } assign_node_t;
 
 typedef struct jump_node {
@@ -343,7 +344,7 @@ node_t *new_do_node(node_t *do_branch, node_t *condition);
 
 node_t *new_while_node(node_t *condition, node_t *while_branch);
 
-node_t *new_assign_node(list_t *entry, node_t *assign_val);
+node_t *new_assign_node(assign_op_t op, node_t *left, node_t *right);
 
 node_t *new_jump_node(int statement_type);
 
@@ -362,15 +363,17 @@ array_access_info_t array_access_info_init(list_t *entry);
 
 type_info_t *get_type_info_of_node(const node_t *node);
 
-node_t *build_logical_op_node(logical_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]);
+node_t *build_assign_node(node_t *left, assign_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]);
 
-node_t *build_comparison_op_node(comparison_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]);
+node_t *build_logical_op_node(node_t *left, logical_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]);
 
-node_t *build_equality_op_node(equality_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]);
+node_t *build_comparison_op_node(node_t *left, comparison_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]);
+
+node_t *build_equality_op_node(node_t *left, equality_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]);
 
 node_t *build_not_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]);
 
-node_t *build_integer_op_node(integer_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]);
+node_t *build_integer_op_node(node_t *left, integer_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]);
 
 node_t *build_invert_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]);
 

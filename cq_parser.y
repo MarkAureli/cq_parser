@@ -72,7 +72,7 @@ char error_msg[ERRORMSGLENGTH];
 %type <type_info> type_specifier
 %type <node> variable_decl variable_def function_def const primary_expr postfix_expr unary_expr mul_expr add_expr
 %type <node> logical_or_expr logical_xor_expr logical_and_expr comparison_expr equality_expr or_expr xor_expr and_expr
-%type <node> array_access_expr function_call
+%type <node> array_access_expr function_call expr
 %type <array_init_info> init init_elem_l
 %type <array_access_info> array_access
 %define parse.error verbose
@@ -238,6 +238,60 @@ variable_def:
                     }
                 }
             }
+            if ($2.type == BOOL_T && init_info->type != BOOL_T) {
+                if ($3->depth == 0) {
+                    if (snprintf(error_msg, sizeof (error_msg),
+                                 "Initialization of scalar %s of type bool with value of type %s",
+                                 $3->name, type_to_str(init_info->type)) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Initialization of scalar of type bool with value of different type");
+                    }
+                } else {
+                    if (snprintf(error_msg, sizeof (error_msg),
+                                 "Initialization of bool-array %s with %s-array",
+                                 $3->name, type_to_str(init_info->type)) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Initialization of bool-array with array of different type");
+                    }
+                }
+            } else if ($2.type == INT_T && init_info->type != INT_T) {
+                if ($3->depth == 0) {
+                    if (snprintf(error_msg, sizeof (error_msg),
+                                 "Initialization of scalar %s of type int with value of type %s",
+                                 $3->name, type_to_str(init_info->type)) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Initialization of scalar of type int with value of different type");
+                    }
+                } else {
+                    if (snprintf(error_msg, sizeof (error_msg),
+                                 "Initialization of int-array %s with %s-array",
+                                 $3->name, type_to_str(init_info->type)) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Initialization of int-array with array of different type");
+                    }
+                }
+            } else if ($2.type == UNSIGNED_T && init_info->type == BOOL_T) {
+                if ($3->depth == 0) {
+                    if (snprintf(error_msg, sizeof (error_msg),
+                                 "Initialization of scalar %s of type unsigned with value of type %s",
+                                 $3->name, type_to_str(init_info->type)) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Initialization of scalar of type unsigned with value of type bool");
+                    }
+                } else {
+                    if (snprintf(error_msg, sizeof (error_msg),
+                                 "Initialization of unsigned-array %s with bool-array", $3->name) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Initialization of unsigned-array with bool-array");
+                    }
+                }
+            }
             $$ = new_var_def_node_from_node($3, $5->node);
         }
         tree_traversal($$);
@@ -357,6 +411,59 @@ variable_def:
                         yyerror("Initialization of constant array with non-constant array");
                     }
                 }
+            } else if ($2.type == BOOL_T && init_info->type != BOOL_T) {
+                if ($3->depth == 0) {
+                    if (snprintf(error_msg, sizeof (error_msg),
+                                 "Initialization of scalar %s of type bool with value of type %s",
+                                 $3->name, type_to_str(init_info->type)) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Initialization of scalar of type bool with value of different type");
+                    }
+                } else {
+                    if (snprintf(error_msg, sizeof (error_msg),
+                                 "Initialization of bool-array %s with %s-array",
+                                 $3->name, type_to_str(init_info->type)) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Initialization of bool-array with array of different type");
+                    }
+                }
+            } else if ($2.type == INT_T && init_info->type != INT_T) {
+                if ($3->depth == 0) {
+                    if (snprintf(error_msg, sizeof (error_msg),
+                                 "Initialization of scalar %s of type int with value of type %s",
+                                 $3->name, type_to_str(init_info->type)) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Initialization of scalar of type int with value of different type");
+                    }
+                } else {
+                    if (snprintf(error_msg, sizeof (error_msg),
+                                 "Initialization of int-array %s with %s-array",
+                                 $3->name, type_to_str(init_info->type)) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Initialization of int-array with array of different type");
+                    }
+                }
+            } else if ($2.type == UNSIGNED_T && init_info->type == BOOL_T) {
+                if ($3->depth == 0) {
+                    if (snprintf(error_msg, sizeof (error_msg),
+                                 "Initialization of scalar %s of type unsigned with value of type %s",
+                                 $3->name, type_to_str(init_info->type)) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Initialization of scalar of type unsigned with value of type bool");
+                    }
+                } else {
+                    if (snprintf(error_msg, sizeof (error_msg),
+                                 "Initialization of unsigned-array %s with bool-array", $3->name) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Initialization of unsigned-array with bool-array");
+                    }
+                }
             }
             memcpy($3->values, ((const_node_t *) $5->node)->values,
                    get_length_of_array(init_info->sizes, init_info->depth) * sizeof (value_t));
@@ -389,7 +496,8 @@ variable_def:
                     if ($4->array_init_list.qualified_types[i].qualifier == QUANTUM_T) {
                         free(value_is_const);
                         if (snprintf(error_msg, sizeof (error_msg),
-                                     "Element %u in initialization of classical array %s is quantum", i, $2->name) > 0) {
+                                     "Element %u in initialization of classical array %s is quantum",
+                                     i, $2->name) > 0) {
                             yyerror(error_msg);
                         } else {
                             yyerror("Element in initialization of classical array is quantum");
@@ -476,7 +584,59 @@ variable_def:
                         yyerror("Initialization of classical array with quantum array");
                     }
                 }
-
+            } else if ($1.type == BOOL_T && init_info->type != BOOL_T) {
+                if ($2->depth == 0) {
+                    if (snprintf(error_msg, sizeof (error_msg),
+                                 "Initialization of scalar %s of type bool with value of type %s",
+                                 $2->name, type_to_str(init_info->type)) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Initialization of scalar of type bool with value of different type");
+                    }
+                } else {
+                    if (snprintf(error_msg, sizeof (error_msg),
+                                 "Initialization of bool-array %s with %s-array",
+                                 $2->name, type_to_str(init_info->type)) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Initialization of bool-array with array of different type");
+                    }
+                }
+            } else if ($1.type == INT_T && init_info->type != INT_T) {
+                if ($2->depth == 0) {
+                    if (snprintf(error_msg, sizeof (error_msg),
+                                 "Initialization of scalar %s of type int with value of type %s",
+                                 $2->name, type_to_str(init_info->type)) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Initialization of scalar of type int with value of different type");
+                    }
+                } else {
+                    if (snprintf(error_msg, sizeof (error_msg),
+                                 "Initialization of int-array %s with %s-array",
+                                 $2->name, type_to_str(init_info->type)) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Initialization of int-array with array of different type");
+                    }
+                }
+            } else if ($1.type == UNSIGNED_T && init_info->type == BOOL_T) {
+                if ($2->depth == 0) {
+                    if (snprintf(error_msg, sizeof (error_msg),
+                                 "Initialization of scalar %s of type unsigned with value of type %s",
+                                 $2->name, type_to_str(init_info->type)) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Initialization of scalar of type unsigned with value of type bool");
+                    }
+                } else {
+                    if (snprintf(error_msg, sizeof (error_msg),
+                                 "Initialization of unsigned-array %s with bool-array", $2->name) > 0) {
+                        yyerror(error_msg);
+                    } else {
+                        yyerror("Initialization of unsigned-array with bool-array");
+                    }
+                }
             }
             $$ = new_var_def_node_from_node($2, $4->node);
         }
@@ -674,20 +834,63 @@ jump_stmt:
 	;
 
 expr:
-	logical_or_expr
-	| postfix_expr assignment_operator logical_or_expr
-	;
-
-assignment_operator:
-    ASSIGN
-	| ASSIGN_OR
-	| ASSIGN_XOR
-    | ASSIGN_AND
-	| ASSIGN_ADD
-	| ASSIGN_SUB
-	| ASSIGN_MUL
-	| ASSIGN_DIV
-	| ASSIGN_MOD
+	logical_or_expr {
+	    $$ = $1;
+	}
+	| postfix_expr ASSIGN logical_or_expr {
+	    $$ = build_assign_node($1, ASSIGN_OP, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+	}
+	| postfix_expr ASSIGN_OR logical_or_expr {
+	    $$ = build_assign_node($1, ASSIGN_OR_OP, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+	}
+	| postfix_expr ASSIGN_XOR logical_or_expr {
+	    $$ = build_assign_node($1, ASSIGN_XOR_OP, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+	}
+	| postfix_expr ASSIGN_AND logical_or_expr {
+	    $$ = build_assign_node($1, ASSIGN_AND_OP, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+	}
+	| postfix_expr ASSIGN_ADD logical_or_expr {
+	    $$ = build_assign_node($1, ASSIGN_ADD_OP, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+	}
+	| postfix_expr ASSIGN_SUB logical_or_expr {
+	    $$ = build_assign_node($1, ASSIGN_SUB_OP, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+	}
+	| postfix_expr ASSIGN_MUL logical_or_expr {
+	    $$ = build_assign_node($1, ASSIGN_MUL_OP, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+	}
+	| postfix_expr ASSIGN_DIV logical_or_expr {
+	    $$ = build_assign_node($1, ASSIGN_DIV_OP, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+	}
+	| postfix_expr ASSIGN_MOD logical_or_expr {
+	    $$ = build_assign_node($1, ASSIGN_MOD_OP, $3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+	}
 	;
 
 logical_or_expr:
@@ -695,7 +898,7 @@ logical_or_expr:
 	    $$ = $1;
 	}
 	| logical_or_expr LOR logical_xor_expr {
-	    $$ = build_logical_op_node(LOR_OP, $1, $3, error_msg);
+	    $$ = build_logical_op_node($1, LOR_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -707,7 +910,7 @@ logical_xor_expr:
 	    $$ = $1;
 	}
 	| logical_xor_expr LXOR logical_and_expr {
-	    $$ = build_logical_op_node(LXOR_OP, $1, $3, error_msg);
+	    $$ = build_logical_op_node($1, LXOR_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -719,7 +922,7 @@ logical_and_expr:
 	    $$ = $1;
 	}
 	| logical_and_expr LAND comparison_expr {
-	    $$ = build_logical_op_node(LAND_OP, $1, $3, error_msg);
+	    $$ = build_logical_op_node($1, LAND_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -731,25 +934,25 @@ comparison_expr:
 	    $$ = $1;
 	}
 	| comparison_expr GE equality_expr {
-	    $$ = build_comparison_op_node(GE_OP, $1, $3, error_msg);
+	    $$ = build_comparison_op_node($1, GE_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| comparison_expr GEQ equality_expr {
-	    $$ = build_comparison_op_node(GEQ_OP, $1, $3, error_msg);
+	    $$ = build_comparison_op_node($1, GEQ_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| comparison_expr LE equality_expr {
-	    $$ = build_comparison_op_node(LE_OP, $1, $3, error_msg);
+	    $$ = build_comparison_op_node($1, LE_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| comparison_expr LEQ equality_expr {
-	    $$ = build_comparison_op_node(LEQ_OP, $1, $3, error_msg);
+	    $$ = build_comparison_op_node($1, LEQ_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -761,13 +964,13 @@ equality_expr:
 	    $$ = $1;
 	}
 	| equality_expr EQ or_expr {
-	    $$ = build_equality_op_node(EQ_OP, $1, $3, error_msg);
+	    $$ = build_equality_op_node($1, EQ_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| equality_expr NEQ or_expr {
-	    $$ = build_equality_op_node(NEQ_OP, $1, $3, error_msg);
+	    $$ = build_equality_op_node($1, NEQ_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -779,7 +982,7 @@ or_expr:
         $$ = $1;
     }
 	| or_expr OR xor_expr {
-        $$ = build_integer_op_node(OR_OP, $1, $3, error_msg);
+        $$ = build_integer_op_node($1, OR_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -791,7 +994,7 @@ xor_expr:
 	    $$ = $1;
 	}
 	| xor_expr XOR and_expr {
-        $$ = build_integer_op_node(XOR_OP, $1, $3, error_msg);
+        $$ = build_integer_op_node($1, XOR_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -803,7 +1006,7 @@ and_expr:
         $$ = $1;
     }
 	| and_expr AND add_expr {
-        $$ = build_integer_op_node(AND_OP, $1, $3, error_msg);
+        $$ = build_integer_op_node($1, AND_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -815,13 +1018,13 @@ add_expr:
 	    $$ = $1;
 	}
 	| add_expr ADD mul_expr {
-        $$ = build_integer_op_node(ADD_OP, $1, $3, error_msg);
+        $$ = build_integer_op_node($1, ADD_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| add_expr SUB mul_expr {
-        $$ = build_integer_op_node(SUB_OP, $1, $3, error_msg);
+        $$ = build_integer_op_node($1, SUB_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -833,19 +1036,19 @@ mul_expr:
 	    $$ = $1;
 	}
 	| mul_expr MUL unary_expr {
-        $$ = build_integer_op_node(MUL_OP, $1, $3, error_msg);
+        $$ = build_integer_op_node($1, MUL_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| mul_expr DIV unary_expr {
-        $$ = build_integer_op_node(DIV_OP, $1, $3, error_msg);
+        $$ = build_integer_op_node($1, DIV_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| mul_expr MOD unary_expr {
-        $$ = build_integer_op_node(MOD_OP, $1, $3, error_msg);
+        $$ = build_integer_op_node($1, MOD_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -904,7 +1107,7 @@ array_access_expr:
                 }
             }
         }
-        if (entry->qualifier == CONST_T && all_indices_const && $1.depth == entry->depth) {
+        if (entry->qualifier == CONST_T && all_indices_const) {
             unsigned const_indices[$1.depth];
             for (unsigned i = 0; i < $1.depth; ++i) {
                 const_indices[i] = $1.indices[i].const_index;

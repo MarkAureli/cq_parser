@@ -84,7 +84,7 @@ char *integer_op_to_str(integer_op_t integer_op) {
             return "/";
         }
         case MOD_OP: {
-            return "%%";
+            return "%";
         }
         case MUL_OP: {
             return "*";
@@ -307,6 +307,7 @@ unsigned get_length_of_array(const unsigned sizes[MAXARRAYDEPTH], unsigned depth
     return result;
 }
 
+// TODO: not working properly (all values after first one are set to zero
 void slice_array(const value_t *in_values, const unsigned sizes[MAXARRAYDEPTH], const bool is_indexed[MAXARRAYDEPTH],
                  const unsigned indices[MAXARRAYDEPTH], value_t *out_values, unsigned *output_index,
                  unsigned current_dim, unsigned depth, unsigned current_index) {
@@ -571,11 +572,12 @@ node_t *new_while_node(node_t *condition, node_t *while_branch) {
     return (node_t *) new_node;
 }
 
-node_t *new_assign_node(list_t *entry, node_t *assign_val) {
+node_t *new_assign_node(assign_op_t op, node_t *left, node_t *right) {
     assign_node_t *new_node = calloc(1, sizeof (assign_node_t));
     new_node->type = ASSIGN_NODE_T;
-    new_node->entry = entry;
-    new_node->assign_val = assign_val;
+    new_node->op = op;
+    new_node->left = left;
+    new_node->right = right;
     return (node_t *) new_node;
 }
 
@@ -764,7 +766,119 @@ type_t propagate_type(op_type_t op_type, type_t type_1, type_t type_2) {
     }
 }
 
-node_t *build_logical_op_node(logical_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]) {
+node_t *build_assign_node(node_t *left, assign_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]) {
+    if (left->type == CONST_NODE_T) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Trying to reassign constant value");
+        return NULL;
+    } else if (left->type != REFERENCE_NODE_T) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Left-hand side of assignment is not a variable");
+        return NULL;
+    }
+
+    type_info_t *left_type_info = get_type_info_of_node(left);
+    type_info_t *right_type_info = get_type_info_of_node(right);
+    if (left_type_info->qualifier != QUANTUM_T && right_type_info->qualifier == QUANTUM_T) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Classical left-hand side of assignment, but quantum right-hand side");
+        return NULL;
+    }
+    switch (op) {
+        case ASSIGN_OP: {
+            if (left_type_info->type == BOOL_T && right_type_info->type != BOOL_T) {
+                snprintf(error_msg, ERRORMSGLENGTH, "Assigning %s to bool", type_to_str(right_type_info->type));
+                return NULL;
+            } else if (left_type_info->type == INT_T && right_type_info->type != INT_T) {
+                snprintf(error_msg, ERRORMSGLENGTH, "Assigning %s to int", type_to_str(right_type_info->type));
+                return NULL;
+            } else if (left_type_info->type == UNSIGNED_T && right_type_info->type == BOOL_T) {
+                snprintf(error_msg, ERRORMSGLENGTH, "Assigning bool to unsigned");
+                return NULL;
+            }
+            break;
+        }
+        case ASSIGN_OR_OP: case ASSIGN_XOR_OP: case ASSIGN_AND_OP: {
+            if (left_type_info->type == BOOL_T && right_type_info->type != BOOL_T) {
+                snprintf(error_msg, ERRORMSGLENGTH, "Logically assigning %s to bool",
+                         type_to_str(right_type_info->type));
+                return NULL;
+            } else if (left_type_info->type == INT_T && right_type_info->type != INT_T) {
+                snprintf(error_msg, ERRORMSGLENGTH, "Bitwisely assigning %s to int",
+                         type_to_str(right_type_info->type));
+                return NULL;
+            } else if (left_type_info->type == UNSIGNED_T && right_type_info->type == BOOL_T) {
+                snprintf(error_msg, ERRORMSGLENGTH, "Bitwisely assigning bool to unsigned");
+                return NULL;
+            }
+            break;
+        }
+        case ASSIGN_ADD_OP: case ASSIGN_SUB_OP: case ASSIGN_MUL_OP: case ASSIGN_DIV_OP: case ASSIGN_MOD_OP: {
+            if (left_type_info->type == BOOL_T) {
+                snprintf(error_msg, ERRORMSGLENGTH, "Arithmetically assigning to bool");
+                return NULL;
+            } else if (right_type_info->type == BOOL_T) {
+                snprintf(error_msg, ERRORMSGLENGTH, "Arithmetically assigning bool to %s",
+                         type_to_str(left_type_info->type));
+                return NULL;
+            } else if (left_type_info->type == INT_T && right_type_info->type == UNSIGNED_T) {
+                snprintf(error_msg, ERRORMSGLENGTH, "Arithmetically assigning unsigned to int");
+                return NULL;
+            }
+            break;
+        }
+    }
+
+    if (left_type_info->depth == 0 && right_type_info->depth != 0) {
+        snprintf(error_msg, ERRORMSGLENGTH,
+                 "Left-hand side of \"%s\" is a scalar, right-hand side is an array of depth %u)",
+                 assign_op_to_str(op), right_type_info->depth);
+        return NULL;
+    } else if (left_type_info->depth != 0 && right_type_info->depth == 0) {
+        snprintf(error_msg, ERRORMSGLENGTH,
+                 "Left-hand side of \"%s\" is an array of depth %u, right-hand side is a scalar)",
+                 assign_op_to_str(op), left_type_info->depth);
+        return NULL;
+    } else if (left_type_info->depth != right_type_info->depth) {
+        snprintf(error_msg, ERRORMSGLENGTH,
+                 "Left-hand and right-hand side of \"%s\" are arrays of different depth (%u != %u)",
+                 assign_op_to_str(op), left_type_info->depth, right_type_info->depth);
+        return NULL;
+    }
+    unsigned depth = left_type_info->depth;
+
+    for (unsigned i = 0; i < depth; ++i) {
+        if (left_type_info->sizes[i] != right_type_info->sizes[i]) {
+            snprintf(error_msg, ERRORMSGLENGTH,
+                     "Left-hand and right-hand side of \"%s\" are arrays of different sizes in dimension %u (%u != %u)",
+                     assign_op_to_str(op), depth, left_type_info->sizes[i], right_type_info->sizes[i]);
+            return NULL;
+        }
+    }
+    unsigned *sizes = left_type_info->sizes;
+    unsigned length = get_length_of_array(sizes, depth);
+
+    if (right_type_info->qualifier == CONST_T) { /* right is of node_type CONST_NODE_T */
+        const_node_t *const_node_view_right = (const_node_t *) right;
+
+        if (op == ASSIGN_DIV_OP) {
+            for (unsigned i = 0; i < length; ++i) {
+                if (const_node_view_right->values[i].ival == 0) {
+                    snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
+                    return NULL;
+                }
+            }
+        } else if (op == ASSIGN_MOD_OP) {
+            for (unsigned i = 0; i < length; ++i) {
+                if (const_node_view_right->values[i].ival == 0) {
+                    snprintf(error_msg, ERRORMSGLENGTH, "Modulo by zero");
+                    return NULL;
+                }
+            }
+        }
+    }
+    node_t *result = new_assign_node(op, left, right);
+    return result;
+}
+
+node_t *build_logical_op_node(node_t *left, logical_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]) {
     type_info_t *left_type_info = get_type_info_of_node(left);
     type_info_t *right_type_info = get_type_info_of_node(right);
     /* implement error when nodes are no expression nodes */
@@ -827,7 +941,7 @@ node_t *build_logical_op_node(logical_op_t op, node_t *left, node_t *right, char
     return result;
 }
 
-node_t *build_comparison_op_node(comparison_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]) {
+node_t *build_comparison_op_node(node_t *left, comparison_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]) {
     type_info_t *left_type_info = get_type_info_of_node(left);
     type_info_t *right_type_info = get_type_info_of_node(right);
     /* implement error when nodes are no expression nodes */
@@ -889,7 +1003,7 @@ node_t *build_comparison_op_node(comparison_op_t op, node_t *left, node_t *right
     return result;
 }
 
-node_t *build_equality_op_node(equality_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]) {
+node_t *build_equality_op_node(node_t *left, equality_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]) {
     type_info_t *left_type_info = get_type_info_of_node(left);
     type_info_t *right_type_info = get_type_info_of_node(right);
     /* implement error when nodes are no expression nodes */
@@ -984,7 +1098,7 @@ node_t *build_not_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
     return result;
 }
 
-node_t *build_integer_op_node(integer_op_t op, node_t *left, node_t *right, char error_msg[ERRORMSGLENGTH]) {
+node_t *build_integer_op_node(node_t *left, integer_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]) {
     type_info_t *left_type_info = get_type_info_of_node(left);
     type_info_t *right_type_info = get_type_info_of_node(right);
     /* implement error when nodes are no expression nodes */
@@ -1034,6 +1148,7 @@ node_t *build_integer_op_node(integer_op_t op, node_t *left, node_t *right, char
         const_node_view_result->type_info.type = INT_T;
 
         for (unsigned i = 0; i < length; ++i) {
+            printf("%u: %d, %d\n", i, const_node_view_left->values[i].ival, const_node_view_right->values[i].ival);
             int validity_check = apply_integer_op(op,
                                                   const_node_view_result->values + i,
                                                   left_type_info->type,
@@ -1048,6 +1163,7 @@ node_t *build_integer_op_node(integer_op_t op, node_t *left, node_t *right, char
                 return NULL;
             }
         }
+        printf("Updated values\n");
         free(const_node_view_right->values);
         free(const_node_view_right);
     } else {
@@ -1320,7 +1436,16 @@ void print_node(const node_t *node) {
             break;
         }
         case ASSIGN_NODE_T: {
-            printf("Assign node of entry %s\n", ((assign_node_t *) node)->entry->name);
+            putchar('(');
+            type_info_t *left_info = get_type_info_of_node(((assign_node_t *) node)->left);
+            type_info_t *right_info = get_type_info_of_node(((assign_node_t *) node)->right);
+            type_info_t *result_info = get_type_info_of_node(node);
+            print_type_info(left_info);
+            printf(") %s (", logical_op_to_str(((logical_op_node_t *) node)->op));
+            print_type_info(right_info);
+            printf(") %s (", assign_op_to_str(((assign_node_t *) node)->op));
+            print_type_info(result_info);
+            printf(")\n");
             break;
         }
         case JUMP_NODE_T: {
@@ -1424,7 +1549,8 @@ void tree_traversal(const node_t *node) {
             break;
         }
         case ASSIGN_NODE_T: {
-            tree_traversal(((assign_node_t *) node)->assign_val);
+            tree_traversal(((assign_node_t *) node)->left);
+            tree_traversal(((assign_node_t *) node)->right);
             break;
         }
         case RETURN_NODE_T: {
