@@ -307,58 +307,70 @@ unsigned get_length_of_array(const unsigned sizes[MAXARRAYDEPTH], unsigned depth
     return result;
 }
 
-// TODO: not working properly (all values after first one are set to zero
-void slice_array(const value_t *in_values, const unsigned sizes[MAXARRAYDEPTH], const bool is_indexed[MAXARRAYDEPTH],
-                 const unsigned indices[MAXARRAYDEPTH], value_t *out_values, unsigned *output_index,
-                 unsigned current_dim, unsigned depth, unsigned current_index) {
-    if (current_dim == depth) {
-        out_values[(*output_index)++] = in_values[current_index];
-        return;
-    }
-
-    if (!is_indexed[current_dim]) { // full axis is addressed
-        for (unsigned i = 0; i < sizes[current_dim]; ++i) {
-            unsigned next_index = current_index + i;
-            for (unsigned j = current_dim + 1; j < depth; ++j) {
-                next_index *= sizes[j];
+void print_array(type_t type, const value_t *values, const unsigned sizes[MAXARRAYDEPTH], unsigned depth,
+                 unsigned current_depth, unsigned index) {
+    if (current_depth == depth - 1) {
+        putchar('{');
+        for (unsigned i = 0; i < sizes[current_depth]; ++i) {
+            switch (type) {
+                case BOOL_T: {
+                    printf("%s", (values[index + i].bval) ? "true" : "false");
+                    break;
+                }
+                case INT_T: {
+                    printf("%d", values[index + i].ival);
+                    break;
+                }
+                case UNSIGNED_T: {
+                    printf("%u", values[index + i].uval);
+                    break;
+                }
+                case VOID_T: {
+                    printf("undefined");
+                    break;
+                }
             }
-            slice_array(in_values, sizes, is_indexed, indices, out_values, output_index,
-                        current_dim + 1, depth, next_index);
+            if (i < sizes[current_depth] - 1) {
+                printf(", ");
+            }
         }
-    } else { // specific index is addressed
-        unsigned next_index = current_index + indices[current_dim];
-        for (unsigned j = current_dim + 1; j < depth; ++j) {
-            next_index *= sizes[j];
+    } else {
+        putchar('{');
+        for (unsigned i = 0; i < sizes[current_depth]; ++i) {
+            unsigned stride = 1;
+            for (unsigned j = current_depth + 1; j < depth; ++j) {
+                stride *= sizes[j];
+            }
+            print_array(type, values, sizes, depth, current_depth + 1, index + i * stride);
+            if (i < sizes[current_depth] - 1) {
+                printf(", ");
+            }
         }
-        slice_array(in_values, sizes, is_indexed, indices, out_values, output_index,
-                    current_dim + 1, depth, next_index);
+        putchar('}');
     }
+    putchar('\n');
 }
 
-value_t *get_sliced_array(const value_t *values, const unsigned sizes[MAXARRAYDEPTH],
-                          const bool is_indexed[MAXARRAYDEPTH], const unsigned indices[MAXARRAYDEPTH], unsigned depth) {
+value_t *get_reduced_array(const value_t *values, const unsigned sizes[MAXARRAYDEPTH], unsigned depth,
+                          const unsigned indices[MAXARRAYDEPTH], unsigned index_depth) {
     // Calculate the length of the output values
     unsigned out_length = 1;
-    for (unsigned i = 0; i < depth; ++i) {
-        if (indices[i] == -1) {
-            out_length *= sizes[i];
+    for (unsigned i = index_depth; i < depth; ++i) {
+        out_length *= sizes[i];
+    }
+
+    unsigned reduced_index = 0;
+    for (unsigned i = 0; i < index_depth; ++i) {
+        unsigned factor = 1;
+        for (unsigned j = i + 1; j <depth; ++j) {
+            factor *= sizes[j];
         }
+        reduced_index += factor * indices[i];
     }
 
     // Allocate memory for the output values
     value_t* output = malloc( out_length * sizeof (value_t));
-    if (output == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        return NULL;
-    }
-
-    // Initialize the output index
-    unsigned output_index = 0;
-
-    // Start the recursive slicing
-    slice_array(values, sizes, is_indexed, indices, output,
-                &output_index, 0, depth, 0);
-
+    memcpy(output, values + reduced_index, out_length * sizeof (value_t));
     return output;
 }
 
@@ -416,8 +428,7 @@ node_t *new_const_node(type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigne
     return (node_t *) new_node;
 }
 
-node_t *new_reference_node(const unsigned sizes[MAXARRAYDEPTH], unsigned depth,
-                           bool is_indexed[MAXARRAYDEPTH], bool index_is_const[MAXARRAYDEPTH],
+node_t *new_reference_node(const unsigned sizes[MAXARRAYDEPTH], unsigned depth, bool index_is_const[MAXARRAYDEPTH],
                            array_index_t indices[MAXARRAYDEPTH], list_t *entry) {
     reference_node_t *new_node = calloc(1, sizeof (reference_node_t));
     new_node->type = REFERENCE_NODE_T;
@@ -425,7 +436,6 @@ node_t *new_reference_node(const unsigned sizes[MAXARRAYDEPTH], unsigned depth,
     new_node->type_info.type = entry->type;
     memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
     new_node->type_info.depth = depth;
-    memcpy(new_node->is_indexed, is_indexed, entry->depth * sizeof(bool));
     memcpy(new_node->index_is_const, index_is_const, entry->depth * sizeof(bool));
     memcpy(new_node->indices, indices, entry->depth * sizeof(array_index_t));
     new_node->entry = entry;
@@ -629,6 +639,7 @@ void append_to_array_init_info(array_init_info_t *array_init_info, qualified_typ
                                                       (current_length + 1)
                                                       * sizeof (array_value_t));
     array_init_info->array_init_list.qualified_types[current_length] = qualified_type;
+    array_init_info->array_init_list.values[current_length] = value;
 }
 
 array_access_info_t array_access_info_init(list_t *entry) {
@@ -1148,7 +1159,6 @@ node_t *build_integer_op_node(node_t *left, integer_op_t op, node_t *right, char
         const_node_view_result->type_info.type = INT_T;
 
         for (unsigned i = 0; i < length; ++i) {
-            printf("%u: %d, %d\n", i, const_node_view_left->values[i].ival, const_node_view_right->values[i].ival);
             int validity_check = apply_integer_op(op,
                                                   const_node_view_result->values + i,
                                                   left_type_info->type,
@@ -1163,7 +1173,6 @@ node_t *build_integer_op_node(node_t *left, integer_op_t op, node_t *right, char
                 return NULL;
             }
         }
-        printf("Updated values\n");
         free(const_node_view_right->values);
         free(const_node_view_right);
     } else {
@@ -1228,50 +1237,6 @@ void print_type_info(const type_info_t *type_info) {
     for (unsigned i = 0; i < type_info->depth; ++i) {
         printf("[%u]", type_info->sizes[i]);
     }
-}
-
-void print_array(type_t type, const value_t *values, const unsigned sizes[MAXARRAYDEPTH], unsigned depth,
-                 unsigned current_depth, unsigned index) {
-    if (current_depth == depth - 1) {
-        putchar('{');
-        for (unsigned i = 0; i < sizes[current_depth]; ++i) {
-            switch (type) {
-                case BOOL_T: {
-                    printf("%s", (values[index + i].bval) ? "true" : "false");
-                    break;
-                }
-                case INT_T: {
-                    printf("%d", values[index + i].ival);
-                    break;
-                }
-                case UNSIGNED_T: {
-                    printf("%u", values[index + i].uval);
-                    break;
-                }
-                case VOID_T: {
-                    printf("undefined");
-                    break;
-                }
-            }
-            if (i < sizes[current_depth] - 1) {
-                printf(", ");
-            }
-        }
-    } else {
-        putchar('{');
-        for (unsigned i = 0; i < sizes[current_depth]; ++i) {
-            unsigned stride = 1;
-            for (unsigned j = current_depth + 1; j < depth; ++j) {
-                stride *= sizes[j];
-            }
-            print_array(type, values, sizes, depth, current_depth + 1, index + i * stride);
-            if (i < sizes[current_depth] - 1) {
-                printf(", ");
-            }
-        }
-        putchar('}');
-    }
-    putchar('\n');
 }
 
 void print_node(const node_t *node) {

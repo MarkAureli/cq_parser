@@ -126,7 +126,6 @@ typedef struct array_init_info {
 
 typedef struct array_access_info {
     list_t *entry;
-    bool is_indexed[MAXARRAYDEPTH];
     bool index_is_const[MAXARRAYDEPTH];
     array_index_t indices[MAXARRAYDEPTH];
     unsigned depth;
@@ -161,7 +160,6 @@ typedef struct const_node {
 typedef struct reference_node {
     node_type_t type;
     type_info_t type_info;
-    bool is_indexed[MAXARRAYDEPTH];
     bool index_is_const[MAXARRAYDEPTH];
     array_index_t indices[MAXARRAYDEPTH];
     list_t *entry;
@@ -294,9 +292,8 @@ int apply_integer_op(integer_op_t op, value_t *out, type_t in_type_1, value_t in
 
 unsigned get_length_of_array(const unsigned sizes[MAXARRAYDEPTH], unsigned depth);
 
-value_t *get_sliced_array(const value_t *values, const unsigned sizes[MAXARRAYDEPTH],
-                          const bool is_indexed[MAXARRAYDEPTH], const unsigned indices[MAXARRAYDEPTH],
-                          unsigned depth);
+value_t *get_reduced_array(const value_t *values, const unsigned sizes[MAXARRAYDEPTH], unsigned depth,
+                          const unsigned indices[MAXARRAYDEPTH], unsigned index_depth);
 
 node_t *new_node(node_type_t type, node_t *left, node_t *right);
 
@@ -310,8 +307,7 @@ node_t *new_var_def_node_from_init_list(list_t *entry, bool *value_is_const, arr
 
 node_t *new_const_node(type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, value_t *values);
 
-node_t *new_reference_node(const unsigned sizes[MAXARRAYDEPTH], unsigned depth,
-                           bool is_indexed[MAXARRAYDEPTH], bool index_is_const[MAXARRAYDEPTH],
+node_t *new_reference_node(const unsigned sizes[MAXARRAYDEPTH], unsigned depth, bool index_is_const[MAXARRAYDEPTH],
                            array_index_t indices[MAXARRAYDEPTH], list_t *entry);
 
 node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars);

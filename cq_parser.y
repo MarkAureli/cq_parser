@@ -1086,36 +1086,33 @@ array_access_expr:
 	array_access {
 	    list_t *entry = $1.entry;
         bool all_indices_const = true;
-        unsigned new_depth = entry->depth;
+        unsigned new_depth = entry->depth - $1.depth;
         unsigned new_sizes[entry->depth];
         memcpy(new_sizes, entry->sizes, entry->depth * sizeof (unsigned));
         for (unsigned i = 0; i < $1.depth; ++i) {
             all_indices_const &= $1.index_is_const[i];
-            if ($1.is_indexed[i]) {
-                if ($1.index_is_const[i] && $1.indices[i].const_index >= entry->sizes[i]) {
-                    if (snprintf(error_msg, sizeof (error_msg), "%u-th index (%u) of array %s%s out of bounds (%u)", i,
-                                 $1.indices[i].const_index, ($1.entry->is_function) ? "returned by " : "", entry->name,
-                                 entry->sizes[i]) > 0) {
-                        yyerror(error_msg);
-                    } else {
-                        yyerror("Array index out of bounds");
-                    }
+            if ($1.index_is_const[i] && $1.indices[i].const_index >= entry->sizes[i]) {
+                if (snprintf(error_msg, sizeof (error_msg), "%u-th index (%u) of array %s%s out of bounds (%u)", i,
+                             $1.indices[i].const_index, ($1.entry->is_function) ? "returned by " : "", entry->name,
+                             entry->sizes[i]) > 0) {
+                    yyerror(error_msg);
+                } else {
+                    yyerror("Array index out of bounds");
                 }
-                --new_depth;
-                for (unsigned j = i; j < entry->depth; ++j) {
-                    new_sizes[j] = new_sizes[j + 1];
-                }
+            }
+            for (unsigned j = i; j < entry->depth; ++j) {
+                new_sizes[j] = new_sizes[j + 1];
             }
         }
         if (entry->qualifier == CONST_T && all_indices_const) {
-            unsigned const_indices[$1.depth];
+            unsigned const_indices[MAXARRAYDEPTH];
             for (unsigned i = 0; i < $1.depth; ++i) {
                 const_indices[i] = $1.indices[i].const_index;
             }
-            value_t *new_values = get_sliced_array(entry->values, entry->sizes, $1.is_indexed, const_indices, $1.depth);
+            value_t *new_values = get_reduced_array(entry->values, entry->sizes, entry->depth, const_indices, $1.depth);
             $$ = new_const_node(entry->type, new_sizes, new_depth, new_values);
         } else {
-            $$ = new_reference_node(new_sizes, new_depth, $1.is_indexed, $1.index_is_const, $1.indices, entry);
+            $$ = new_reference_node(new_sizes, new_depth, $1.index_is_const, $1.indices, entry);
         }
 	}
 	;
@@ -1170,7 +1167,6 @@ array_access:
                 yyerror("Index of array access is array-valued");
             }
         }
-        $$.is_indexed[$$.depth] = true;
         if (index_info->qualifier == CONST_T) {
             $$.index_is_const[$$.depth] = true;
             $$.indices[($$.depth)++].const_index = ((const_node_t *) $3)->values[0].uval;
@@ -1178,25 +1174,6 @@ array_access:
             $$.index_is_const[$$.depth] = false;
             $$.indices[($$.depth)++].node_index = $3;
         }
-    }
-    | array_access LBRACKET COLON RBRACKET {
-        $$ = $1;
-        if ($$.entry->depth == 0) {
-            if (snprintf(error_msg, sizeof (error_msg), "Array access of scalar %s", $$.entry->name) > 0) {
-                yyerror(error_msg);
-            } else {
-                yyerror("Array access of scalar");
-            }
-        } else if ($$.depth == $$.entry->depth) {
-            if (snprintf(error_msg, sizeof (error_msg), "Depth-%u access of depth-%u array %s", $$.depth + 1,
-                         $$.entry->depth, $$.entry->name) > 0) {
-                yyerror(error_msg);
-            } else {
-                yyerror("Too deep acess of array");
-            }
-        }
-        $$.is_indexed[($$.depth)] = false;
-        $$.index_is_const[($$.depth)++] = true;
     }
     ;
 
