@@ -77,18 +77,6 @@ typedef enum node_type {
     RETURN_NODE_T
 } node_type_t;
 
-typedef struct type_info {
-    qualifier_t qualifier;
-    type_t type;
-    unsigned sizes[MAXARRAYDEPTH];
-    unsigned depth;
-} type_info_t;
-
-typedef struct qualified_type {
-    qualifier_t qualifier;
-    type_t type;
-} qualified_type_t;
-
 typedef struct node {
     node_type_t type;
     struct node *left;
@@ -130,6 +118,11 @@ typedef struct array_access_info {
     array_index_t indices[MAXARRAYDEPTH];
     unsigned depth;
 } array_access_info_t;
+
+typedef struct arg_list {
+    node_t **pars;
+    unsigned num_of_pars;
+} arg_list_t;
 
 typedef struct func_decl_node {
     node_type_t type;
@@ -357,6 +350,10 @@ void append_to_array_init_info(array_init_info_t *array_init_info, qualified_typ
 
 array_access_info_t array_access_info_init(list_t *entry);
 
+arg_list_t arg_list_init(node_t *node);
+
+void append_to_arg_list(arg_list_t *arg_list, node_t *node);
+
 type_info_t *get_type_info_of_node(const node_t *node);
 
 node_t *build_assign_node(node_t *left, assign_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]);
@@ -372,6 +369,8 @@ node_t *build_not_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]);
 node_t *build_integer_op_node(node_t *left, integer_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]);
 
 node_t *build_invert_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]);
+
+node_t *build_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars, char error_msg[ERRORMSGLENGTH]);
 
 void print_node(const node_t *node);
 

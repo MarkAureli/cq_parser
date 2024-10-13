@@ -432,12 +432,12 @@ node_t *new_reference_node(const unsigned sizes[MAXARRAYDEPTH], unsigned depth, 
                            array_index_t indices[MAXARRAYDEPTH], list_t *entry) {
     reference_node_t *new_node = calloc(1, sizeof (reference_node_t));
     new_node->type = REFERENCE_NODE_T;
-    new_node->type_info.qualifier = entry->qualifier;
-    new_node->type_info.type = entry->type;
+    new_node->type_info.qualifier = entry->type_info.qualifier;
+    new_node->type_info.type = entry->type_info.type;
     memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
     new_node->type_info.depth = depth;
-    memcpy(new_node->index_is_const, index_is_const, entry->depth * sizeof(bool));
-    memcpy(new_node->indices, indices, entry->depth * sizeof(array_index_t));
+    memcpy(new_node->index_is_const, index_is_const, entry->type_info.depth * sizeof(bool));
+    memcpy(new_node->indices, indices, entry->type_info.depth * sizeof(array_index_t));
     new_node->entry = entry;
     return (node_t *) new_node;
 }
@@ -448,9 +448,8 @@ node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars) {
     }
     func_call_node_t *new_node = calloc(1, sizeof (func_call_node_t));
     new_node->type = FUNC_CALL_NODE_T;
-    // TODO: properly set the sizes and depth when altered in reference (maybe not necessary)
-    new_node->type_info.qualifier = entry->qualifier;
-    new_node->type_info.type = entry->type;
+    new_node->type_info.qualifier = entry->type_info.qualifier;
+    new_node->type_info.type = entry->type_info.type;
     new_node->entry = entry;
     new_node->pars = pars;
     new_node->num_of_pars = num_of_pars;
@@ -647,6 +646,18 @@ array_access_info_t array_access_info_init(list_t *entry) {
     return new_array_access;
 }
 
+arg_list_t arg_list_init(node_t *node) {
+    arg_list_t new_arg_list = {.pars = calloc(1, sizeof (node_t *)), .num_of_pars = 1 };
+    new_arg_list.pars[0] = node;
+    return new_arg_list;
+}
+
+void append_to_arg_list(arg_list_t *arg_list, node_t *node) {
+    unsigned current_num_of_pars = (arg_list->num_of_pars)++;
+    arg_list->pars = realloc(arg_list->pars, (current_num_of_pars) * sizeof (node_t *));
+    arg_list->pars[current_num_of_pars] = node;
+}
+
 type_info_t *get_type_info_of_node(const node_t *node) {
     switch (node->type) {
         case CONST_NODE_T: {
@@ -672,6 +683,9 @@ type_info_t *get_type_info_of_node(const node_t *node) {
         }
         case INVERT_OP_NODE_T: {
             return &(((invert_op_node_t *) node)->type_info);
+        }
+        case FUNC_CALL_NODE_T: {
+            return &(((func_call_node_t *) node)->type_info);
         }
         default: {
             return NULL;
@@ -777,6 +791,30 @@ type_t propagate_type(op_type_t op_type, type_t type_1, type_t type_2) {
     }
 }
 
+bool are_matching_types(type_t type_1, type_t type_2) {
+    switch (type_1) {
+        case VOID_T: {
+            return false;
+        }
+        case BOOL_T: {
+            if (type_2 != BOOL_T) {
+                return false;
+            }
+        }
+        case INT_T: {
+            if (type_2 != INT_T) {
+                return false;
+            }
+        }
+        case UNSIGNED_T: {
+            if (type_2 != INT_T && type_2 != UNSIGNED_T) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 node_t *build_assign_node(node_t *left, assign_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]) {
     if (left->type == CONST_NODE_T) {
         snprintf(error_msg, ERRORMSGLENGTH, "Trying to reassign constant value");
@@ -788,6 +826,10 @@ node_t *build_assign_node(node_t *left, assign_op_t op, node_t *right, char erro
 
     type_info_t *left_type_info = get_type_info_of_node(left);
     type_info_t *right_type_info = get_type_info_of_node(right);
+    if (right_type_info == NULL) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Right-hand side of assignment is not an expression");
+        return NULL;
+    }
     if (left_type_info->qualifier != QUANTUM_T && right_type_info->qualifier == QUANTUM_T) {
         snprintf(error_msg, ERRORMSGLENGTH, "Classical left-hand side of assignment, but quantum right-hand side");
         return NULL;
@@ -892,6 +934,15 @@ node_t *build_assign_node(node_t *left, assign_op_t op, node_t *right, char erro
 node_t *build_logical_op_node(node_t *left, logical_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]) {
     type_info_t *left_type_info = get_type_info_of_node(left);
     type_info_t *right_type_info = get_type_info_of_node(right);
+    if (left_type_info == NULL) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Left operand of \"%s\" is not an expression",
+                 logical_op_to_str(op));
+        return NULL;
+    } else if (right_type_info == NULL) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Right operand of \"%s\" is not an expression",
+                 logical_op_to_str(op));
+        return NULL;
+    }
     /* implement error when nodes are no expression nodes */
     qualifier_t result_qualifier = propagate_qualifier(left_type_info->qualifier,
                                                        right_type_info->qualifier);
@@ -955,7 +1006,15 @@ node_t *build_logical_op_node(node_t *left, logical_op_t op, node_t *right, char
 node_t *build_comparison_op_node(node_t *left, comparison_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]) {
     type_info_t *left_type_info = get_type_info_of_node(left);
     type_info_t *right_type_info = get_type_info_of_node(right);
-    /* implement error when nodes are no expression nodes */
+    if (left_type_info == NULL) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Left operand of \"%s\" is not an expression",
+                 comparison_op_to_str(op));
+        return NULL;
+    } else if (right_type_info == NULL) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Right operand of \"%s\" is not an expression",
+                 comparison_op_to_str(op));
+        return NULL;
+    }
     qualifier_t result_qualifier = propagate_qualifier(left_type_info->qualifier,
                                                        right_type_info->qualifier);
     type_t result_type = propagate_type(COMPARISON_OP,
@@ -1017,7 +1076,15 @@ node_t *build_comparison_op_node(node_t *left, comparison_op_t op, node_t *right
 node_t *build_equality_op_node(node_t *left, equality_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]) {
     type_info_t *left_type_info = get_type_info_of_node(left);
     type_info_t *right_type_info = get_type_info_of_node(right);
-    /* implement error when nodes are no expression nodes */
+    if (left_type_info == NULL) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Left-hand side of %sequality is not an expression",
+                 (op == EQ_OP) ? "" : "in");
+        return NULL;
+    } else if (right_type_info == NULL) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Right-hand side of %sequality is not an expression",
+                 (op == EQ_OP) ? "" : "in");
+        return NULL;
+    }
     qualifier_t result_qualifier = propagate_qualifier(left_type_info->qualifier,
                                                        right_type_info->qualifier);
     type_t result_type = propagate_type(EQUALITY_OP,
@@ -1081,7 +1148,10 @@ node_t *build_equality_op_node(node_t *left, equality_op_t op, node_t *right, ch
 
 node_t *build_not_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
     type_info_t *child_type_info = get_type_info_of_node(child);
-    /* implement error when child is no expression node */
+    if (child_type_info == NULL) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"!\" to a non-expression");
+        return NULL;
+    }
     qualifier_t result_qualifier = child_type_info->qualifier;
     type_t result_type = propagate_type(NOT_OP, child_type_info->type, VOID_T);
     if (result_type == VOID_T) {
@@ -1112,7 +1182,15 @@ node_t *build_not_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
 node_t *build_integer_op_node(node_t *left, integer_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]) {
     type_info_t *left_type_info = get_type_info_of_node(left);
     type_info_t *right_type_info = get_type_info_of_node(right);
-    /* implement error when nodes are no expression nodes */
+    if (left_type_info == NULL) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Left operand of \"%s\" is not an expression",
+                 integer_op_to_str(op));
+        return NULL;
+    } else if (right_type_info == NULL) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Right operand of \"%s\" is not an expression",
+                 integer_op_to_str(op));
+        return NULL;
+    }
     qualifier_t result_qualifier = propagate_qualifier(left_type_info->qualifier,
                                                        right_type_info->qualifier);
     type_t result_type = propagate_type(INTEGER_OP,
@@ -1183,7 +1261,10 @@ node_t *build_integer_op_node(node_t *left, integer_op_t op, node_t *right, char
 
 node_t *build_invert_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
     type_info_t *child_type_info = get_type_info_of_node(child);
-    /* implement error when child is no expression node */
+    if (child_type_info == NULL) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Applying \"~\" to a non-expression");
+        return NULL;
+    }
     qualifier_t result_qualifier = child_type_info->qualifier;
     type_t result_type = propagate_type(INVERT_OP, child_type_info->type, VOID_T);
     if (result_type == VOID_T) {
@@ -1219,6 +1300,65 @@ node_t *build_invert_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
     return result;
 }
 
+node_t *build_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars, char error_msg[ERRORMSGLENGTH]) {
+    if (!entry->is_function) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Trying to call non-function %s", entry->name);
+        return NULL;
+    } else if (entry->func_info.num_of_pars != num_of_pars) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Function %s requires %u parameter%s, but is called with %u parameter%s",
+                 entry->name, entry->func_info.num_of_pars, (entry->func_info.num_of_pars == 1) ? "" : "s",
+                 num_of_pars, (num_of_pars == 1) ? "" : "s");
+        return NULL;
+    }
+    for (unsigned i = 0; i < num_of_pars; ++i) {
+        type_info_t *type_info_of_par = get_type_info_of_node(pars[i]);
+        if (type_info_of_par == NULL) {
+            snprintf(error_msg, ERRORMSGLENGTH, "Parameter %u in call to function %s is not an expression",
+                     i, entry->name);
+            return NULL;
+        } else if (entry->func_info.pars_type_info[i].qualifier != QUANTUM_T
+                   && type_info_of_par->qualifier == QUANTUM_T) {
+            snprintf(error_msg, ERRORMSGLENGTH,
+                     "Parameter %u in call to function %s is required to be classical, but is quantum", i, entry->name);
+            return NULL;
+        } else if (!are_matching_types(entry->func_info.pars_type_info[i].type, type_info_of_par->type)) {
+            snprintf(error_msg, ERRORMSGLENGTH,
+                     "Parameter %u in call to function %s is required to be of type %s, but is of type %s",
+                     i, entry->name, type_to_str(entry->func_info.pars_type_info[i].type),
+                     type_to_str(type_info_of_par->type));
+            return NULL;
+        } else if (entry->func_info.pars_type_info[i].depth != type_info_of_par->depth) {
+            if (entry->func_info.pars_type_info[i].depth == 0) {
+                snprintf(error_msg, ERRORMSGLENGTH,
+                         "Parameter %u in call to function %s is required to be a scalar, but is an array of depth %u",
+                         i, entry->name, type_info_of_par->depth);
+                return NULL;
+            } else if (type_info_of_par->depth == 0) {
+                snprintf(error_msg, ERRORMSGLENGTH,
+                         "Parameter %u in call to function %s is required to be an array of depth %u, but is a scalar",
+                         i, entry->name, entry->func_info.pars_type_info[i].depth);
+                return NULL;
+            } else {
+                snprintf(error_msg, ERRORMSGLENGTH,
+                         "Parameter %u in call to function %s is required to be an array of depth %u, but has depth %u",
+                         i, entry->name, entry->func_info.pars_type_info[i].depth, type_info_of_par->depth);
+                return NULL;
+            }
+        }
+        for (unsigned j = 0; j < type_info_of_par->depth; ++j) {
+            if (entry->func_info.pars_type_info[i].sizes[j] != type_info_of_par->sizes[j]) {
+                snprintf(error_msg, ERRORMSGLENGTH,
+                         "Parameter %u in call to function %s has size %u instead of %u in dimension %u",
+                         i, entry->name, entry->func_info.pars_type_info[i].sizes[j], type_info_of_par->sizes[j], j);
+                return NULL;
+            }
+        }
+    }
+
+    node_t *result = new_func_call_node(entry, pars, num_of_pars);
+    return result;
+}
+
 void print_type_info(const type_info_t *type_info) {
     switch (type_info->qualifier) {
         case NONE_T: {
@@ -1251,20 +1391,20 @@ void print_node(const node_t *node) {
         }
         case VAR_DECL_NODE_T: {
             var_decl_node_t *var_decl_node_view = ((var_decl_node_t *) node);
-            type_info_t info = { .qualifier = var_decl_node_view->entry->qualifier,
-                                 .type = var_decl_node_view->entry->type,
-                                 .depth = var_decl_node_view->entry->depth};
-            memcpy(info.sizes, var_decl_node_view->entry->sizes, info.depth * sizeof (unsigned));
+            type_info_t info = { .qualifier = var_decl_node_view->entry->type_info.qualifier,
+                                 .type = var_decl_node_view->entry->type_info.type,
+                                 .depth = var_decl_node_view->entry->type_info.depth};
+            memcpy(info.sizes, var_decl_node_view->entry->type_info.sizes, info.depth * sizeof (unsigned));
             print_type_info(&info);
             printf(" %s\n", var_decl_node_view->entry->name);
             break;
         }
         case VAR_DEF_NODE_T: {
             var_def_node_t *var_def_node_view = ((var_def_node_t *) node);
-            type_info_t info = { .qualifier = var_def_node_view->entry->qualifier,
-                    .type = var_def_node_view->entry->type,
-                    .depth = var_def_node_view->entry->depth};
-            memcpy(info.sizes, var_def_node_view->entry->sizes, info.depth * sizeof (unsigned));
+            type_info_t info = { .qualifier = var_def_node_view->entry->type_info.qualifier,
+                    .type = var_def_node_view->entry->type_info.type,
+                    .depth = var_def_node_view->entry->type_info.depth};
+            memcpy(info.sizes, var_def_node_view->entry->type_info.sizes, info.depth * sizeof (unsigned));
             print_type_info(&info);
             printf(" %s\n", var_def_node_view->entry->name);
             break;
@@ -1437,8 +1577,8 @@ void tree_traversal(const node_t *node) {
         }
         case VAR_DEF_NODE_T: {
             if (((var_def_node_t *) node)->is_init_list) {
-                for (unsigned i = 0; i < get_length_of_array(((var_def_node_t *) node)->entry->sizes,
-                                                             ((var_def_node_t *) node)->entry->depth); ++i) {
+                for (unsigned i = 0; i < get_length_of_array(((var_def_node_t *) node)->entry->type_info.sizes,
+                                                             ((var_def_node_t *) node)->entry->type_info.depth); ++i) {
                     if (!(((var_def_node_t *) node)->array_values_info.value_is_const[i])) {
                         tree_traversal(((var_def_node_t *) node)->array_values_info.values[i].node_value);
                     }

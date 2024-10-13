@@ -76,8 +76,8 @@ list_t *insert(const char *name, unsigned length, unsigned line_num, bool declar
         l->lines = calloc(1, sizeof (ref_list_t));
         l->lines->line_num = line_num;
         l->lines->next = NULL;
-        l->qualifier = NONE_T;
-        l->type = VOID_T;
+        l->type_info.qualifier = NONE_T;
+        l->type_info.type = VOID_T;
         l->next = hash_table[hashval];
         hash_table[hashval] = l;
     } else {
@@ -92,8 +92,8 @@ list_t *insert(const char *name, unsigned length, unsigned line_num, bool declar
                 l->lines = calloc(1, sizeof (ref_list_t));
                 l->lines->line_num = line_num;
                 l->lines->next = NULL;
-                l->qualifier = NONE_T;
-                l->type = VOID_T;
+                l->type_info.qualifier = NONE_T;
+                l->type_info.type = VOID_T;
                 l->next = hash_table[hashval];
                 hash_table[hashval] = l;
             }
@@ -141,37 +141,51 @@ void incr_scope() { /* go to next scope */
     ++cur_scope;
 }
 
-void set_type_of_elem(list_t *entry, qualifier_t qualifier, type_t type, bool is_function, unsigned depth, const unsigned sizes[MAXARRAYDEPTH]) {
-    entry->qualifier = qualifier;
-    entry->type = type;
-    entry->is_function = is_function;
+void set_type_info_of_elem(list_t *entry, qualifier_t qualifier, type_t type, unsigned depth,
+                           const unsigned sizes[MAXARRAYDEPTH], bool is_function) {
+    entry->type_info.qualifier = qualifier;
+    entry->type_info.type = type;
+    entry->type_info.depth = depth;
     unsigned length = 1;
     if (sizes != NULL) {
-        memcpy(entry->sizes, sizes, MAXARRAYDEPTH * sizeof (unsigned));
+        memcpy(entry->type_info.sizes, sizes, MAXARRAYDEPTH * sizeof (unsigned));
         for (unsigned i = 0; i < depth; ++i) {
             length *= sizes[i];
         }
     }
     entry->length = length;
-    entry->depth = depth;
-    entry->values = calloc(length, sizeof (value_t));
+    entry->is_function = is_function;
+    if (qualifier == CONST_T) {
+        entry->values = calloc(length, sizeof (value_t));
+    }
 }
 
-void set_type(const char *name, qualifier_t qualifier, type_t type, bool is_function, unsigned depth, const unsigned sizes[MAXARRAYDEPTH]) {
+void set_type_info(const char *name, qualifier_t qualifier, type_t type, unsigned depth,
+                   const unsigned sizes[MAXARRAYDEPTH], bool is_function) {
     list_t *l = lookup(name);
-    set_type_of_elem(l, qualifier, type, is_function, depth, sizes);
+    set_type_info_of_elem(l, qualifier, type, depth, sizes, is_function);
 }
 
-type_t get_type(const char *name) {
-    list_t *l = lookup(name);
-    return l->type;
+func_info_t empty_func_info_init() {
+    func_info_t new_func_info = { .pars_type_info = NULL, .num_of_pars = 0};
+    return new_func_info;
 }
 
-param_t def_param(const char *name, type_t type) {
-    param_t param;
-    param.type = type;
-    strncpy(param.name, name, MAXTOKENLEN);
-    return param;
+func_info_t func_info_init(type_info_t type_info) {
+    func_info_t new_func_info = { .pars_type_info = calloc(1, sizeof (type_info_t)), .num_of_pars = 1};
+    new_func_info.pars_type_info[0] = type_info;
+    return new_func_info;
+}
+
+void append_to_func_info(func_info_t *func_info, type_info_t type_info) {
+    unsigned current_num_of_pars = (func_info->num_of_pars)++;
+    func_info->pars_type_info = realloc(func_info->pars_type_info,
+                                        (current_num_of_pars + 1) * sizeof (type_info_t));
+    func_info->pars_type_info[current_num_of_pars] = type_info;
+}
+
+void set_func_info_of_elem(list_t *entry, func_info_t func_info) {
+    entry->func_info = func_info;
 }
 
 /* print to stdout by default */ 
@@ -215,7 +229,7 @@ void symtab_dump(FILE * of){
             while (l != NULL) { 
                 ref_list_t *t = l->lines;
                 fprintf(of,"%-*s", MAXTOKENLEN + 1, l->name);
-                switch (l->qualifier) {
+                switch (l->type_info.qualifier) {
                     case NONE_T: {
                         fprintf(of, "%-11s", "");
                         break;
@@ -234,7 +248,7 @@ void symtab_dump(FILE * of){
                     fprintf(of, "-> ");
                     type_str_length += 3;
                 }
-                switch (l->type) {
+                switch (l->type_info.type) {
                     case BOOL_T: {
                         fprintf(of, "bool");
                         type_str_length += 4;
@@ -256,7 +270,7 @@ void symtab_dump(FILE * of){
                         break;
                     }
                 }
-                for (unsigned j = 0; j < l->depth; ++j) {
+                for (unsigned j = 0; j < l->type_info.depth; ++j) {
                     fprintf(of, "[]");
                     type_str_length += 2;
                 }

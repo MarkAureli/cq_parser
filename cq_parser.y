@@ -25,6 +25,7 @@ char error_msg[ERRORMSGLENGTH];
     list_t *symtab_item;
     node_t *node;
     type_info_t type_info;
+    func_info_t func_info;
     array_init_info_t *array_init_info;
     array_access_info_t array_access_info;
     assign_op_t assign_op;
@@ -32,6 +33,7 @@ char error_msg[ERRORMSGLENGTH];
     logical_op_t logical_op;
     comparison_op_t comparison_op;
     equality_op_t equality_op;
+    arg_list_t arg_list;
 }
 
 %token <name> ID
@@ -69,12 +71,14 @@ char error_msg[ERRORMSGLENGTH];
 %nonassoc ELSE
 
 %type <symtab_item> declarator
-%type <type_info> type_specifier
+%type <type_info> type_specifier par
+%type <func_info> par_l function_head
 %type <node> variable_decl variable_def function_def const primary_expr postfix_expr unary_expr mul_expr add_expr
 %type <node> logical_or_expr logical_xor_expr logical_and_expr comparison_expr equality_expr or_expr xor_expr and_expr
 %type <node> array_access_expr function_call expr
 %type <array_init_info> init init_elem_l
 %type <array_access_info> array_access
+%type <arg_list> argument_expr_l
 %define parse.error verbose
 %start program
 
@@ -100,59 +104,73 @@ function_def:
 	QUANTUM type_specifier declarator { incr_scope(); } function_head function_tail {
 	    hide_scope();
 	    $$ = new_func_decl_node($3);
-	    set_type_of_elem($3, QUANTUM_T, $2.type, true, $2.depth, $2.sizes);
+	    set_type_info_of_elem($3, QUANTUM_T, $2.type, $2.depth, $2.sizes, true);
+	    set_func_info_of_elem($3, $5);
 	}
 	| type_specifier declarator { incr_scope(); } function_head function_tail {
 	    hide_scope();
 	    $$ = new_func_decl_node($2);
-	    set_type_of_elem($2, NONE_T, $1.type, true, $1.depth, $1.sizes);
+	    set_type_info_of_elem($2, NONE_T, $1.type, $1.depth, $1.sizes, true);
+	    set_func_info_of_elem($2, $4);
 	}
 	| VOID declarator { incr_scope(); } function_head function_tail {
 	    hide_scope();
 	    $$ = new_func_decl_node($2);
-	    set_type_of_elem($2, NONE_T, VOID_T, true, 0, NULL);
+	    set_type_info_of_elem($2, NONE_T, VOID_T, 0, NULL, true);
+	    set_func_info_of_elem($2, $4);
 	}
 	;
 
 function_head:
-    LPAREN par_l RPAREN
+    LPAREN par_l RPAREN {
+        $$ = $2;
+    }
+    | LPAREN RPAREN {
+        $$ = empty_func_info_init();
+    }
     ;
+
+par_l:
+	par_l COMMA par {
+	    $$ = $1;
+	    append_to_func_info(&$$, $3);
+	}
+	| par {
+	    $$ = func_info_init($1);
+	}
+	;
+
+par:
+	QUANTUM type_specifier declarator {
+	    set_type_info_of_elem($3, QUANTUM_T, $2.type, $2.depth, $2.sizes, false);
+	    $$ = $3->type_info;
+	}
+	| type_specifier declarator {
+        set_type_info_of_elem($2, NONE_T, $1.type, $1.depth, $1.sizes, false);
+        $$ = $2->type_info;
+    }
+	;
 
 function_tail:
     LBRACE stmt_l RBRACE
     ;
 
-par_l:
-	par_l COMMA par
-	| par
-	| /* empty */
-	;
-
-par:
-	QUANTUM type_specifier declarator {
-	    set_type_of_elem($3, QUANTUM_T, $2.type, false, $2.depth, $2.sizes);
-	}
-	| type_specifier declarator {
-        set_type_of_elem($2, NONE_T, $1.type, false, $1.depth, $1.sizes);
-    }
-	;
-
 variable_decl:
     QUANTUM type_specifier declarator SEMICOLON {
         $$ = new_var_decl_node($3);
-        set_type_of_elem($3, QUANTUM_T, $2.type, false, $2.depth, $2.sizes);
+        set_type_info_of_elem($3, QUANTUM_T, $2.type, $2.depth, $2.sizes, false);
     }
     | type_specifier declarator SEMICOLON {
         $$ = new_var_decl_node($2);
-        set_type_of_elem($2, NONE_T, $1.type, false, $1.depth, $1.sizes);
+        set_type_info_of_elem($2, NONE_T, $1.type, $1.depth, $1.sizes, false);
     }
     ;
 
 variable_def:
-	QUANTUM type_specifier declarator ASSIGN init SEMICOLON {
-	    set_type_of_elem($3, QUANTUM_T, $2.type, false, $2.depth, $2.sizes);
+    QUANTUM type_specifier declarator ASSIGN init SEMICOLON {
+	    set_type_info_of_elem($3, QUANTUM_T, $2.type, $2.depth, $2.sizes, false);
         if ($5->is_init_list) {
-            if ($3->depth == 0) {
+            if ($3->type_info.depth == 0) {
                 if (snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such",
                              $3->name) > 0) {
                     yyerror(error_msg);
@@ -210,7 +228,7 @@ variable_def:
         } else { /* no initializer list */
             type_info_t *init_info = get_type_info_of_node($5->node);
             printf("Depth of node %u\n", init_info->depth);
-            if ($3->depth == 0 && init_info->depth != 0) {
+            if ($3->type_info.depth == 0 && init_info->depth != 0) {
                 if (snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such",
                              $3->name) > 0) {
                     yyerror(error_msg);
@@ -218,20 +236,20 @@ variable_def:
                     yyerror("Attempt to initialize scalar as array");
                 }
             }
-            if ($3->depth != init_info->depth) {
+            if ($3->type_info.depth != init_info->depth) {
                 if (snprintf(error_msg, sizeof (error_msg),
-                             "Unmatching depths in array initialization of %s (%u != %u)", $3->name, $3->depth,
-                             init_info->depth) > 0) {
+                             "Unmatching depths in array initialization of %s (%u != %u)", $3->name,
+                             $3->type_info.depth, init_info->depth) > 0) {
                     yyerror(error_msg);
                 } else {
                     yyerror("Unmatching depths in array initialization");
                 }
             }
-            for (unsigned i = 0; i < $3->depth; ++i) {
-                if ($3->sizes[i] != init_info->sizes[i]) {
+            for (unsigned i = 0; i < $3->type_info.depth; ++i) {
+                if ($3->type_info.sizes[i] != init_info->sizes[i]) {
                     if (snprintf(error_msg, sizeof (error_msg),
                                  "Unmatching sizes at position %u in array initialization of %s (%u != %u)", i,
-                                 $3->name, $3->sizes[i], init_info->sizes[i]) > 0) {
+                                 $3->name, $3->type_info.sizes[i], init_info->sizes[i]) > 0) {
                         yyerror(error_msg);
                     } else {
                         yyerror("Unmatching depths in array initialization");
@@ -239,7 +257,7 @@ variable_def:
                 }
             }
             if ($2.type == BOOL_T && init_info->type != BOOL_T) {
-                if ($3->depth == 0) {
+                if ($3->type_info.depth == 0) {
                     if (snprintf(error_msg, sizeof (error_msg),
                                  "Initialization of scalar %s of type bool with value of type %s",
                                  $3->name, type_to_str(init_info->type)) > 0) {
@@ -257,7 +275,7 @@ variable_def:
                     }
                 }
             } else if ($2.type == INT_T && init_info->type != INT_T) {
-                if ($3->depth == 0) {
+                if ($3->type_info.depth == 0) {
                     if (snprintf(error_msg, sizeof (error_msg),
                                  "Initialization of scalar %s of type int with value of type %s",
                                  $3->name, type_to_str(init_info->type)) > 0) {
@@ -275,7 +293,7 @@ variable_def:
                     }
                 }
             } else if ($2.type == UNSIGNED_T && init_info->type == BOOL_T) {
-                if ($3->depth == 0) {
+                if ($3->type_info.depth == 0) {
                     if (snprintf(error_msg, sizeof (error_msg),
                                  "Initialization of scalar %s of type unsigned with value of type %s",
                                  $3->name, type_to_str(init_info->type)) > 0) {
@@ -297,9 +315,9 @@ variable_def:
         tree_traversal($$);
 	}
 	| CONST type_specifier declarator ASSIGN init SEMICOLON {
-	    set_type_of_elem($3, CONST_T, $2.type, false, $2.depth, $2.sizes);
+	    set_type_info_of_elem($3, CONST_T, $2.type, $2.depth, $2.sizes, false);
         if ($5->is_init_list) {
-            if ($3->depth == 0) {
+            if ($3->type_info.depth == 0) {
                 if (snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such",
                              $3->name) > 0) {
                     yyerror(error_msg);
@@ -367,7 +385,7 @@ variable_def:
             }
         } else { /* no initializer list */
             type_info_t *init_info = get_type_info_of_node($5->node);
-            if ($3->depth == 0 && init_info->depth != 0) {
+            if ($3->type_info.depth == 0 && init_info->depth != 0) {
                 if (snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such",
                              $3->name) > 0) {
                     yyerror(error_msg);
@@ -375,20 +393,20 @@ variable_def:
                     yyerror("Attempt to initialize scalar as array");
                 }
             }
-            if ($3->depth != init_info->depth) {
+            if ($3->type_info.depth != init_info->depth) {
                 if (snprintf(error_msg, sizeof (error_msg),
-                             "Unmatching depths in array initialization of %s (%u != %u)", $3->name, $3->depth,
-                             init_info->depth) > 0) {
+                             "Unmatching depths in array initialization of %s (%u != %u)", $3->name,
+                             $3->type_info.depth, init_info->depth) > 0) {
                     yyerror(error_msg);
                 } else {
                     yyerror("Unmatching depths in array initialization");
                 }
             }
-            for (unsigned i = 0; i < $3->depth; ++i) {
-                if ($3->sizes[i] != init_info->sizes[i]) {
+            for (unsigned i = 0; i < $3->type_info.depth; ++i) {
+                if ($3->type_info.sizes[i] != init_info->sizes[i]) {
                     if (snprintf(error_msg, sizeof (error_msg),
                                  "Unmatching sizes at position %u in array initialization of %s (%u != %u)", i,
-                                 $3->name, $3->sizes[i], init_info->sizes[i]) > 0) {
+                                 $3->name, $3->type_info.sizes[i], init_info->sizes[i]) > 0) {
                         yyerror(error_msg);
                     } else {
                         yyerror("Unmatching depths in array initialization");
@@ -396,7 +414,7 @@ variable_def:
                 }
             }
             if (init_info->qualifier != CONST_T) {
-                if ($3->depth == 0) {
+                if ($3->type_info.depth == 0) {
                     if (snprintf(error_msg, sizeof (error_msg),
                                  "Initialization of constant scalar %s with non-constant value", $3->name) > 0) {
                         yyerror(error_msg);
@@ -412,7 +430,7 @@ variable_def:
                     }
                 }
             } else if ($2.type == BOOL_T && init_info->type != BOOL_T) {
-                if ($3->depth == 0) {
+                if ($3->type_info.depth == 0) {
                     if (snprintf(error_msg, sizeof (error_msg),
                                  "Initialization of scalar %s of type bool with value of type %s",
                                  $3->name, type_to_str(init_info->type)) > 0) {
@@ -430,7 +448,7 @@ variable_def:
                     }
                 }
             } else if ($2.type == INT_T && init_info->type != INT_T) {
-                if ($3->depth == 0) {
+                if ($3->type_info.depth == 0) {
                     if (snprintf(error_msg, sizeof (error_msg),
                                  "Initialization of scalar %s of type int with value of type %s",
                                  $3->name, type_to_str(init_info->type)) > 0) {
@@ -448,7 +466,7 @@ variable_def:
                     }
                 }
             } else if ($2.type == UNSIGNED_T && init_info->type == BOOL_T) {
-                if ($3->depth == 0) {
+                if ($3->type_info.depth == 0) {
                     if (snprintf(error_msg, sizeof (error_msg),
                                  "Initialization of scalar %s of type unsigned with value of type %s",
                                  $3->name, type_to_str(init_info->type)) > 0) {
@@ -472,9 +490,9 @@ variable_def:
         tree_traversal($$);
     }
 	| type_specifier declarator ASSIGN init SEMICOLON {
-	    set_type_of_elem($2, NONE_T, $1.type, false, $1.depth, $1.sizes);
+	    set_type_info_of_elem($2, NONE_T, $1.type, $1.depth, $1.sizes, false);
         if ($4->is_init_list) {
-            if ($2->depth == 0) {
+            if ($2->type_info.depth == 0) {
                 if (snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such",
                              $2->name) > 0) {
                     yyerror(error_msg);
@@ -540,7 +558,7 @@ variable_def:
             }
         } else { /* no initializer list */
             type_info_t *init_info = get_type_info_of_node($4->node);
-            if ($2->depth == 0 && init_info->depth != 0) {
+            if ($2->type_info.depth == 0 && init_info->depth != 0) {
                 if (snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such",
                              $2->name) > 0) {
                     yyerror(error_msg);
@@ -548,20 +566,20 @@ variable_def:
                     yyerror("Attempt to initialize scalar as array");
                 }
             }
-            if ($2->depth != init_info->depth) {
+            if ($2->type_info.depth != init_info->depth) {
                 if (snprintf(error_msg, sizeof (error_msg),
-                             "Unmatching depths in array initialization of %s (%u != %u)", $2->name, $2->depth,
-                             init_info->depth) > 0) {
+                             "Unmatching depths in array initialization of %s (%u != %u)", $2->name,
+                             $2->type_info.depth, init_info->depth) > 0) {
                     yyerror(error_msg);
                 } else {
                     yyerror("Unmatching depths in array initialization");
                 }
             }
-            for (unsigned i = 0; i < $2->depth; ++i) {
-                if ($2->sizes[i] != init_info->sizes[i]) {
+            for (unsigned i = 0; i < $2->type_info.depth; ++i) {
+                if ($2->type_info.sizes[i] != init_info->sizes[i]) {
                     if (snprintf(error_msg, sizeof (error_msg),
                                  "Unmatching sizes at position %u in array initialization of %s (%u != %u)", i,
-                                 $2->name, $2->sizes[i], init_info->sizes[i]) > 0) {
+                                 $2->name, $2->type_info.sizes[i], init_info->sizes[i]) > 0) {
                         yyerror(error_msg);
                     } else {
                         yyerror("Unmatching depths in array initialization");
@@ -569,7 +587,7 @@ variable_def:
                 }
             }
             if (init_info->qualifier == QUANTUM_T) {
-                if ($2->depth == 0) {
+                if ($2->type_info.depth == 0) {
                     if (snprintf(error_msg, sizeof (error_msg),
                                  "Initialization of classical scalar %s with quantum value", $2->name) > 0) {
                         yyerror(error_msg);
@@ -585,7 +603,7 @@ variable_def:
                     }
                 }
             } else if ($1.type == BOOL_T && init_info->type != BOOL_T) {
-                if ($2->depth == 0) {
+                if ($2->type_info.depth == 0) {
                     if (snprintf(error_msg, sizeof (error_msg),
                                  "Initialization of scalar %s of type bool with value of type %s",
                                  $2->name, type_to_str(init_info->type)) > 0) {
@@ -603,7 +621,7 @@ variable_def:
                     }
                 }
             } else if ($1.type == INT_T && init_info->type != INT_T) {
-                if ($2->depth == 0) {
+                if ($2->type_info.depth == 0) {
                     if (snprintf(error_msg, sizeof (error_msg),
                                  "Initialization of scalar %s of type int with value of type %s",
                                  $2->name, type_to_str(init_info->type)) > 0) {
@@ -621,7 +639,7 @@ variable_def:
                     }
                 }
             } else if ($1.type == UNSIGNED_T && init_info->type == BOOL_T) {
-                if ($2->depth == 0) {
+                if ($2->type_info.depth == 0) {
                     if (snprintf(error_msg, sizeof (error_msg),
                                  "Initialization of scalar %s of type unsigned with value of type %s",
                                  $2->name, type_to_str(init_info->type)) > 0) {
@@ -1086,31 +1104,32 @@ array_access_expr:
 	array_access {
 	    list_t *entry = $1.entry;
         bool all_indices_const = true;
-        unsigned new_depth = entry->depth - $1.depth;
-        unsigned new_sizes[entry->depth];
-        memcpy(new_sizes, entry->sizes, entry->depth * sizeof (unsigned));
+        unsigned new_depth = entry->type_info.depth - $1.depth;
+        unsigned new_sizes[entry->type_info.depth];
+        memcpy(new_sizes, entry->type_info.sizes, entry->type_info.depth * sizeof (unsigned));
         for (unsigned i = 0; i < $1.depth; ++i) {
             all_indices_const &= $1.index_is_const[i];
-            if ($1.index_is_const[i] && $1.indices[i].const_index >= entry->sizes[i]) {
+            if ($1.index_is_const[i] && $1.indices[i].const_index >= entry->type_info.sizes[i]) {
                 if (snprintf(error_msg, sizeof (error_msg), "%u-th index (%u) of array %s%s out of bounds (%u)", i,
                              $1.indices[i].const_index, ($1.entry->is_function) ? "returned by " : "", entry->name,
-                             entry->sizes[i]) > 0) {
+                             entry->type_info.sizes[i]) > 0) {
                     yyerror(error_msg);
                 } else {
                     yyerror("Array index out of bounds");
                 }
             }
-            for (unsigned j = i; j < entry->depth; ++j) {
+            for (unsigned j = i; j < entry->type_info.depth; ++j) {
                 new_sizes[j] = new_sizes[j + 1];
             }
         }
-        if (entry->qualifier == CONST_T && all_indices_const) {
+        if (entry->type_info.qualifier == CONST_T && all_indices_const) {
             unsigned const_indices[MAXARRAYDEPTH];
             for (unsigned i = 0; i < $1.depth; ++i) {
                 const_indices[i] = $1.indices[i].const_index;
             }
-            value_t *new_values = get_reduced_array(entry->values, entry->sizes, entry->depth, const_indices, $1.depth);
-            $$ = new_const_node(entry->type, new_sizes, new_depth, new_values);
+            value_t *new_values = get_reduced_array(entry->values, entry->type_info.sizes, entry->type_info.depth,
+                                                    const_indices, $1.depth);
+            $$ = new_const_node(entry->type_info.type, new_sizes, new_depth, new_values);
         } else {
             $$ = new_reference_node(new_sizes, new_depth, $1.index_is_const, $1.indices, entry);
         }
@@ -1126,15 +1145,15 @@ array_access:
     }
     | array_access LBRACKET or_expr RBRACKET {
         $$ = $1;
-        if ($$.entry->depth == 0) {
+        if ($$.entry->type_info.depth == 0) {
             if (snprintf(error_msg, sizeof (error_msg), "Array access of scalar %s", $$.entry->name) > 0) {
                 yyerror(error_msg);
             } else {
                 yyerror("Array access of scalar");
             }
-        } else if ($$.depth == $$.entry->depth) {
+        } else if ($$.depth == $$.entry->type_info.depth) {
             if (snprintf(error_msg, sizeof (error_msg), "Depth-%u access of depth-%u array %s", $$.depth + 1,
-                         $$.entry->depth, $$.entry->name) > 0) {
+                         $$.entry->type_info.depth, $$.entry->name) > 0) {
                 yyerror(error_msg);
             } else {
                 yyerror("Too deep access of array");
@@ -1143,7 +1162,7 @@ array_access:
         type_info_t *index_info = get_type_info_of_node($3);
         if (index_info->qualifier == QUANTUM_T) {
            if (snprintf(error_msg, sizeof (error_msg), "Index at position %u of access of depth-%u array %s is quantum",
-                        $$.depth, $$.entry->depth, $$.entry->name) > 0) {
+                        $$.depth, $$.entry->type_info.depth, $$.entry->name) > 0) {
                 yyerror(error_msg);
             } else {
                 yyerror("Index of array access is quantum");
@@ -1152,7 +1171,7 @@ array_access:
         if (index_info->type == BOOL_T) {
            if (snprintf(error_msg, sizeof (error_msg),
                         "Index at position %u of access of depth-%u array %s is of type bool", $$.depth,
-                        $$.entry->depth, $$.entry->name) > 0) {
+                        $$.entry->type_info.depth, $$.entry->name) > 0) {
                 yyerror(error_msg);
             } else {
                 yyerror("Index of array access is of type bool");
@@ -1161,7 +1180,7 @@ array_access:
         if (index_info->depth != 0) {
            if (snprintf(error_msg, sizeof (error_msg),
                         "Index at position %u of access of depth-%u array %s is array-valued", $$.depth,
-                        $$.entry->depth, $$.entry->name) > 0) {
+                        $$.entry->type_info.depth, $$.entry->name) > 0) {
                 yyerror(error_msg);
             } else {
                 yyerror("Index of array access is array-valued");
@@ -1201,29 +1220,26 @@ const:
 
 function_call:
 	ID LPAREN argument_expr_l RPAREN {
-	    $$ = new_func_call_node(insert($1, strlen($1), yylineno, false), NULL, 0); /* dummy implementation */
+        $$ = build_func_call_node(insert($1, strlen($1), yylineno, false), $3.pars, $3.num_of_pars, error_msg);
         if ($$ == NULL) {
-            if (snprintf(error_msg, sizeof (error_msg), "Tried to call non-function %s", $1) > 0) {
-                yyerror(error_msg);
-            } else {
-                yyerror("Tried to call non-function");
-            }
+            yyerror(error_msg);
         }
 	}
 	| ID LPAREN RPAREN {
-	    $$ = new_func_call_node(insert($1, strlen($1), yylineno, false), NULL, 0);
-	    if ($$ == NULL) {
-	        if (snprintf(error_msg, sizeof (error_msg), "Tried to call non-function %s", $1) > 0) {
-	            yyerror(error_msg);
-	        } else {
-	            yyerror("Tried to call non-function");
-	        }
-	    }
+	    $$ = build_func_call_node(insert($1, strlen($1), yylineno, false), NULL, 0, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
 	}
 
 argument_expr_l:
-	logical_or_expr
-	| argument_expr_l COMMA logical_or_expr
+	logical_or_expr {
+	    $$ = arg_list_init($1);
+	}
+	| argument_expr_l COMMA logical_or_expr {
+	    $$ = $1;
+	    append_to_arg_list(&$$, $3);
+	}
 	;
 
 %%

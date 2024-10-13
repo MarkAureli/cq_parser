@@ -27,21 +27,26 @@ typedef enum qualifier {
 } qualifier_t;
 
 typedef enum type {
+    VOID_T,
     BOOL_T,
     INT_T,
     UNSIGNED_T,
-    VOID_T
 } type_t;
 
-/* parameter struct */
-typedef struct param {
+typedef struct type_info {
+    qualifier_t qualifier;
     type_t type;
-    char name[MAXTOKENLEN];
-    value_t value;
-} param_t;
+    unsigned sizes[MAXARRAYDEPTH];
+    unsigned depth;
+} type_info_t;
+
+typedef struct qualified_type {
+    qualifier_t qualifier;
+    type_t type;
+} qualified_type_t;
 
 typedef struct func_info {
-    param_t *pars;
+    type_info_t *pars_type_info;
     unsigned num_of_pars;
 } func_info_t;
 
@@ -56,12 +61,9 @@ typedef struct list {
     char name[MAXTOKENLEN];
     unsigned scope;
     ref_list_t *lines;
-    qualifier_t qualifier;
-    type_t type;
-    bool is_function;
-    unsigned sizes[MAXARRAYDEPTH];
+    type_info_t type_info;
     unsigned length;
-    unsigned depth;
+    bool is_function;
     union {
         value_t *values;
         func_info_t func_info;
@@ -88,13 +90,19 @@ void hide_scope();
 
 void incr_scope();
 
-void set_type_of_elem(list_t *entry, qualifier_t qualifier, type_t type, bool is_function, unsigned depth, const unsigned sizes[MAXARRAYDEPTH]);
+void set_type_info_of_elem(list_t *entry, qualifier_t qualifier, type_t type, unsigned depth,
+                           const unsigned sizes[MAXARRAYDEPTH], bool is_function);
 
-void set_type(const char *name, qualifier_t qualifier, type_t type, bool is_function, unsigned depth, const unsigned sizes[MAXARRAYDEPTH]);
+void set_type_info(const char *name, qualifier_t qualifier, type_t type, unsigned depth,
+                   const unsigned sizes[MAXARRAYDEPTH], bool is_function);
 
-type_t get_type(const char *name);
+func_info_t empty_func_info_init();
 
-param_t def_param(const char *name, type_t type);
+func_info_t func_info_init(type_info_t type_info);
+
+void append_to_func_info(func_info_t *func_info, type_info_t type_info);
+
+void set_func_info_of_elem(list_t *entry, func_info_t func_info);
 
 void symtab_dump(FILE *of);
 
