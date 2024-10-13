@@ -1138,7 +1138,12 @@ array_access_expr:
 
 array_access:
     ID {
-        $$ = array_access_info_init(insert($1, strlen($1), yylineno, false));
+        list_t *entry = insert($1, strlen($1), yylineno, false);
+        if (entry->is_function) {
+            snprintf(error_msg, sizeof (error_msg), "Function %s is not called", entry->name);
+            yyerror(error_msg);
+        }
+        $$ = array_access_info_init(entry);
     }
     | function_call {
         $$ = array_access_info_init(((func_call_node_t *) $1)->entry);
