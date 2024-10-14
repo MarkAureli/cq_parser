@@ -1,1 +1,4 @@
-quantum bool[3 - 2] b_array = {true};
+int var_a;
+int var_b;
+
+quantum int[7 / 3] i_array = {3 - var_a / 2, 2 * var_b};

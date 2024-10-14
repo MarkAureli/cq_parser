@@ -1,1 +1,1 @@
-unsigned[5 % 3] u_array = {17 / 7, var_a + var_b};
+const int[9 - (4 + 3)] i_array = {2 % 3, 3 ^ 2};

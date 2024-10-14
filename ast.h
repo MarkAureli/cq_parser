@@ -56,6 +56,7 @@ typedef enum assign_op {
 typedef enum node_type {
     BASIC_NODE_T,
     FUNC_DECL_NODE_T,
+    FUNC_SP_NODE_T,
     VAR_DECL_NODE_T,
     VAR_DEF_NODE_T,
     CONST_NODE_T,
@@ -95,7 +96,6 @@ typedef union array_value {
 
 typedef struct init_list {
     qualified_type_t *qualified_types;
-    bool *is_superposition;
     array_value_t *values;
     unsigned length;
 } init_list_t;
@@ -129,6 +129,11 @@ typedef struct func_decl_node {
     node_type_t type;
     list_t *entry;
 } func_decl_node_t;
+
+typedef struct func_sp_node {
+    node_type_t type;
+    list_t *entry;
+} func_sp_node_t;
 
 typedef struct var_decl_node {
     node_type_t type;
@@ -293,6 +298,8 @@ node_t *new_node(node_type_t type, node_t *left, node_t *right);
 
 node_t *new_func_decl_node(list_t *entry);
 
+node_t *new_func_sp_node(list_t *entry);
+
 node_t *new_var_decl_node(list_t *entry);
 
 node_t *new_var_def_node_from_node(list_t *entry, node_t *node);
@@ -358,6 +365,8 @@ void append_to_arg_list(arg_list_t *arg_list, node_t *node);
 type_info_t *get_type_info_of_node(const node_t *node);
 
 bool are_matching_types(type_t type_1, type_t type_2);
+
+node_t *build_func_sp_node(list_t * entry, char error_msg[ERRORMSGLENGTH]);
 
 node_t *build_assign_node(node_t *left, assign_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]);
 

@@ -173,44 +173,89 @@ variable_def:
             if ($3->type_info.depth == 0) {
                 snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $3->name);
                 yyerror(error_msg);
-            }
-            if ($5->init_list.length > $3->length) {
+            } else if ($5->init_list.length > $3->length) {
                 snprintf(error_msg, sizeof (error_msg),
                          "Too many (%u) elements initialized for array %s of total length %u",
                          $5->init_list.length, $3->name, $3->length);
                 yyerror(error_msg);
-            } else {
-                bool *value_is_const = calloc($3->length, sizeof (bool));
-                for (unsigned i = 0; i < $5->init_list.length; ++i) {
-                    if (!are_matching_types($2.type, $5->init_list.qualified_types[i].type)) {
-                        free(value_is_const);
+            }
+
+            bool *value_is_const = calloc($3->length, sizeof (bool));
+            for (unsigned i = 0; i < $5->init_list.length; ++i) {
+                if ($5->init_list.qualified_types[i].qualifier != CONST_T
+                    && $5->init_list.values[i].node_value->type == FUNC_SP_NODE_T) {
+                    func_info_t func_info = ((func_sp_node_t *) $5->init_list.values[i].node_value)->entry->func_info;
+                    if (func_info.num_of_pars != 1) {
                         snprintf(error_msg, sizeof (error_msg),
-                                 "Element %u in initialization of %s-array %s is of type %s",
-                                 i, type_to_str($2.type),$3->name, type_to_str($5->init_list.qualified_types[i].type));
+                                 "Element %u: Quantizable function %s must take exactly 1 parameter",
+                                 i, ((func_sp_node_t *) $5->init_list.values[i].node_value)->entry->name);
+                        yyerror(error_msg);
+                    } else if (func_info.pars_type_info[0].qualifier != NONE_T) {
+                        snprintf(error_msg, sizeof (error_msg),
+                                 "Element %u: Quantizable function %s must take a classical parameter",
+                                 i, ((func_sp_node_t *) $5->init_list.values[i].node_value)->entry->name);
+                        yyerror(error_msg);
+                    } else if (func_info.pars_type_info[0].type != $2.type) {
+                        snprintf(error_msg, sizeof (error_msg),
+                                 "Element %u: Quantizable function %s takes %s instead of %s",
+                                 i, ((func_sp_node_t *) $5->init_list.values[i].node_value)->entry->name,
+                                 type_to_str(func_info.pars_type_info[0].type), type_to_str($2.type));
+                        yyerror(error_msg);
+                    } else if (func_info.pars_type_info[0].depth != 0) {
+                        snprintf(error_msg, sizeof (error_msg),
+                                 "Element %u: Quantizable function %s takes an array of depth %u instead of a scalar",
+                                 i, ((func_sp_node_t *) $5->init_list.values[i].node_value)->entry->name,
+                                 func_info.pars_type_info[0].depth);
                         yyerror(error_msg);
                     }
-                    if ($5->init_list.qualified_types[i].qualifier == CONST_T) {
-                        value_is_const[i] = true;
-                    }
+                } else if (!are_matching_types($2.type, $5->init_list.qualified_types[i].type)) {
+                    free(value_is_const);
+                    snprintf(error_msg, sizeof (error_msg),
+                             "Element %u in initialization of %s-array %s is of type %s",
+                             i, type_to_str($2.type),$3->name, type_to_str($5->init_list.qualified_types[i].type));
+                    yyerror(error_msg);
                 }
-                for (unsigned i = $5->init_list.length; i < $3->length; ++i) {
+                if ($5->init_list.qualified_types[i].qualifier == CONST_T) {
                     value_is_const[i] = true;
                 }
-                $$ = new_var_def_node_from_init_list($3, value_is_const, $5->init_list.values);
             }
+            for (unsigned i = $5->init_list.length; i < $3->length; ++i) {
+                value_is_const[i] = true;
+            }
+            $$ = new_var_def_node_from_init_list($3, value_is_const, $5->init_list.values);
         } else { /* no initializer list */
             type_info_t *init_info = get_type_info_of_node($5->node);
-            printf("Depth of node %u\n", init_info->depth);
-            if ($3->type_info.depth == 0 && init_info->depth != 0) {
+            if ($5->node->type == FUNC_SP_NODE_T) {
+                func_info_t func_info = ((func_sp_node_t *) $5->node)->entry->func_info;
+                if (func_info.num_of_pars != 1) {
+                    snprintf(error_msg, sizeof (error_msg), "Quantizable function %s must take exactly 1 parameter",
+                             ((func_sp_node_t *) $5->node)->entry->name);
+                    yyerror(error_msg);
+                } else if (func_info.pars_type_info[0].qualifier != NONE_T) {
+                    snprintf(error_msg, sizeof (error_msg), "Quantizable function %s must take a classical parameter",
+                             ((func_sp_node_t *) $5->node)->entry->name);
+                    yyerror(error_msg);
+                } else if (func_info.pars_type_info[0].type != $2.type) {
+                    snprintf(error_msg, sizeof (error_msg), "Quantizable function %s takes %s instead of %s",
+                             ((func_sp_node_t *) $5->node)->entry->name, type_to_str(func_info.pars_type_info[0].type),
+                             type_to_str($2.type));
+                    yyerror(error_msg);
+                } else if (func_info.pars_type_info[0].depth != 0) {
+                    snprintf(error_msg, sizeof (error_msg),
+                             "Quantizable function %s takes an array of depth %u instead of a scalar",
+                             ((func_sp_node_t *) $5->node)->entry->name, func_info.pars_type_info[0].depth);
+                    yyerror(error_msg);
+                }
+            } else if ($3->type_info.depth == 0 && init_info->depth != 0) {
                 snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $3->name);
                 yyerror(error_msg);
-            }
-            if ($3->type_info.depth != init_info->depth) {
+            } else if ($3->type_info.depth != init_info->depth) {
                 snprintf(error_msg, sizeof (error_msg),
                          "Unmatching depths in array initialization of %s (%u != %u)",
                          $3->name, $3->type_info.depth, init_info->depth);
                 yyerror(error_msg);
             }
+
             for (unsigned i = 0; i < $3->type_info.depth; ++i) {
                 if ($3->type_info.sizes[i] != init_info->sizes[i]) {
                     snprintf(error_msg, sizeof (error_msg),
@@ -219,7 +264,8 @@ variable_def:
                     yyerror(error_msg);
                 }
             }
-            if (!are_matching_types($2.type, init_info->type)) {
+
+            if ($5->node->type != FUNC_SP_NODE_T && !are_matching_types($2.type, init_info->type)) {
                 if ($3->type_info.depth == 0) {
                     snprintf(error_msg, sizeof (error_msg),
                              "Initialization of scalar %s of type %s with value of type %s",
@@ -242,40 +288,50 @@ variable_def:
             if ($3->type_info.depth == 0) {
                 snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $3->name);
                 yyerror(error_msg);
-            }
-            if ($5->init_list.length > $3->length) {
+            } else if ($5->init_list.length > $3->length) {
                 snprintf(error_msg, sizeof (error_msg),
                          "Too many (%u) elements initialized for array %s of total length %u",
                          $5->init_list.length, $3->name, $3->length);
                 yyerror(error_msg);
-            } else {
-                bool *value_is_const = calloc($3->length, sizeof (bool));
-                for (unsigned i = 0; i < $5->init_list.length; ++i) {
-                    if ($5->init_list.qualified_types[i].qualifier != CONST_T) {
-                        free(value_is_const);
-                        snprintf(error_msg, sizeof (error_msg),
-                                 "Element %u in initialization of constant array %s is not constant", i, $3->name);
-                        yyerror(error_msg);
-                    } else if (!are_matching_types($2.type, $5->init_list.qualified_types[i].type)) {
-                        free(value_is_const);
-                        snprintf(error_msg, sizeof (error_msg),
-                                 "Element %u in initialization of %s-array %s is of type %s",
-                                 i, type_to_str($2.type), $3->name, type_to_str($5->init_list.qualified_types[i].type));
-                        yyerror(error_msg);
-                    }
-                    value_is_const[i] = true;
-                }
-                for (unsigned i = 0; i < $5->init_list.length; ++i) {
-                    $3->values[i] = $5->init_list.values[i].const_value;
-                }
-                for (unsigned i = $5->init_list.length; i < $3->length; ++i) {
-                    value_is_const[i] = true;
-                }
-                $$ = new_var_def_node_from_init_list($3, value_is_const, $5->init_list.values);
             }
+
+            bool *value_is_const = calloc($3->length, sizeof (bool));
+            for (unsigned i = 0; i < $5->init_list.length; ++i) {
+                if ($5->init_list.qualified_types[i].qualifier == NONE_T
+                    && $5->init_list.values[i].node_value->type == FUNC_SP_NODE_T) {
+                    free(value_is_const);
+                    snprintf(error_msg, sizeof (error_msg),
+                             "Element %u in initialization of classical array %s is a superposition instruction",
+                             i, $3->name);
+                    yyerror(error_msg);
+                } else if ($5->init_list.qualified_types[i].qualifier != CONST_T) {
+                    free(value_is_const);
+                    snprintf(error_msg, sizeof (error_msg),
+                             "Element %u in initialization of constant array %s is not constant", i, $3->name);
+                    yyerror(error_msg);
+                } else if (!are_matching_types($2.type, $5->init_list.qualified_types[i].type)) {
+                    free(value_is_const);
+                    snprintf(error_msg, sizeof (error_msg),
+                             "Element %u in initialization of %s-array %s is of type %s",
+                             i, type_to_str($2.type), $3->name, type_to_str($5->init_list.qualified_types[i].type));
+                    yyerror(error_msg);
+                }
+                value_is_const[i] = true;
+            }
+            for (unsigned i = 0; i < $5->init_list.length; ++i) {
+                $3->values[i] = $5->init_list.values[i].const_value;
+            }
+            for (unsigned i = $5->init_list.length; i < $3->length; ++i) {
+                value_is_const[i] = true;
+            }
+            $$ = new_var_def_node_from_init_list($3, value_is_const, $5->init_list.values);
         } else { /* no initializer list */
             type_info_t *init_info = get_type_info_of_node($5->node);
-            if ($3->type_info.depth == 0 && init_info->depth != 0) {
+            if ($5->node->type == FUNC_SP_NODE_T) {
+                snprintf(error_msg, sizeof (error_msg), "Classical variable %s cannot be initialized in superposition",
+                $3->name);
+                yyerror(error_msg);
+            } else if ($3->type_info.depth == 0 && init_info->depth != 0) {
                 snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $3->name);
                 yyerror(error_msg);
             }
@@ -328,43 +384,52 @@ variable_def:
             if ($2->type_info.depth == 0) {
                 snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $2->name);
                 yyerror(error_msg);
-            }
-            if ($4->init_list.length > $2->length) {
+            } else if ($4->init_list.length > $2->length) {
                 snprintf(error_msg, sizeof (error_msg),
                          "Too many (%u) elements initialized for array %s of total length %u",
                          $4->init_list.length, $2->name, $2->length);
                 yyerror(error_msg);
-            } else {
-                bool *value_is_const = calloc($2->length, sizeof (bool));
-                for (unsigned i = 0; i < $4->init_list.length; ++i) {
-                    if ($4->init_list.qualified_types[i].qualifier == QUANTUM_T) {
-                        free(value_is_const);
-                        snprintf(error_msg, sizeof (error_msg),
-                                 "Element %u in initialization of classical array %s is quantum", i, $2->name);
-                        yyerror(error_msg);
-                    } else if (!are_matching_types($1.type, $4->init_list.qualified_types[i].type)) {
-                        free(value_is_const);
-                        snprintf(error_msg, sizeof (error_msg),
-                                 "Element %u in initialization of %s-array %s is of type %s",
-                                 i, type_to_str($1.type), $2->name, type_to_str($4->init_list.qualified_types[i].type));
-                        yyerror(error_msg);
-                    }
-                    if ($4->init_list.qualified_types[i].qualifier == CONST_T) {
-                        value_is_const[i] = true;
-                    }
+            }
+
+            bool *value_is_const = calloc($2->length, sizeof (bool));
+            for (unsigned i = 0; i < $4->init_list.length; ++i) {
+                if ($4->init_list.qualified_types[i].qualifier == QUANTUM_T) {
+                    free(value_is_const);
+                    snprintf(error_msg, sizeof (error_msg),
+                             "Element %u in initialization of classical array %s is quantum", i, $2->name);
+                    yyerror(error_msg);
+                } else if ($4->init_list.qualified_types[i].qualifier == NONE_T
+                           && $4->init_list.values[i].node_value->type == FUNC_SP_NODE_T) {
+                    free(value_is_const);
+                    snprintf(error_msg, sizeof (error_msg),
+                             "Element %u in initialization of classical array %s is a superposition instruction",
+                             i, $2->name);
+                    yyerror(error_msg);
+                } else if (!are_matching_types($1.type, $4->init_list.qualified_types[i].type)) {
+                    free(value_is_const);
+                    snprintf(error_msg, sizeof (error_msg),
+                             "Element %u in initialization of %s-array %s is of type %s",
+                             i, type_to_str($1.type), $2->name, type_to_str($4->init_list.qualified_types[i].type));
+                    yyerror(error_msg);
                 }
-                for (unsigned i = $4->init_list.length; i < $2->length; ++i) {
+                if ($4->init_list.qualified_types[i].qualifier == CONST_T) {
                     value_is_const[i] = true;
                 }
-                $$ = new_var_def_node_from_init_list($2, value_is_const, $4->init_list.values);
             }
+            for (unsigned i = $4->init_list.length; i < $2->length; ++i) {
+                value_is_const[i] = true;
+            }
+            $$ = new_var_def_node_from_init_list($2, value_is_const, $4->init_list.values);
         } else { /* no initializer list */
             type_info_t *init_info = get_type_info_of_node($4->node);
-            if ($2->type_info.depth == 0 && init_info->depth != 0) {
+            if ($4->node->type == FUNC_SP_NODE_T) {
+                snprintf(error_msg, sizeof (error_msg), "Classical variable %s cannot be initialized in superposition",
+                $2->name);
+                yyerror(error_msg);
+            } else if ($2->type_info.depth == 0 && init_info->depth != 0) {
                 snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $2->name);
                 yyerror(error_msg);
-            }
-            if ($2->type_info.depth != init_info->depth) {
+            } else if ($2->type_info.depth != init_info->depth) {
                 snprintf(error_msg, sizeof (error_msg),
                          "Unmatching depths in array initialization of %s (%u != %u)", $2->name,
                          $2->type_info.depth, init_info->depth);
@@ -417,6 +482,13 @@ init:
     logical_or_expr {
         $$ = new_array_init_info_from_node($1);
     }
+    | LBRACKET ID RBRACKET {
+        node_t *func_sp_node = build_func_sp_node(insert($2, strlen($2), yylineno, false), error_msg);
+        if (func_sp_node == NULL) {
+            yyerror(error_msg);
+        }
+        $$ = new_array_init_info_from_node(func_sp_node);
+    }
     | LBRACE init_elem_l RBRACE {
         $$ = $2;
     }
@@ -438,7 +510,29 @@ init_elem_l:
         }
         qualified_type_t qualified_type = { .qualifier=info->qualifier, .type=info->type };
         $$ = new_array_init_info_from_init_list(qualified_type, value);
-        $$->is_init_list = true;
+    }
+    | LBRACKET ID RBRACKET {
+        node_t *func_sp_node = build_func_sp_node(insert($2, strlen($2), yylineno, false), error_msg);
+        if (func_sp_node == NULL) {
+            yyerror(error_msg);
+        }
+        array_value_t value;
+        value.node_value = func_sp_node;
+        type_info_t *info = get_type_info_of_node(func_sp_node);
+        qualified_type_t qualified_type = { .qualifier=info->qualifier, .type=info->type };
+        $$ = new_array_init_info_from_init_list(qualified_type, value);
+    }
+    | init_elem_l COMMA LBRACKET ID RBRACKET {
+        node_t *func_sp_node = build_func_sp_node(insert($4, strlen($4), yylineno, false), error_msg);
+        if (func_sp_node == NULL) {
+            yyerror(error_msg);
+        }
+        $$ = $1;
+        array_value_t value;
+        value.node_value = func_sp_node;
+        type_info_t *info = get_type_info_of_node(func_sp_node);
+        qualified_type_t qualified_type = { .qualifier=info->qualifier, .type=info->type };
+        append_to_array_init_info($$, qualified_type, value);
     }
     | init_elem_l COMMA logical_or_expr {
         type_info_t *info = get_type_info_of_node($3);

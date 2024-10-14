@@ -1,1 +1,5 @@
-quantum bool b = [true, false];
+bool func(unsigned x) {
+    return true;
+}
+
+quantum unsigned u = [func];

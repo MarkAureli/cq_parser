@@ -389,6 +389,13 @@ node_t *new_func_decl_node(list_t *entry) {
     return (node_t *) new_node;
 }
 
+node_t *new_func_sp_node(list_t *entry) {
+    func_decl_node_t *new_node = calloc(1, sizeof (func_sp_node_t));
+    new_node->type = FUNC_SP_NODE_T;
+    new_node->entry = entry;
+    return (node_t *) new_node;
+}
+
 node_t *new_var_decl_node(list_t *entry) {
     var_decl_node_t *new_node = calloc(1, sizeof (var_decl_node_t));
     new_node->type = VAR_DECL_NODE_T;
@@ -663,6 +670,9 @@ type_info_t *get_type_info_of_node(const node_t *node) {
         case CONST_NODE_T: {
             return &(((const_node_t *) node)->type_info);
         }
+        case FUNC_SP_NODE_T: {
+            return &(((func_sp_node_t *) node)->entry->type_info);
+        }
         case REFERENCE_NODE_T: {
             return &(((reference_node_t *) node)->type_info);
         }
@@ -800,19 +810,35 @@ bool are_matching_types(type_t type_1, type_t type_2) {
             if (type_2 != BOOL_T) {
                 return false;
             }
+            break;
         }
         case INT_T: {
             if (type_2 != INT_T) {
                 return false;
             }
+            break;
         }
         case UNSIGNED_T: {
             if (type_2 != INT_T && type_2 != UNSIGNED_T) {
                 return false;
             }
+            break;
         }
     }
     return true;
+}
+
+node_t *build_func_sp_node(list_t * entry, char error_msg[ERRORMSGLENGTH]) {
+    if (!entry->is_function) {
+        snprintf(error_msg, ERRORMSGLENGTH, "%s is not a function", entry->name);
+        return NULL;
+    } else if (entry->type_info.qualifier != NONE_T || entry->type_info.type != BOOL_T
+               || entry->type_info.depth != 0) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Function %s does not return a single classical bool", entry->name);
+        return NULL;
+    }
+    node_t *result = new_func_sp_node(entry);
+    return result;
 }
 
 node_t *build_assign_node(node_t *left, assign_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]) {
@@ -1383,6 +1409,10 @@ void print_node(const node_t *node) {
     switch (node->type) {
         case BASIC_NODE_T: {
             printf("Basic node\n");
+            break;
+        }
+        case FUNC_SP_NODE_T: {
+            printf("Function superposition node for %s\n", ((func_sp_node_t *) node)->entry->name);
             break;
         }
         case FUNC_DECL_NODE_T: {

@@ -1,1 +1,4 @@
-bool[18 - (3 * 5)] b_array = {true || (4 >= 3), 1 != 2, false};
+int var_a;
+unsigned var_b;
+
+unsigned[5 % 3] u_array = {17 / 7, var_a + var_b};

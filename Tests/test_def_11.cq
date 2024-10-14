@@ -1,1 +1,1 @@
-quantum int i = [-3, -2, -1, 5, 29 / 3];
+bool[18 - (3 * 5)] b_array = {true || (4 >= 3), 1 != 2, false};

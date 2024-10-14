@@ -1,1 +1,1 @@
-int[15 / 5 - (2 - 1)] i_array = {var_a * (3 - 4), var_b % 18};
+const bool[2] b_array = {true, false || false && true};

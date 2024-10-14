@@ -1,1 +1,4 @@
-quantum unsigned u = [func];
+int var_a;
+int var_b;
+
+int[15 / 5 - (2 - 1)] i_array = {var_a * (3 - 4), var_b % 18};
