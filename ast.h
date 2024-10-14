@@ -93,24 +93,20 @@ typedef union array_value {
     node_t *node_value;
 } array_value_t;
 
-typedef struct array_values_info {
-    bool *value_is_const;
-    array_value_t *values;
-} array_values_info_t;
-
-typedef struct array_init_list {
+typedef struct init_list {
     qualified_type_t *qualified_types;
+    bool *is_superposition;
     array_value_t *values;
     unsigned length;
-} array_init_list_t;
+} init_list_t;
 
-typedef struct array_init_info {
+typedef struct init_info {
     bool is_init_list;
     union {
         node_t *node;
-        array_init_list_t array_init_list;
+        init_list_t init_list;
     };
-} array_init_info_t;
+} init_info_t;
 
 typedef struct array_access_info {
     list_t *entry;
@@ -118,6 +114,11 @@ typedef struct array_access_info {
     array_index_t indices[MAXARRAYDEPTH];
     unsigned depth;
 } array_access_info_t;
+
+typedef struct array_values_info {
+    bool *value_is_const;
+    array_value_t *values;
+} array_values_info_t;
 
 typedef struct arg_list {
     node_t **pars;
@@ -341,11 +342,11 @@ node_t *new_return_node(type_t ret_type, node_t *ret_val);
 
 type_info_t type_info_init(type_t type, unsigned depth);
 
-array_init_info_t *new_array_init_info_from_node(node_t *node);
+init_info_t *new_array_init_info_from_node(node_t *node);
 
-array_init_info_t *new_array_init_info_from_init_list(qualified_type_t qualified_type, array_value_t value);
+init_info_t *new_array_init_info_from_init_list(qualified_type_t qualified_type, array_value_t value);
 
-void append_to_array_init_info(array_init_info_t *array_init_info, qualified_type_t qualified_type,
+void append_to_array_init_info(init_info_t *array_init_info, qualified_type_t qualified_type,
                                array_value_t value);
 
 array_access_info_t array_access_info_init(list_t *entry);
@@ -355,6 +356,8 @@ arg_list_t arg_list_init(node_t *node);
 void append_to_arg_list(arg_list_t *arg_list, node_t *node);
 
 type_info_t *get_type_info_of_node(const node_t *node);
+
+bool are_matching_types(type_t type_1, type_t type_2);
 
 node_t *build_assign_node(node_t *left, assign_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]);
 

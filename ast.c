@@ -610,35 +610,35 @@ type_info_t type_info_init(type_t type, unsigned depth) {
     return new_type_info;
 }
 
-array_init_info_t *new_array_init_info_from_node(node_t *node) {
-    array_init_info_t *new_infos = calloc(1, sizeof (array_init_info_t));
+init_info_t *new_array_init_info_from_node(node_t *node) {
+    init_info_t *new_infos = calloc(1, sizeof (init_info_t));
     new_infos->is_init_list = false;
     new_infos->node = node;
     return new_infos;
 }
 
-array_init_info_t *new_array_init_info_from_init_list(qualified_type_t qualified_type, array_value_t value) {
-    array_init_info_t *new_infos = calloc(1, sizeof (array_init_info_t));
+init_info_t *new_array_init_info_from_init_list(qualified_type_t qualified_type, array_value_t value) {
+    init_info_t *new_infos = calloc(1, sizeof (init_info_t));
     new_infos->is_init_list = true;
-    new_infos->array_init_list.qualified_types = calloc(1, sizeof (qualified_type_t));
-    new_infos->array_init_list.qualified_types[0] = qualified_type;
-    new_infos->array_init_list.values = calloc(1, sizeof (array_value_t));
-    new_infos->array_init_list.values[0] = value;
-    new_infos->array_init_list.length = 1;
+    new_infos->init_list.qualified_types = calloc(1, sizeof (qualified_type_t));
+    new_infos->init_list.qualified_types[0] = qualified_type;
+    new_infos->init_list.values = calloc(1, sizeof (array_value_t));
+    new_infos->init_list.values[0] = value;
+    new_infos->init_list.length = 1;
     return new_infos;
 }
 
-void append_to_array_init_info(array_init_info_t *array_init_info, qualified_type_t qualified_type,
+void append_to_array_init_info(init_info_t *array_init_info, qualified_type_t qualified_type,
                                array_value_t value) {
-    unsigned current_length = (array_init_info->array_init_list.length)++;
-    array_init_info->array_init_list.qualified_types = realloc(array_init_info->array_init_list.qualified_types,
+    unsigned current_length = (array_init_info->init_list.length)++;
+    array_init_info->init_list.qualified_types = realloc(array_init_info->init_list.qualified_types,
                                                                (current_length + 1)
                                                                * sizeof (qualified_type_t));
-    array_init_info->array_init_list.values = realloc(array_init_info->array_init_list.values,
+    array_init_info->init_list.values = realloc(array_init_info->init_list.values,
                                                       (current_length + 1)
                                                       * sizeof (array_value_t));
-    array_init_info->array_init_list.qualified_types[current_length] = qualified_type;
-    array_init_info->array_init_list.values[current_length] = value;
+    array_init_info->init_list.qualified_types[current_length] = qualified_type;
+    array_init_info->init_list.values[current_length] = value;
 }
 
 array_access_info_t array_access_info_init(list_t *entry) {
