@@ -302,6 +302,8 @@ node_t *new_func_sp_node(list_t *entry);
 
 node_t *new_var_decl_node(list_t *entry);
 
+node_t *new_var_def_node(list_t *entry, bool is_init_list, node_t *node, array_values_info_t array_values_info);
+
 node_t *new_var_def_node_from_node(list_t *entry, node_t *node);
 
 node_t *new_var_def_node_from_init_list(list_t *entry, bool *value_is_const, array_value_t *values);
@@ -367,6 +369,8 @@ type_info_t *get_type_info_of_node(const node_t *node);
 bool are_matching_types(type_t type_1, type_t type_2);
 
 node_t *build_func_sp_node(list_t * entry, char error_msg[ERRORMSGLENGTH]);
+
+node_t *build_var_def_node(list_t *entry, init_info_t *init_info, char error_msg[ERRORMSGLENGTH]);
 
 node_t *build_assign_node(node_t *left, assign_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]);
 

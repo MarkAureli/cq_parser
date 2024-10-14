@@ -169,305 +169,38 @@ variable_decl:
 variable_def:
     QUANTUM type_specifier declarator ASSIGN init SEMICOLON {
 	    set_type_info_of_elem($3, QUANTUM_T, $2.type, $2.depth, $2.sizes, false);
-        if ($5->is_init_list) {
-            if ($3->type_info.depth == 0) {
-                snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $3->name);
-                yyerror(error_msg);
-            } else if ($5->init_list.length > $3->length) {
-                snprintf(error_msg, sizeof (error_msg),
-                         "Too many (%u) elements initialized for array %s of total length %u",
-                         $5->init_list.length, $3->name, $3->length);
-                yyerror(error_msg);
-            }
+	    $$ = build_var_def_node($3, $5, error_msg);
+	    if ($$ == NULL) {
+	        yyerror(error_msg);
+	    }
 
-            bool *value_is_const = calloc($3->length, sizeof (bool));
-            for (unsigned i = 0; i < $5->init_list.length; ++i) {
-                if ($5->init_list.qualified_types[i].qualifier != CONST_T
-                    && $5->init_list.values[i].node_value->type == FUNC_SP_NODE_T) {
-                    func_info_t func_info = ((func_sp_node_t *) $5->init_list.values[i].node_value)->entry->func_info;
-                    if (func_info.num_of_pars != 1) {
-                        snprintf(error_msg, sizeof (error_msg),
-                                 "Element %u: Quantizable function %s must take exactly 1 parameter",
-                                 i, ((func_sp_node_t *) $5->init_list.values[i].node_value)->entry->name);
-                        yyerror(error_msg);
-                    } else if (func_info.pars_type_info[0].qualifier != NONE_T) {
-                        snprintf(error_msg, sizeof (error_msg),
-                                 "Element %u: Quantizable function %s must take a classical parameter",
-                                 i, ((func_sp_node_t *) $5->init_list.values[i].node_value)->entry->name);
-                        yyerror(error_msg);
-                    } else if (func_info.pars_type_info[0].type != $2.type) {
-                        snprintf(error_msg, sizeof (error_msg),
-                                 "Element %u: Quantizable function %s takes %s instead of %s",
-                                 i, ((func_sp_node_t *) $5->init_list.values[i].node_value)->entry->name,
-                                 type_to_str(func_info.pars_type_info[0].type), type_to_str($2.type));
-                        yyerror(error_msg);
-                    } else if (func_info.pars_type_info[0].depth != 0) {
-                        snprintf(error_msg, sizeof (error_msg),
-                                 "Element %u: Quantizable function %s takes an array of depth %u instead of a scalar",
-                                 i, ((func_sp_node_t *) $5->init_list.values[i].node_value)->entry->name,
-                                 func_info.pars_type_info[0].depth);
-                        yyerror(error_msg);
-                    }
-                } else if (!are_matching_types($2.type, $5->init_list.qualified_types[i].type)) {
-                    free(value_is_const);
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Element %u in initialization of %s-array %s is of type %s",
-                             i, type_to_str($2.type),$3->name, type_to_str($5->init_list.qualified_types[i].type));
-                    yyerror(error_msg);
-                }
-                if ($5->init_list.qualified_types[i].qualifier == CONST_T) {
-                    value_is_const[i] = true;
-                }
-            }
-            for (unsigned i = $5->init_list.length; i < $3->length; ++i) {
-                value_is_const[i] = true;
-            }
-            $$ = new_var_def_node_from_init_list($3, value_is_const, $5->init_list.values);
-        } else { /* no initializer list */
-            type_info_t *init_info = get_type_info_of_node($5->node);
-            if ($5->node->type == FUNC_SP_NODE_T) {
-                func_info_t func_info = ((func_sp_node_t *) $5->node)->entry->func_info;
-                if (func_info.num_of_pars != 1) {
-                    snprintf(error_msg, sizeof (error_msg), "Quantizable function %s must take exactly 1 parameter",
-                             ((func_sp_node_t *) $5->node)->entry->name);
-                    yyerror(error_msg);
-                } else if (func_info.pars_type_info[0].qualifier != NONE_T) {
-                    snprintf(error_msg, sizeof (error_msg), "Quantizable function %s must take a classical parameter",
-                             ((func_sp_node_t *) $5->node)->entry->name);
-                    yyerror(error_msg);
-                } else if (func_info.pars_type_info[0].type != $2.type) {
-                    snprintf(error_msg, sizeof (error_msg), "Quantizable function %s takes %s instead of %s",
-                             ((func_sp_node_t *) $5->node)->entry->name, type_to_str(func_info.pars_type_info[0].type),
-                             type_to_str($2.type));
-                    yyerror(error_msg);
-                } else if (func_info.pars_type_info[0].depth != 0) {
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Quantizable function %s takes an array of depth %u instead of a scalar",
-                             ((func_sp_node_t *) $5->node)->entry->name, func_info.pars_type_info[0].depth);
-                    yyerror(error_msg);
-                }
-            } else if ($3->type_info.depth == 0 && init_info->depth != 0) {
-                snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $3->name);
-                yyerror(error_msg);
-            } else if ($3->type_info.depth != init_info->depth) {
-                snprintf(error_msg, sizeof (error_msg),
-                         "Unmatching depths in array initialization of %s (%u != %u)",
-                         $3->name, $3->type_info.depth, init_info->depth);
-                yyerror(error_msg);
-            }
-
-            for (unsigned i = 0; i < $3->type_info.depth; ++i) {
-                if ($3->type_info.sizes[i] != init_info->sizes[i]) {
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Unmatching sizes at position %u in array initialization of %s (%u != %u)",
-                             i, $3->name, $3->type_info.sizes[i], init_info->sizes[i]);
-                    yyerror(error_msg);
-                }
-            }
-
-            if ($5->node->type != FUNC_SP_NODE_T && !are_matching_types($2.type, init_info->type)) {
-                if ($3->type_info.depth == 0) {
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Initialization of scalar %s of type %s with value of type %s",
-                             $3->name, type_to_str($2.type), type_to_str(init_info->type));
-                    yyerror(error_msg);
-                } else {
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Initialization of %s-array %s with %s-array",
-                             type_to_str($2.type), $3->name, type_to_str(init_info->type));
-                    yyerror(error_msg);
-                }
-            }
-            $$ = new_var_def_node_from_node($3, $5->node);
-        }
         tree_traversal($$);
 	}
 	| CONST type_specifier declarator ASSIGN init SEMICOLON {
 	    set_type_info_of_elem($3, CONST_T, $2.type, $2.depth, $2.sizes, false);
-        if ($5->is_init_list) {
-            if ($3->type_info.depth == 0) {
-                snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $3->name);
-                yyerror(error_msg);
-            } else if ($5->init_list.length > $3->length) {
-                snprintf(error_msg, sizeof (error_msg),
-                         "Too many (%u) elements initialized for array %s of total length %u",
-                         $5->init_list.length, $3->name, $3->length);
-                yyerror(error_msg);
-            }
+	    $$ = build_var_def_node($3, $5, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
 
-            bool *value_is_const = calloc($3->length, sizeof (bool));
-            for (unsigned i = 0; i < $5->init_list.length; ++i) {
-                if ($5->init_list.qualified_types[i].qualifier == NONE_T
-                    && $5->init_list.values[i].node_value->type == FUNC_SP_NODE_T) {
-                    free(value_is_const);
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Element %u in initialization of classical array %s is a superposition instruction",
-                             i, $3->name);
-                    yyerror(error_msg);
-                } else if ($5->init_list.qualified_types[i].qualifier != CONST_T) {
-                    free(value_is_const);
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Element %u in initialization of constant array %s is not constant", i, $3->name);
-                    yyerror(error_msg);
-                } else if (!are_matching_types($2.type, $5->init_list.qualified_types[i].type)) {
-                    free(value_is_const);
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Element %u in initialization of %s-array %s is of type %s",
-                             i, type_to_str($2.type), $3->name, type_to_str($5->init_list.qualified_types[i].type));
-                    yyerror(error_msg);
-                }
-                value_is_const[i] = true;
-            }
+        if ($5->is_init_list) {
             for (unsigned i = 0; i < $5->init_list.length; ++i) {
                 $3->values[i] = $5->init_list.values[i].const_value;
             }
-            for (unsigned i = $5->init_list.length; i < $3->length; ++i) {
-                value_is_const[i] = true;
-            }
-            $$ = new_var_def_node_from_init_list($3, value_is_const, $5->init_list.values);
-        } else { /* no initializer list */
-            type_info_t *init_info = get_type_info_of_node($5->node);
-            if ($5->node->type == FUNC_SP_NODE_T) {
-                snprintf(error_msg, sizeof (error_msg), "Classical variable %s cannot be initialized in superposition",
-                $3->name);
-                yyerror(error_msg);
-            } else if ($3->type_info.depth == 0 && init_info->depth != 0) {
-                snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $3->name);
-                yyerror(error_msg);
-            }
-            if ($3->type_info.depth != init_info->depth) {
-                snprintf(error_msg, sizeof (error_msg),
-                         "Unmatching depths in array initialization of %s (%u != %u)",
-                         $3->name, $3->type_info.depth, init_info->depth);
-                yyerror(error_msg);
-            }
-            for (unsigned i = 0; i < $3->type_info.depth; ++i) {
-                if ($3->type_info.sizes[i] != init_info->sizes[i]) {
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Unmatching sizes at position %u in array initialization of %s (%u != %u)",
-                             i, $3->name, $3->type_info.sizes[i], init_info->sizes[i]);
-                    yyerror(error_msg);
-                }
-            }
-            if (init_info->qualifier != CONST_T) {
-                if ($3->type_info.depth == 0) {
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Initialization of constant scalar %s with non-constant value", $3->name);
-                    yyerror(error_msg);
-                } else {
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Initialization of constant array %s with non-constant array", $3->name);
-                    yyerror(error_msg);
-                }
-            } else if (!are_matching_types($2.type, init_info->type)) {
-                if ($3->type_info.depth == 0) {
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Initialization of scalar %s of type %s with value of type %s",
-                             $3->name, type_to_str($2.type), type_to_str(init_info->type));
-                    yyerror(error_msg);
-                } else {
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Initialization of %s-array %s with %s-array",
-                             type_to_str($2.type), $3->name, type_to_str(init_info->type));
-                    yyerror(error_msg);
-                }
-            }
+        } else {
+            type_info_t *type_info = get_type_info_of_node($5->node);
             memcpy($3->values, ((const_node_t *) $5->node)->values,
-                   get_length_of_array(init_info->sizes, init_info->depth) * sizeof (value_t));
-            $$ = new_var_def_node_from_node($3, $5->node);
+                   get_length_of_array(type_info->sizes, type_info->depth) * sizeof (value_t));
         }
         tree_traversal($$);
     }
 	| type_specifier declarator ASSIGN init SEMICOLON {
 	    set_type_info_of_elem($2, NONE_T, $1.type, $1.depth, $1.sizes, false);
-        if ($4->is_init_list) {
-            if ($2->type_info.depth == 0) {
-                snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $2->name);
-                yyerror(error_msg);
-            } else if ($4->init_list.length > $2->length) {
-                snprintf(error_msg, sizeof (error_msg),
-                         "Too many (%u) elements initialized for array %s of total length %u",
-                         $4->init_list.length, $2->name, $2->length);
-                yyerror(error_msg);
-            }
-
-            bool *value_is_const = calloc($2->length, sizeof (bool));
-            for (unsigned i = 0; i < $4->init_list.length; ++i) {
-                if ($4->init_list.qualified_types[i].qualifier == QUANTUM_T) {
-                    free(value_is_const);
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Element %u in initialization of classical array %s is quantum", i, $2->name);
-                    yyerror(error_msg);
-                } else if ($4->init_list.qualified_types[i].qualifier == NONE_T
-                           && $4->init_list.values[i].node_value->type == FUNC_SP_NODE_T) {
-                    free(value_is_const);
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Element %u in initialization of classical array %s is a superposition instruction",
-                             i, $2->name);
-                    yyerror(error_msg);
-                } else if (!are_matching_types($1.type, $4->init_list.qualified_types[i].type)) {
-                    free(value_is_const);
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Element %u in initialization of %s-array %s is of type %s",
-                             i, type_to_str($1.type), $2->name, type_to_str($4->init_list.qualified_types[i].type));
-                    yyerror(error_msg);
-                }
-                if ($4->init_list.qualified_types[i].qualifier == CONST_T) {
-                    value_is_const[i] = true;
-                }
-            }
-            for (unsigned i = $4->init_list.length; i < $2->length; ++i) {
-                value_is_const[i] = true;
-            }
-            $$ = new_var_def_node_from_init_list($2, value_is_const, $4->init_list.values);
-        } else { /* no initializer list */
-            type_info_t *init_info = get_type_info_of_node($4->node);
-            if ($4->node->type == FUNC_SP_NODE_T) {
-                snprintf(error_msg, sizeof (error_msg), "Classical variable %s cannot be initialized in superposition",
-                $2->name);
-                yyerror(error_msg);
-            } else if ($2->type_info.depth == 0 && init_info->depth != 0) {
-                snprintf(error_msg, sizeof (error_msg), "%s is not an array, but is initialized as such", $2->name);
-                yyerror(error_msg);
-            } else if ($2->type_info.depth != init_info->depth) {
-                snprintf(error_msg, sizeof (error_msg),
-                         "Unmatching depths in array initialization of %s (%u != %u)", $2->name,
-                         $2->type_info.depth, init_info->depth);
-                yyerror(error_msg);
-            }
-            for (unsigned i = 0; i < $2->type_info.depth; ++i) {
-                if ($2->type_info.sizes[i] != init_info->sizes[i]) {
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Unmatching sizes at position %u in array initialization of %s (%u != %u)",
-                             i, $2->name, $2->type_info.sizes[i], init_info->sizes[i]);
-                    yyerror(error_msg);
-                }
-            }
-            if (init_info->qualifier == QUANTUM_T) {
-                if ($2->type_info.depth == 0) {
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Initialization of classical scalar %s with quantum value", $2->name);
-                    yyerror(error_msg);
-                } else {
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Initialization of classical array %s with quantum array", $2->name);
-                    yyerror(error_msg);
-                }
-            } else if (!are_matching_types($1.type, init_info->type)) {
-                if ($2->type_info.depth == 0) {
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Initialization of scalar %s of type %s with value of type %s",
-                             $2->name, type_to_str($1.type), type_to_str(init_info->type));
-                        yyerror(error_msg);
-                } else {
-                    snprintf(error_msg, sizeof (error_msg),
-                             "Initialization of %s-array %s with %s-array",
-                             type_to_str($1.type), $2->name, type_to_str(init_info->type));
-                    yyerror(error_msg);
-                }
-            }
-            $$ = new_var_def_node_from_node($2, $4->node);
+        $$ = build_var_def_node($2, $4, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
         }
+
         tree_traversal($$);
     }
 	;
