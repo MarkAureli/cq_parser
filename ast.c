@@ -471,6 +471,7 @@ node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars) {
     new_node->type_info.qualifier = entry->type_info.qualifier;
     new_node->type_info.type = entry->type_info.type;
     new_node->entry = entry;
+    new_node->inverse = false;
     new_node->pars = pars;
     new_node->num_of_pars = num_of_pars;
     return (node_t *) new_node;
@@ -1015,6 +1016,44 @@ node_t *build_var_def_node(list_t *entry, init_info_t *init_info, char error_msg
     }
     array_values_info_t array_values_info = { .value_is_const = value_is_const, .values = init_info->init_list.values};
     node_t *result = new_var_def_node(entry, init_info->is_init_list, init_info->node, array_values_info);
+    return result;
+}
+
+node_t *build_do_node(node_t *do_branch, node_t *condition, char error_msg[ERRORMSGLENGTH]) {
+    type_info_t *type_info = get_type_info_of_node(condition);
+    if (type_info->qualifier == QUANTUM_T) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Do-while-loop condition cannot be quantum");
+        return NULL;
+    } else if (type_info->type != BOOL_T) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Do-while-loop condition must be of type bool, but is of type %s",
+                 type_to_str(type_info->type));
+        return NULL;
+    } else if (type_info->depth != 0) {
+        snprintf(error_msg, ERRORMSGLENGTH,
+                 "Do-while-loop condition must be a single bool, but is an array of depth %u", type_info->depth);
+        return NULL;
+    }
+
+    node_t *result = new_do_node(do_branch, condition);
+    return result;
+}
+
+node_t *build_while_node(node_t *condition, node_t *while_branch, char error_msg[ERRORMSGLENGTH]) {
+    type_info_t *type_info = get_type_info_of_node(condition);
+    if (type_info->qualifier == QUANTUM_T) {
+        snprintf(error_msg, ERRORMSGLENGTH, "While-loop condition cannot be quantum");
+        return NULL;
+    } else if (type_info->type != BOOL_T) {
+        snprintf(error_msg, ERRORMSGLENGTH, "While-loop condition must be of type bool, but is of type %s",
+                 type_to_str(type_info->type));
+        return NULL;
+    } else if (type_info->depth != 0) {
+        snprintf(error_msg, ERRORMSGLENGTH, "While-loop condition must be a single bool, but is an array of depth %u",
+                 type_info->depth);
+        return NULL;
+    }
+
+    node_t *result = new_while_node(condition, while_branch);
     return result;
 }
 

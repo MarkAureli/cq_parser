@@ -168,6 +168,7 @@ typedef struct func_call_node {
     node_type_t type;
     type_info_t type_info;
     list_t *entry;
+    bool inverse;
     node_t **pars;
     unsigned num_of_pars;
 } func_call_node_t;
@@ -371,6 +372,10 @@ bool are_matching_types(type_t type_1, type_t type_2);
 node_t *build_func_sp_node(list_t * entry, char error_msg[ERRORMSGLENGTH]);
 
 node_t *build_var_def_node(list_t *entry, init_info_t *init_info, char error_msg[ERRORMSGLENGTH]);
+
+node_t *build_do_node(node_t *do_branch, node_t *condition, char error_msg[ERRORMSGLENGTH]);
+
+node_t *build_while_node(node_t *condition, node_t *while_branch, char error_msg[ERRORMSGLENGTH]);
 
 node_t *build_assign_node(node_t *left, assign_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]);
 
