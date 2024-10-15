@@ -75,7 +75,7 @@ char error_msg[ERRORMSGLENGTH];
 %type <func_info> par_l function_head
 %type <node> variable_decl variable_def function_def const primary_expr postfix_expr unary_expr mul_expr add_expr
 %type <node> logical_or_expr logical_xor_expr logical_and_expr comparison_expr equality_expr or_expr xor_expr and_expr
-%type <node> array_access_expr function_call expr
+%type <node> array_access_expr function_call assign_expr
 %type <init_info> init init_elem_l
 %type <array_access_info> array_access
 %type <arg_list> argument_expr_l
@@ -329,13 +329,7 @@ stmt_l:
 
 stmt:
     decl_stmt
-	| expr_stmt
-	| if_stmt
-	| switch_stmt
-	| do_stmt
-	| while_stmt
-	| for_stmt
-	| jump_stmt
+	| res_stmt
 	;
 
 decl_stmt:
@@ -349,7 +343,7 @@ res_stmt_l:
 	;
 
 res_stmt:
-	expr_stmt
+	assign_stmt
 	| if_stmt
 	| switch_stmt
 	| do_stmt
@@ -358,9 +352,8 @@ res_stmt:
 	| jump_stmt
 	;
 
-expr_stmt:
-	expr SEMICOLON
-	| SEMICOLON
+assign_stmt:
+	assign_expr SEMICOLON
 	;
 
 if_stmt:
@@ -382,20 +375,20 @@ case_stmt:
 	;
 
 do_stmt:
-	DO { incr_scope(); } LBRACE stmt_l RBRACE { hide_scope(); } WHILE LPAREN expr RPAREN SEMICOLON
+	DO { incr_scope(); } LBRACE stmt_l RBRACE { hide_scope(); } WHILE LPAREN logical_or_expr RPAREN SEMICOLON
     ;
 
 while_stmt:
-    WHILE LPAREN expr RPAREN { incr_scope(); } LBRACE stmt_l RBRACE { hide_scope(); }
+    WHILE LPAREN logical_or_expr RPAREN { incr_scope(); } LBRACE stmt_l RBRACE { hide_scope(); }
     ;
 
 for_stmt:
-    FOR { incr_scope(); } LPAREN for_first_stmt expr_stmt expr RPAREN LBRACE stmt_l RBRACE { hide_scope(); }
+    FOR { incr_scope(); } LPAREN for_first assign_stmt logical_or_expr RPAREN LBRACE stmt_l RBRACE { hide_scope(); }
     ;
 
-for_first_stmt:
-    type_specifier declarator ASSIGN logical_or_expr SEMICOLON
-    | expr_stmt
+for_first:
+    variable_def
+    | assign_stmt
     ;
 
 jump_stmt:
@@ -405,59 +398,56 @@ jump_stmt:
 	| RETURN SEMICOLON
 	;
 
-expr:
-	logical_or_expr {
-	    $$ = $1;
-	}
-	| postfix_expr ASSIGN logical_or_expr {
+assign_expr:
+	array_access_expr ASSIGN logical_or_expr {
 	    $$ = build_assign_node($1, ASSIGN_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
-	| postfix_expr ASSIGN_OR logical_or_expr {
+	| array_access_expr ASSIGN_OR logical_or_expr {
 	    $$ = build_assign_node($1, ASSIGN_OR_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
-	| postfix_expr ASSIGN_XOR logical_or_expr {
+	| array_access_expr ASSIGN_XOR logical_or_expr {
 	    $$ = build_assign_node($1, ASSIGN_XOR_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
-	| postfix_expr ASSIGN_AND logical_or_expr {
+	| array_access_expr ASSIGN_AND logical_or_expr {
 	    $$ = build_assign_node($1, ASSIGN_AND_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
-	| postfix_expr ASSIGN_ADD logical_or_expr {
+	| array_access_expr ASSIGN_ADD logical_or_expr {
 	    $$ = build_assign_node($1, ASSIGN_ADD_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
-	| postfix_expr ASSIGN_SUB logical_or_expr {
+	| array_access_expr ASSIGN_SUB logical_or_expr {
 	    $$ = build_assign_node($1, ASSIGN_SUB_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
-	| postfix_expr ASSIGN_MUL logical_or_expr {
+	| array_access_expr ASSIGN_MUL logical_or_expr {
 	    $$ = build_assign_node($1, ASSIGN_MUL_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
-	| postfix_expr ASSIGN_DIV logical_or_expr {
+	| array_access_expr ASSIGN_DIV logical_or_expr {
 	    $$ = build_assign_node($1, ASSIGN_DIV_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
-	| postfix_expr ASSIGN_MOD logical_or_expr {
+	| array_access_expr ASSIGN_MOD logical_or_expr {
 	    $$ = build_assign_node($1, ASSIGN_MOD_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -649,6 +639,9 @@ postfix_expr:
     primary_expr {
         $$ = $1;
     }
+    | function_call {
+        $$ = $1;
+    }
     | array_access_expr {
         $$ = $1;
     }
@@ -685,9 +678,6 @@ array_access_expr:
             $$ = new_reference_node(new_sizes, new_depth, $1.index_is_const, $1.indices, entry);
         }
 	}
-    | function_call {
-        $$ = $1;
-    }
 	;
 
 array_access:
