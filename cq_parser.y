@@ -438,14 +438,14 @@ if_stmt:
 	;
 
 else_if:
-    ELSE IF LPAREN logical_or_expr RPAREN LBRACE stmt_l RBRACE {
+    ELSE IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE {
         node_t *else_if_node = build_else_if_node($4, $7, error_msg);
         if (else_if_node == NULL) {
             yyerror(error_msg);
         }
         $$ = create_else_if_list(else_if_node);
     }
-    | else_if ELSE IF LPAREN logical_or_expr RPAREN LBRACE stmt_l RBRACE {
+    | else_if ELSE IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE {
         node_t *else_if_node = build_else_if_node($5, $8, error_msg);
         if (else_if_node == NULL) {
             yyerror(error_msg);
@@ -456,7 +456,7 @@ else_if:
     ;
 
 optional_else:
-    ELSE LBRACE stmt_l RBRACE {
+    ELSE LBRACE res_stmt_l RBRACE {
         $$ = $3;
     }
     | /* empty */ {

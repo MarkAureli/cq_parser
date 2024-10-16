@@ -398,7 +398,7 @@ void append_to_stmt_list(node_t *stmt_list_node, node_t *stmt) {
     stmt_list_node_view->stmt_list = realloc(stmt_list_node_view->stmt_list,
                                              (current_num_of_stmt + 1) * sizeof (node_t *));
     stmt_list_node_view->stmt_list[current_num_of_stmt] = stmt;
-    stmt_list_node_view->is_unitary = stmt_is_unitary(stmt);
+    stmt_list_node_view->is_unitary = stmt_list_node_view->is_unitary && stmt_is_unitary(stmt);
 }
 
 node_t *new_func_decl_node(list_t *entry) {
@@ -683,10 +683,13 @@ void append_to_init_info(init_info_t *array_init_info, qualified_type_t qualifie
 bool stmt_is_unitary(const node_t *node) {
     switch (node->type) {
         case VAR_DECL_NODE_T: case VAR_DEF_NODE_T: case ASSIGN_NODE_T: {
-            return get_type_info_of_node(node)->type == QUANTUM_T;
+            return get_type_info_of_node(node)->qualifier == QUANTUM_T;
         }
         case FUNC_CALL_NODE_T: {
             return ((func_call_node_t *) node)->entry->func_info.is_unitary;
+        }
+        case IF_NODE_T: {
+            return get_type_info_of_node(((if_node_t *) node)->condition)->qualifier == QUANTUM_T;
         }
         default: {
             return false;
@@ -1100,10 +1103,11 @@ node_t *build_if_node(node_t *condition, node_t *if_branch, node_t **else_if_bra
 
     if (type_info->qualifier == QUANTUM_T) {
         if (!(((stmt_list_node_t *) if_branch)->is_unitary)) {
-            snprintf(error_msg, ERRORMSGLENGTH, "If condition is quantum, but statements are not unitary");
+            snprintf(error_msg, ERRORMSGLENGTH, "If condition is quantum, but statements in if-branch are not unitary");
             return NULL;
         } else if (else_branch != NULL && !(((stmt_list_node_t *) else_branch)->is_unitary)) {
-            snprintf(error_msg, ERRORMSGLENGTH, "Else condition is quantum, but statements are not unitary");
+            snprintf(error_msg, ERRORMSGLENGTH,
+                     "If condition is quantum, but statements in else-branch are not unitary");
             return NULL;
         }
     }
