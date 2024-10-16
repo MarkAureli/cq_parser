@@ -9,7 +9,7 @@
 
 extern int yylex(void);
 extern int yylineno;
-extern bool no_hide;
+extern bool hide;
 int yyerror(const char *s);
 extern FILE *yyin;
 extern FILE *yyout;
@@ -72,10 +72,13 @@ char error_msg[ERRORMSGLENGTH];
 
 %type <symtab_item> declarator
 %type <type_info> type_specifier par
-%type <func_info> par_l function_head
-%type <node> variable_decl variable_def function_def const primary_expr postfix_expr unary_expr mul_expr add_expr
+%type <func_info> par_l func_head
+%type <node> program decl_l decl
+%type <node> variable_decl variable_def func_def const primary_expr postfix_expr unary_expr mul_expr add_expr
 %type <node> logical_or_expr logical_xor_expr logical_and_expr comparison_expr equality_expr or_expr xor_expr and_expr
-%type <node> array_access_expr function_call assign_expr
+%type <node> array_access_expr func_call assign_expr
+%type <node> stmt_l stmt decl_stmt res_stmt_l res_stmt
+%type <node> assign_stmt func_call_stmt if_stmt switch_stmt do_stmt while_stmt for_stmt for_first jump_stmt
 %type <init_info> init init_elem_l
 %type <array_access_info> array_access
 %type <arg_list> argument_expr_l
@@ -86,34 +89,48 @@ char error_msg[ERRORMSGLENGTH];
 %%
 
 program:
-	decl_l
+	decl_l {
+	    $$ = $1;
+	    tree_traversal($$);
+	}
 	;
 
 decl_l:
-	decl decl_l
-	| decl
+    decl {
+        $$ = new_stmt_list_node($1);
+    }
+	| decl_l decl {
+	   $$ = $1;
+	   append_to_stmt_list($$, $2);
+	}
 	;
 
 decl:
-    variable_decl
-	| variable_def
-	| function_def
+    variable_decl {
+        $$ = $1;
+    }
+	| variable_def {
+	    $$ = $1;
+	}
+	| func_def {
+	    $$ = $1;
+	}
 	;
 
-function_def:
-	QUANTUM type_specifier declarator { incr_scope(); } function_head function_tail {
+func_def:
+	QUANTUM type_specifier declarator { incr_scope(); /* global info for return check and to avoid recursion */ } func_head func_tail {
 	    hide_scope();
 	    $$ = new_func_decl_node($3);
 	    set_type_info_of_elem($3, QUANTUM_T, $2.type, $2.depth, $2.sizes, true);
 	    set_func_info_of_elem($3, $5);
 	}
-	| type_specifier declarator { incr_scope(); } function_head function_tail {
+	| type_specifier declarator { incr_scope(); /* global info for return check and to avoid recursion */ } func_head func_tail {
 	    hide_scope();
 	    $$ = new_func_decl_node($2);
 	    set_type_info_of_elem($2, NONE_T, $1.type, $1.depth, $1.sizes, true);
 	    set_func_info_of_elem($2, $4);
 	}
-	| VOID declarator { incr_scope(); } function_head function_tail {
+	| VOID declarator { incr_scope(); /* global info for return check and to avoid recursion */ } func_head func_tail {
 	    hide_scope();
 	    $$ = new_func_decl_node($2);
 	    set_type_info_of_elem($2, NONE_T, VOID_T, 0, NULL, true);
@@ -121,7 +138,7 @@ function_def:
 	}
 	;
 
-function_head:
+func_head:
     LPAREN par_l RPAREN {
         $$ = $2;
     }
@@ -131,12 +148,12 @@ function_head:
     ;
 
 par_l:
-	par_l COMMA par {
+	par {
+	    $$ = func_info_init($1);
+	}
+	| par_l COMMA par {
 	    $$ = $1;
 	    append_to_func_info(&$$, $3);
-	}
-	| par {
-	    $$ = func_info_init($1);
 	}
 	;
 
@@ -151,7 +168,7 @@ par:
     }
 	;
 
-function_tail:
+func_tail:
     LBRACE stmt_l RBRACE
     ;
 
@@ -173,8 +190,6 @@ variable_def:
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
-
-        tree_traversal($$);
 	}
 	| CONST type_specifier declarator ASSIGN init SEMICOLON {
 	    set_type_info_of_elem($3, CONST_T, $2.type, $2.depth, $2.sizes, false);
@@ -192,7 +207,6 @@ variable_def:
             memcpy($3->values, ((const_node_t *) $5->node)->values,
                    get_length_of_array(type_info->sizes, type_info->depth) * sizeof (value_t));
         }
-        tree_traversal($$);
     }
 	| type_specifier declarator ASSIGN init SEMICOLON {
 	    set_type_info_of_elem($2, NONE_T, $1.type, $1.depth, $1.sizes, false);
@@ -200,8 +214,6 @@ variable_def:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
-
-        tree_traversal($$);
     }
 	;
 
@@ -323,45 +335,98 @@ type_specifier:
 	;
 
 stmt_l:
-	stmt
-	| stmt_l stmt
+	stmt {
+	    $$ = new_stmt_list_node($1);
+	}
+	| stmt_l stmt {
+	    $$ = $1;
+	    append_to_stmt_list($$, $2);
+	}
 	;
 
 stmt:
-    decl_stmt
-	| res_stmt
+    decl_stmt {
+        $$ = $1;
+    }
+	| res_stmt {
+	    $$ = $1;
+	}
 	;
 
 decl_stmt:
-    variable_decl
-    | variable_def
+    variable_decl {
+        $$ = $1;
+    }
+    | variable_def {
+        $$ = $1;
+    }
     ;
 
 res_stmt_l:
-	res_stmt
-	| res_stmt_l res_stmt
+	res_stmt {
+	    $$ = new_stmt_list_node($1);
+	}
+	| res_stmt_l res_stmt {
+	    $$ = $1;
+	    append_to_stmt_list($$, $2);
+	}
 	;
 
 res_stmt:
-	assign_stmt
-	| if_stmt
-	| switch_stmt
-	| do_stmt
-	| while_stmt
-	| for_stmt
-	| jump_stmt
+	assign_stmt {
+	    $$ = $1;
+	}
+	| func_call_stmt {
+	    $$ = $1;
+	}
+	| if_stmt {
+	    $$ = $1;
+	}
+	| switch_stmt {
+	    $$ = $1;
+	}
+	| do_stmt {
+	    $$ = $1;
+	}
+	| while_stmt {
+	    $$ = $1;
+	}
+	| for_stmt {
+	    $$ = $1;
+	}
+	| jump_stmt {
+	    $$ = $1;
+	}
 	;
 
 assign_stmt:
-	assign_expr SEMICOLON
+	assign_expr SEMICOLON {
+	    $$ = $1;
+	}
 	;
 
+func_call_stmt:
+    INV func_call SEMICOLON {
+        $$ = $2;
+        func_call_node_t *func_call_node_view = (func_call_node_t *) $$;
+        if (func_call_node_view->type_info.type != VOID_T) {
+            snprintf(error_msg, sizeof (error_msg), "Trying to invert function %s with non-void return",
+                     func_call_node_view->entry->name);
+            yyerror(error_msg);
+        }
+        func_call_node_view->inverse = true;
+    }
+    | func_call SEMICOLON {
+        $$ = $1;
+    }
+    ;
+
 if_stmt:
-	IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE	%prec "then"
-	| IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE ELSE LBRACE stmt_l RBRACE
+	IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE	%prec "then" { /* dummy */ $$ = NULL; }
+	| IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE ELSE LBRACE stmt_l RBRACE { /* dummy */ $$ = NULL; }
 
 switch_stmt:
-	SWITCH LPAREN logical_or_expr RPAREN LBRACE case_stmt_l RBRACE
+	SWITCH LPAREN logical_or_expr RPAREN LBRACE case_stmt_l RBRACE { /* dummy */ $$ = NULL; }
 	;
 
 case_stmt_l:
@@ -375,27 +440,48 @@ case_stmt:
 	;
 
 do_stmt:
-	DO { incr_scope(); } LBRACE stmt_l RBRACE { hide_scope(); } WHILE LPAREN logical_or_expr RPAREN SEMICOLON
+	DO { incr_scope(); } LBRACE stmt_l RBRACE { hide_scope(); } WHILE LPAREN logical_or_expr RPAREN SEMICOLON {
+	    $$ = build_do_node($4, $9, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+	}
     ;
 
 while_stmt:
-    WHILE LPAREN logical_or_expr RPAREN { incr_scope(); } LBRACE stmt_l RBRACE { hide_scope(); }
+    WHILE LPAREN logical_or_expr RPAREN { incr_scope(); } LBRACE stmt_l RBRACE {
+        hide_scope();
+        $$ = build_while_node($3, $7, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+    }
     ;
 
 for_stmt:
-    FOR { incr_scope(); } LPAREN for_first assign_stmt logical_or_expr RPAREN LBRACE stmt_l RBRACE { hide_scope(); }
+    FOR { incr_scope(); } LPAREN for_first logical_or_expr SEMICOLON assign_expr RPAREN LBRACE stmt_l RBRACE {
+        hide_scope();
+        $$ = build_for_node($4, $5, $7, $10, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+    }
     ;
 
 for_first:
-    variable_def
-    | assign_stmt
+    variable_def {
+        $$ = $1;
+    }
+    | assign_stmt {
+        $$ = $1;
+    }
     ;
 
 jump_stmt:
-	CONTINUE SEMICOLON
-	| BREAK SEMICOLON
-	| RETURN logical_or_expr SEMICOLON
-	| RETURN SEMICOLON
+	CONTINUE SEMICOLON { /* dummy */ $$ = NULL; }
+	| BREAK SEMICOLON { /* dummy */ $$ = NULL; }
+	| RETURN logical_or_expr SEMICOLON { /* dummy */ $$ = NULL; }
+	| RETURN SEMICOLON { /* dummy */ $$ = NULL; }
 	;
 
 assign_expr:
@@ -639,7 +725,7 @@ postfix_expr:
     primary_expr {
         $$ = $1;
     }
-    | function_call {
+    | func_call {
         $$ = $1;
     }
     | array_access_expr {
@@ -749,7 +835,7 @@ const:
     }
 	;
 
-function_call:
+func_call:
 	ID LPAREN argument_expr_l RPAREN {
         $$ = build_func_call_node(insert($1, strlen($1), yylineno, false), $3.pars, $3.num_of_pars, error_msg);
         if ($$ == NULL) {
@@ -792,6 +878,12 @@ int main(int argc, char **argv) {
 
     init_hash_table();
 
+    bool dump = (argc == 2 && strncmp(argv[1], "--dump", 7) == 0) || (argc == 3 && strncmp(argv[2], "--dump", 7) == 0);
+
+    if (dump) {
+        hide = false;
+    }
+
     // parsing
     yyparse();
 
@@ -801,8 +893,7 @@ int main(int argc, char **argv) {
     }
 
     // symbol table dump
-    if ((argc == 2 && strncmp(argv[1], "--dump", 7) == 0) || (argc == 3 && strncmp(argv[2], "--dump", 7) == 0)) {
-        no_hide = true;
+    if (dump) {
         yyout = fopen("symtab_dump.out", "w");
         if (!yyout) {
             fprintf(stderr, "Could not open symtab_dump.out\n");

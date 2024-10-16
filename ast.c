@@ -382,6 +382,23 @@ node_t *new_node(node_type_t type, node_t *left, node_t *right) {
     return new_node;
 }
 
+node_t *new_stmt_list_node(node_t *stmt) {
+    stmt_list_node_t *new_node = calloc(1, sizeof (stmt_list_node_t));
+    new_node->type = STMT_LIST_NODE_T;
+    new_node->stmt_list = calloc(1, sizeof (node_t *));
+    new_node->stmt_list[0] = stmt;
+    new_node->num_of_stmt = 1;
+    return (node_t *) new_node;
+}
+
+void append_to_stmt_list(node_t *stmt_list_node, node_t *stmt) {
+    stmt_list_node_t *stmt_list_node_view = (stmt_list_node_t *) stmt_list_node;
+    unsigned current_num_of_stmt = (stmt_list_node_view->num_of_stmt)++;
+    stmt_list_node_view->stmt_list = realloc(stmt_list_node_view->stmt_list,
+                                             (current_num_of_stmt + 1) * sizeof (node_t *));
+    stmt_list_node_view->stmt_list[current_num_of_stmt] = stmt;
+}
+
 node_t *new_func_decl_node(list_t *entry) {
     func_decl_node_t *new_node = calloc(1, sizeof (func_decl_node_t));
     new_node->type = FUNC_DECL_NODE_T;
@@ -1057,6 +1074,26 @@ node_t *build_while_node(node_t *condition, node_t *while_branch, char error_msg
     return result;
 }
 
+node_t *build_for_node(node_t *initialize, node_t *condition, node_t *increment, node_t *for_branch,
+                       char error_msg[ERRORMSGLENGTH]) {
+    type_info_t *type_info = get_type_info_of_node(condition);
+    if (type_info->qualifier == QUANTUM_T) {
+        snprintf(error_msg, ERRORMSGLENGTH, "For-loop condition cannot be quantum");
+        return NULL;
+    } else if (type_info->type != BOOL_T) {
+        snprintf(error_msg, ERRORMSGLENGTH, "For-loop condition must be of type bool, but is of type %s",
+                 type_to_str(type_info->type));
+        return NULL;
+    } else if (type_info->depth != 0) {
+        snprintf(error_msg, ERRORMSGLENGTH, "For-loop condition must be a single bool, but is an array of depth %u",
+                 type_info->depth);
+        return NULL;
+    }
+
+    node_t *result = new_for_node(initialize, condition, increment, for_branch);
+    return result;
+}
+
 node_t *build_assign_node(node_t *left, assign_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]) {
     if (left->type == CONST_NODE_T) {
         snprintf(error_msg, ERRORMSGLENGTH, "Trying to reassign constant value");
@@ -1627,6 +1664,10 @@ void print_node(const node_t *node) {
             printf("Basic node\n");
             break;
         }
+        case STMT_LIST_NODE_T: {
+            printf("Statement list node with %u statements\n", ((stmt_list_node_t *) node)->num_of_stmt);
+            break;
+        }
         case FUNC_SP_NODE_T: {
             printf("Function superposition node for %s\n", ((func_sp_node_t *) node)->entry->name);
             break;
@@ -1637,21 +1678,15 @@ void print_node(const node_t *node) {
         }
         case VAR_DECL_NODE_T: {
             var_decl_node_t *var_decl_node_view = ((var_decl_node_t *) node);
-            type_info_t info = { .qualifier = var_decl_node_view->entry->type_info.qualifier,
-                                 .type = var_decl_node_view->entry->type_info.type,
-                                 .depth = var_decl_node_view->entry->type_info.depth};
-            memcpy(info.sizes, var_decl_node_view->entry->type_info.sizes, info.depth * sizeof (unsigned));
-            print_type_info(&info);
+            printf("Declaration: ");
+            print_type_info(&var_decl_node_view->entry->type_info);
             printf(" %s\n", var_decl_node_view->entry->name);
             break;
         }
         case VAR_DEF_NODE_T: {
             var_def_node_t *var_def_node_view = ((var_def_node_t *) node);
-            type_info_t info = { .qualifier = var_def_node_view->entry->type_info.qualifier,
-                    .type = var_def_node_view->entry->type_info.type,
-                    .depth = var_def_node_view->entry->type_info.depth};
-            memcpy(info.sizes, var_def_node_view->entry->type_info.sizes, info.depth * sizeof (unsigned));
-            print_type_info(&info);
+            printf("Definition: ");
+            print_type_info(&var_def_node_view->entry->type_info);
             printf(" %s\n", var_def_node_view->entry->name);
             break;
         }
@@ -1814,11 +1849,17 @@ void tree_traversal(const node_t *node) {
     if (node == NULL) {
         return;
     }
-
+    print_node(node);
     switch (node->type) {
         case BASIC_NODE_T: {
             tree_traversal(node->left);
             tree_traversal(node->right);
+            break;
+        }
+        case STMT_LIST_NODE_T: {
+            for (unsigned i = 0; i < ((stmt_list_node_t *) node)->num_of_stmt; ++i) {
+                tree_traversal(((stmt_list_node_t *) node)->stmt_list[i]);
+            }
             break;
         }
         case VAR_DEF_NODE_T: {
@@ -1912,5 +1953,4 @@ void tree_traversal(const node_t *node) {
             break;
         }
     }
-    print_node(node);
 }

@@ -7,6 +7,9 @@
 #endif
 #include "symtab.h"
 
+/* control scope hide for visual debugging via --dump */
+volatile bool hide = true;
+
 char *qualifier_to_str(qualifier_t qualifier) {
     switch (qualifier) {
         case NONE_T: {
@@ -121,7 +124,7 @@ list_t *lookup(const char *name) { /* return symbol if found or NULL if not foun
 }
 
 void hide_scope() { /* hide the current scope */
-    if (no_hide) {
+    if (hide) {
         for (unsigned i = 0; i < SIZE; ++i) {
             if (hash_table[i] != NULL) {
                 list_t *l = hash_table[i];
@@ -132,7 +135,7 @@ void hide_scope() { /* hide the current scope */
             }
         }
     }
-    if(cur_scope > 0) {
+    if (cur_scope > 0) {
         --cur_scope;
     }
 }

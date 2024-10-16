@@ -7,9 +7,6 @@
 /* maximum size of hash table */
 #define SIZE 211
 
-/* control scope hide for visual debugging via --dump */
-static bool no_hide = false;
-
 /* current scope */
 static unsigned cur_scope = 0;
 

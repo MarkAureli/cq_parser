@@ -55,6 +55,7 @@ typedef enum assign_op {
 
 typedef enum node_type {
     BASIC_NODE_T,
+    STMT_LIST_NODE_T,
     FUNC_DECL_NODE_T,
     FUNC_SP_NODE_T,
     VAR_DECL_NODE_T,
@@ -83,6 +84,12 @@ typedef struct node {
     struct node *left;
     struct node *right;
 } node_t;
+
+typedef struct stmt_list_node {
+    node_type_t type;
+    node_t **stmt_list;
+    unsigned num_of_stmt;
+} stmt_list_node_t;
 
 typedef union array_index {
     unsigned const_index;
@@ -297,6 +304,10 @@ value_t *get_reduced_array(const value_t *values, const unsigned sizes[MAXARRAYD
 
 node_t *new_node(node_type_t type, node_t *left, node_t *right);
 
+node_t *new_stmt_list_node(node_t *stmt);
+
+void append_to_stmt_list(node_t *stmt_list_node, node_t *stmt);
+
 node_t *new_func_decl_node(list_t *entry);
 
 node_t *new_func_sp_node(list_t *entry);
@@ -376,6 +387,9 @@ node_t *build_var_def_node(list_t *entry, init_info_t *init_info, char error_msg
 node_t *build_do_node(node_t *do_branch, node_t *condition, char error_msg[ERRORMSGLENGTH]);
 
 node_t *build_while_node(node_t *condition, node_t *while_branch, char error_msg[ERRORMSGLENGTH]);
+
+node_t *build_for_node(node_t *initialize, node_t *condition, node_t *increment, node_t *for_branch,
+                       char error_msg[ERRORMSGLENGTH]);
 
 node_t *build_assign_node(node_t *left, assign_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]);
 
