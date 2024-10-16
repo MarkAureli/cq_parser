@@ -33,6 +33,7 @@ char error_msg[ERRORMSGLENGTH];
     logical_op_t logical_op;
     comparison_op_t comparison_op;
     equality_op_t equality_op;
+    else_if_list_t else_if_list;
     arg_list_t arg_list;
 }
 
@@ -78,6 +79,7 @@ char error_msg[ERRORMSGLENGTH];
 %type <node> stmt_l stmt decl_stmt res_stmt_l res_stmt
 %type <node> assign_stmt func_call_stmt if_stmt switch_stmt do_stmt while_stmt for_stmt for_first jump_stmt
 %type <node> optional_else
+%type <else_if_list> else_if
 %type <init_info> init init_elem_l
 %type <access_info> array_access
 %type <arg_list> argument_expr_l
@@ -142,13 +144,13 @@ func_head:
         $$ = $2;
     }
     | LPAREN RPAREN {
-        $$ = empty_func_info_init();
+        $$ = create_empty_func_info();
     }
     ;
 
 par_l:
 	par {
-	    $$ = func_info_init($1);
+	    $$ = create_func_info($1);
 	}
 	| par_l COMMA par {
 	    $$ = $1;
@@ -299,13 +301,13 @@ init_elem_l:
 
 type_specifier:
 	BOOL {
-	    $$ = type_info_init(BOOL_T, 0);
+	    $$ = create_type_info(BOOL_T, 0);
 	}
 	| INT {
-	    $$ = type_info_init(INT_T, 0);
+	    $$ = create_type_info(INT_T, 0);
 	}
 	| UNSIGNED {
-	    $$ = type_info_init(UNSIGNED_T, 0);
+	    $$ = create_type_info(UNSIGNED_T, 0);
 	}
 	| type_specifier LBRACKET or_expr RBRACKET {
 	    if ($1.depth == MAXARRAYDEPTH) {
@@ -422,21 +424,34 @@ func_call_stmt:
 
 if_stmt:
 	IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE optional_else {
-	    $$ = NULL;
+	    $$ = build_if_node($3, $6, NULL, 0, $8, error_msg);
+	    if ($$ == NULL) {
+	        yyerror(error_msg);
+	    }
 	}
-	| IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE else_if optional_else { /* dummy */ $$ = NULL; }
+	| IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE else_if optional_else {
+	    $$ = build_if_node($3, $6, $8.else_if_nodes, $8.num_of_else_ifs, $9, error_msg);
+	    if ($$ == NULL) {
+	        yyerror(error_msg);
+	    }
+	}
 	;
 
 else_if:
     ELSE IF LPAREN logical_or_expr RPAREN LBRACE stmt_l RBRACE {
-        //$$ = NULL;
-        //node_t *else_if_node = build_else_if_node($4, $7, error_msg);
-        //if ($$ == NULL) {
-        //    yyerror(error_msg);
-        //}
+        node_t *else_if_node = build_else_if_node($4, $7, error_msg);
+        if (else_if_node == NULL) {
+            yyerror(error_msg);
+        }
+        $$ = create_else_if_list(else_if_node);
     }
     | else_if ELSE IF LPAREN logical_or_expr RPAREN LBRACE stmt_l RBRACE {
-
+        node_t *else_if_node = build_else_if_node($5, $8, error_msg);
+        if (else_if_node == NULL) {
+            yyerror(error_msg);
+        }
+        $$ = $1;
+        append_to_else_if_list(&$$, else_if_node);
     }
     ;
 
@@ -797,7 +812,7 @@ array_access:
             snprintf(error_msg, sizeof (error_msg), "Function %s is not called", entry->name);
             yyerror(error_msg);
         }
-        $$ = access_info_init(entry);
+        $$ = create_access_info(entry);
     }
     | array_access LBRACKET or_expr RBRACKET {
         $$ = $1;
@@ -861,7 +876,7 @@ const:
 
 func_call:
 	ID LPAREN argument_expr_l RPAREN {
-        $$ = build_func_call_node(insert($1, strlen($1), yylineno, false), $3.pars, $3.num_of_pars, error_msg);
+        $$ = build_func_call_node(insert($1, strlen($1), yylineno, false), $3.args, $3.num_of_args, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -875,7 +890,7 @@ func_call:
 
 argument_expr_l:
 	logical_or_expr {
-	    $$ = arg_list_init($1);
+	    $$ = create_arg_list($1);
 	}
 	| argument_expr_l COMMA logical_or_expr {
 	    $$ = $1;

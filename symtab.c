@@ -86,7 +86,8 @@ list_t *insert(const char *name, unsigned length, unsigned line_num, bool declar
     } else {
         if (declaration == true) {
             if (l->scope == cur_scope) {
-                fprintf(stderr, "Multiple declaration of identifier %s at line %u (previous declaration in line %u)\n", name, line_num, l->lines->line_num);
+                fprintf(stderr, "Multiple declaration of identifier %s at line %u (previous declaration in line %u)\n",
+                        name, line_num, l->lines->line_num);
                 exit(1);
             } else {
                 l = calloc(1, sizeof (list_t));
@@ -169,13 +170,14 @@ void set_type_info(const char *name, qualifier_t qualifier, type_t type, unsigne
     set_type_info_of_elem(l, qualifier, type, depth, sizes, is_function);
 }
 
-func_info_t empty_func_info_init() {
-    func_info_t new_func_info = { .pars_type_info = NULL, .num_of_pars = 0};
+func_info_t create_empty_func_info() {
+    func_info_t new_func_info = { .is_unitary = true, .pars_type_info = NULL, .num_of_pars = 0};
     return new_func_info;
 }
 
-func_info_t func_info_init(type_info_t type_info) {
-    func_info_t new_func_info = { .pars_type_info = calloc(1, sizeof (type_info_t)), .num_of_pars = 1};
+func_info_t create_func_info(type_info_t type_info) {
+    func_info_t new_func_info = { .is_unitary = true, .pars_type_info = calloc(1, sizeof (type_info_t)),
+                                  .num_of_pars = 1};
     new_func_info.pars_type_info[0] = type_info;
     return new_func_info;
 }

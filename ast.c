@@ -133,7 +133,7 @@ char *assign_op_to_str(assign_op_t assign_op) {
     }
 }
 
-void apply_logical_op(logical_op_t op, value_t *out, value_t in_1, value_t in_2) {
+void logical_op_application(logical_op_t op, value_t *out, value_t in_1, value_t in_2) {
     switch (op) {
         case LOR_OP: {
             out->bval = in_1.bval || in_2.bval;
@@ -150,8 +150,8 @@ void apply_logical_op(logical_op_t op, value_t *out, value_t in_1, value_t in_2)
     }
 }
 
-void apply_comparison_op(comparison_op_t op, value_t *out, type_t in_type_1,
-                         value_t in_value_1, type_t in_type_2, value_t in_value_2) {
+void comparison_op_application(comparison_op_t op, value_t *out, type_t in_type_1,
+                               value_t in_value_1, type_t in_type_2, value_t in_value_2) {
     switch (op) {
         case GE_OP: {
             if (in_type_1 == INT_T && in_type_2 == INT_T) {
@@ -211,8 +211,8 @@ void apply_equality_op(equality_op_t op, value_t *out, type_t in_type_1,
     }
 }
 
-int apply_integer_op(integer_op_t op, value_t *out, type_t in_type_1,
-                     value_t in_value_1, type_t in_type_2, value_t in_value_2) {
+int integer_op_application(integer_op_t op, value_t *out, type_t in_type_1,
+                           value_t in_value_1, type_t in_type_2, value_t in_value_2) {
     if (in_type_1 == INT_T && in_type_2 == INT_T) {
         switch (op) {
             case ADD_OP: {
@@ -385,6 +385,7 @@ node_t *new_node(node_type_t type, node_t *left, node_t *right) {
 node_t *new_stmt_list_node(node_t *stmt) {
     stmt_list_node_t *new_node = calloc(1, sizeof (stmt_list_node_t));
     new_node->type = STMT_LIST_NODE_T;
+    new_node->is_unitary = stmt_is_unitary(stmt);
     new_node->stmt_list = calloc(1, sizeof (node_t *));
     new_node->stmt_list[0] = stmt;
     new_node->num_of_stmt = 1;
@@ -397,6 +398,7 @@ void append_to_stmt_list(node_t *stmt_list_node, node_t *stmt) {
     stmt_list_node_view->stmt_list = realloc(stmt_list_node_view->stmt_list,
                                              (current_num_of_stmt + 1) * sizeof (node_t *));
     stmt_list_node_view->stmt_list[current_num_of_stmt] = stmt;
+    stmt_list_node_view->is_unitary = stmt_is_unitary(stmt);
 }
 
 node_t *new_func_decl_node(list_t *entry) {
@@ -573,23 +575,23 @@ node_t *new_invert_op_node(qualifier_t qualifier, type_t type, const unsigned si
     return (node_t *) new_node;
 }
 
-node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branches, unsigned elseif_count,
+node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branches, unsigned num_of_else_ifs,
                     node_t *else_branch) {
     if_node_t *new_node = calloc(1, sizeof (if_node_t));
     new_node->type = IF_NODE_T;
     new_node->condition = condition;
     new_node->if_branch = if_branch;
-    new_node->elseif_branches = elseif_branches;
-    new_node->elseif_count = elseif_count;
+    new_node->else_if_branches = elseif_branches;
+    new_node->num_of_else_ifs = num_of_else_ifs;
     new_node->else_branch = else_branch;
     return (node_t *) new_node;
 }
 
-node_t *new_else_node(node_t *condition, node_t *elseif_branch) {
+node_t *new_else_if_node(node_t *condition, node_t *elseif_branch) {
     else_if_node_t *new_node = calloc(1, sizeof (else_if_node_t));
     new_node->type = ELSE_IF_NODE_T;
     new_node->condition = condition;
-    new_node->elseif_branch = elseif_branch;
+    new_node->else_if_branch = elseif_branch;
     return (node_t *) new_node;
 }
 
@@ -643,7 +645,7 @@ node_t *new_return_node(type_t ret_type, node_t *ret_val) {
     return (node_t *) new_node;
 }
 
-type_info_t type_info_init(type_t type, unsigned depth) {
+type_info_t create_type_info(type_t type, unsigned depth) {
     type_info_t new_type_info = { .type = type, .depth = depth};
     return new_type_info;
 }
@@ -678,25 +680,59 @@ void append_to_init_info(init_info_t *array_init_info, qualified_type_t qualifie
     array_init_info->init_list.values[current_length] = value;
 }
 
-access_info_t access_info_init(list_t *entry) {
+bool stmt_is_unitary(const node_t *node) {
+    switch (node->type) {
+        case VAR_DECL_NODE_T: case VAR_DEF_NODE_T: case ASSIGN_NODE_T: {
+            return get_type_info_of_node(node)->type == QUANTUM_T;
+        }
+        case FUNC_CALL_NODE_T: {
+            return ((func_call_node_t *) node)->entry->func_info.is_unitary;
+        }
+        default: {
+            return false;
+        }
+    }
+}
+
+access_info_t create_access_info(list_t *entry) {
     access_info_t new_array_access = { .entry=entry };
     return new_array_access;
 }
 
-arg_list_t arg_list_init(node_t *node) {
-    arg_list_t new_arg_list = {.pars = calloc(1, sizeof (node_t *)), .num_of_pars = 1 };
-    new_arg_list.pars[0] = node;
+else_if_list_t create_else_if_list(node_t *node) {
+    else_if_list_t new_else_if_list = { .else_if_nodes = calloc(1, sizeof (node_t *)),
+                                        .num_of_else_ifs = 1 };
+    new_else_if_list.else_if_nodes[0] = node;
+    return new_else_if_list;
+}
+
+void append_to_else_if_list(else_if_list_t *else_if_list, node_t *node) {
+    unsigned current_num_of_else_ifs = (else_if_list->num_of_else_ifs)++;
+    else_if_list->else_if_nodes = realloc(else_if_list->else_if_nodes,
+                                          (current_num_of_else_ifs + 1) * sizeof (node_t *));
+    else_if_list->else_if_nodes[current_num_of_else_ifs] = node;
+}
+
+arg_list_t create_arg_list(node_t *node) {
+    arg_list_t new_arg_list = { .args = calloc(1, sizeof (node_t *)), .num_of_args = 1 };
+    new_arg_list.args[0] = node;
     return new_arg_list;
 }
 
 void append_to_arg_list(arg_list_t *arg_list, node_t *node) {
-    unsigned current_num_of_pars = (arg_list->num_of_pars)++;
-    arg_list->pars = realloc(arg_list->pars, (current_num_of_pars) * sizeof (node_t *));
-    arg_list->pars[current_num_of_pars] = node;
+    unsigned current_num_of_args = (arg_list->num_of_args)++;
+    arg_list->args = realloc(arg_list->args, (current_num_of_args) * sizeof (node_t *));
+    arg_list->args[current_num_of_args] = node;
 }
 
 type_info_t *get_type_info_of_node(const node_t *node) {
     switch (node->type) {
+        case VAR_DECL_NODE_T: {
+            return &(((var_decl_node_t *) node)->entry->type_info);
+        }
+        case VAR_DEF_NODE_T: {
+            return &(((var_def_node_t *) node)->entry->type_info);
+        }
         case CONST_NODE_T: {
             return &(((const_node_t *) node)->type_info);
         }
@@ -705,6 +741,20 @@ type_info_t *get_type_info_of_node(const node_t *node) {
         }
         case REFERENCE_NODE_T: {
             return &(((reference_node_t *) node)->type_info);
+        }
+        case ASSIGN_NODE_T: {
+            assign_node_t *assign_node_view = ((assign_node_t *) node);
+            switch (assign_node_view->left->type) {
+                case CONST_NODE_T: {
+                    return &((const_node_t *) assign_node_view->left)->type_info;
+                }
+                case REFERENCE_NODE_T: {
+                    return &((reference_node_t *) assign_node_view->left)->type_info;
+                }
+                default: {
+                    return NULL;
+                }
+            }
         }
         case LOGICAL_OP_NODE_T: {
             return &(((logical_op_node_t *) node)->type_info);
@@ -1035,6 +1085,64 @@ node_t *build_var_def_node(list_t *entry, init_info_t *init_info, char error_msg
     return result;
 }
 
+node_t *build_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branches, unsigned num_of_else_ifs,
+                      node_t *else_branch, char error_msg[ERRORMSGLENGTH]) {
+    type_info_t *type_info = get_type_info_of_node(condition);
+    if (type_info->type != BOOL_T) {
+        snprintf(error_msg, ERRORMSGLENGTH, "If condition must be of type bool, but is of type %s",
+                 type_to_str(type_info->type));
+        return NULL;
+    } else if (type_info->depth != 0) {
+        snprintf(error_msg, ERRORMSGLENGTH, "If condition must be a single bool, but is an array of depth %u",
+                 type_info->depth);
+        return NULL;
+    }
+
+    if (type_info->qualifier == QUANTUM_T) {
+        if (!(((stmt_list_node_t *) if_branch)->is_unitary)) {
+            snprintf(error_msg, ERRORMSGLENGTH, "If condition is quantum, but statements are not unitary");
+            return NULL;
+        } else if (else_branch != NULL && !(((stmt_list_node_t *) else_branch)->is_unitary)) {
+            snprintf(error_msg, ERRORMSGLENGTH, "Else condition is quantum, but statements are not unitary");
+            return NULL;
+        }
+    }
+
+    for (unsigned i = 0; i < num_of_else_ifs; ++i) {
+        else_if_node_t *else_if_node_view = (else_if_node_t *) (else_if_node_t *) else_if_branches[i];
+        qualifier_t condition_qualifier = get_type_info_of_node((else_if_node_view)->condition)->qualifier;
+        if (condition_qualifier != type_info->qualifier) {
+            snprintf(error_msg, ERRORMSGLENGTH, "Else-if condition %u is %s while if condition is %s",
+                     i + 1, (condition_qualifier == QUANTUM_T) ? "quantum" : "classical",
+                     (type_info->qualifier == QUANTUM_T) ? "quantum" : "classical");
+            return NULL;
+        }
+    }
+
+
+    node_t *result = new_if_node(condition, if_branch, else_if_branches, num_of_else_ifs, else_branch);
+    return result;
+}
+
+node_t *build_else_if_node(node_t *condition, node_t *else_if_branch, char error_msg[ERRORMSGLENGTH]) {
+    type_info_t *type_info = get_type_info_of_node(condition);
+    if (type_info->type != BOOL_T) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Else-if condition must be of type bool, but is of type %s",
+                 type_to_str(type_info->type));
+        return NULL;
+    } else if (type_info->depth != 0) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Else-if condition must be a single bool, but is an array of depth %u",
+                 type_info->depth);
+        return NULL;
+    } else if (type_info->qualifier == QUANTUM_T && !(((stmt_list_node_t *) else_if_branch)->is_unitary)) {
+        snprintf(error_msg, ERRORMSGLENGTH, "Else-if condition is quantum, but statements are not unitary");
+        return NULL;
+    }
+
+    node_t *result = new_else_if_node(condition, else_if_branch);
+    return result;
+}
+
 node_t *build_do_node(node_t *do_branch, node_t *condition, char error_msg[ERRORMSGLENGTH]) {
     type_info_t *type_info = get_type_info_of_node(condition);
     if (type_info->qualifier == QUANTUM_T) {
@@ -1268,10 +1376,10 @@ node_t *build_logical_op_node(node_t *left, logical_op_t op, node_t *right, char
         const_node_view_result->type_info.type = BOOL_T;
 
         for (unsigned i = 0; i < length; ++i) {
-            apply_logical_op(op,
-                             const_node_view_result->values + i,
-                             const_node_view_left->values[i],
-                             const_node_view_right->values[i]);
+            logical_op_application(op,
+                                   const_node_view_result->values + i,
+                                   const_node_view_left->values[i],
+                                   const_node_view_right->values[i]);
         }
         free(const_node_view_right->values);
         free(const_node_view_right);
@@ -1339,9 +1447,9 @@ node_t *build_comparison_op_node(node_t *left, comparison_op_t op, node_t *right
         const_node_view_result->type_info.type = BOOL_T;
 
         for (unsigned i = 0; i < length; ++i) {
-            apply_comparison_op(op, const_node_view_result->values + i, left_type_info->type,
-                                const_node_view_left->values[i], right_type_info->type,
-                                const_node_view_right->values[i]);
+            comparison_op_application(op, const_node_view_result->values + i, left_type_info->type,
+                                      const_node_view_left->values[i], right_type_info->type,
+                                      const_node_view_right->values[i]);
         }
         free(const_node_view_right->values);
         free(const_node_view_right);
@@ -1515,12 +1623,12 @@ node_t *build_integer_op_node(node_t *left, integer_op_t op, node_t *right, char
         const_node_view_result->type_info.type = INT_T;
 
         for (unsigned i = 0; i < length; ++i) {
-            int validity_check = apply_integer_op(op,
-                                                  const_node_view_result->values + i,
-                                                  left_type_info->type,
-                                                  const_node_view_left->values[i],
-                                                  right_type_info->type,
-                                                  const_node_view_right->values[i]);
+            int validity_check = integer_op_application(op,
+                                                        const_node_view_result->values + i,
+                                                        left_type_info->type,
+                                                        const_node_view_left->values[i],
+                                                        right_type_info->type,
+                                                        const_node_view_right->values[i]);
             if (validity_check == 1) {
                 snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
                 return NULL;
@@ -1801,7 +1909,7 @@ void print_node(const node_t *node) {
             break;
         }
         case IF_NODE_T: {
-            printf("If node with %u \"else if\"s\n", ((if_node_t *) node)->elseif_count);
+            printf("If node with %u \"else if\"s\n", ((if_node_t *) node)->num_of_else_ifs);
             break;
         }
         case ELSE_IF_NODE_T: {
@@ -1911,15 +2019,15 @@ void tree_traversal(const node_t *node) {
         case IF_NODE_T: {
             tree_traversal(((if_node_t *) node)->condition);
             tree_traversal(((if_node_t *) node)->if_branch);
-            for (unsigned i = 0; i < ((if_node_t *) node)->elseif_count; ++i) {
-                tree_traversal(((if_node_t *) node)->elseif_branches[i]);
+            for (unsigned i = 0; i < ((if_node_t *) node)->num_of_else_ifs; ++i) {
+                tree_traversal(((if_node_t *) node)->else_if_branches[i]);
             }
             tree_traversal(((if_node_t *) node)->else_branch);
             break;
         }
         case ELSE_IF_NODE_T: {
             tree_traversal(((else_if_node_t *) node)->condition);
-            tree_traversal(((else_if_node_t *) node)->elseif_branch);
+            tree_traversal(((else_if_node_t *) node)->else_if_branch);
             break;
         }
         case FOR_NODE_T: {

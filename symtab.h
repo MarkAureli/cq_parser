@@ -43,6 +43,7 @@ typedef struct qualified_type {
 } qualified_type_t;
 
 typedef struct func_info {
+    bool is_unitary;
     type_info_t *pars_type_info;
     unsigned num_of_pars;
 } func_info_t;
@@ -93,9 +94,9 @@ void set_type_info_of_elem(list_t *entry, qualifier_t qualifier, type_t type, un
 void set_type_info(const char *name, qualifier_t qualifier, type_t type, unsigned depth,
                    const unsigned sizes[MAXARRAYDEPTH], bool is_function);
 
-func_info_t empty_func_info_init();
+func_info_t create_empty_func_info();
 
-func_info_t func_info_init(type_info_t type_info);
+func_info_t create_func_info(type_info_t type_info);
 
 void append_to_func_info(func_info_t *func_info, type_info_t type_info);
 

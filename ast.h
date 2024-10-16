@@ -79,26 +79,14 @@ typedef enum node_type {
     RETURN_NODE_T
 } node_type_t;
 
-typedef struct node {
-    node_type_t type;
-    struct node *left;
-    struct node *right;
-} node_t;
-
-typedef struct stmt_list_node {
-    node_type_t type;
-    node_t **stmt_list;
-    unsigned num_of_stmt;
-} stmt_list_node_t;
-
 typedef union index {
     unsigned const_index;
-    node_t *node_index;
+    struct node *node_index;
 } index_t;
 
 typedef union array_value {
     value_t const_value;
-    node_t *node_value;
+    struct node *node_value;
 } array_value_t;
 
 typedef struct init_list {
@@ -110,7 +98,7 @@ typedef struct init_list {
 typedef struct init_info {
     bool is_init_list;
     union {
-        node_t *node;
+        struct node *node;
         init_list_t init_list;
     };
 } init_info_t;
@@ -127,10 +115,28 @@ typedef struct array_values_info {
     array_value_t *values;
 } array_values_info_t;
 
+typedef struct else_if_list {
+    struct node **else_if_nodes;
+    unsigned num_of_else_ifs;
+} else_if_list_t;
+
 typedef struct arg_list {
-    node_t **pars;
-    unsigned num_of_pars;
+    struct node **args;
+    unsigned num_of_args;
 } arg_list_t;
+
+typedef struct node {
+    node_type_t type;
+    struct node *left;
+    struct node *right;
+} node_t;
+
+typedef struct stmt_list_node {
+    node_type_t type;
+    bool is_unitary;
+    node_t **stmt_list;
+    unsigned num_of_stmt;
+} stmt_list_node_t;
 
 typedef struct func_decl_node {
     node_type_t type;
@@ -228,15 +234,15 @@ typedef struct if_node {
     node_type_t type;
     node_t *condition;
     node_t *if_branch;
-    node_t **elseif_branches;
-    unsigned elseif_count;
+    node_t **else_if_branches;
+    unsigned num_of_else_ifs;
     node_t *else_branch;
 } if_node_t;
 
 typedef struct else_if_node {
     node_type_t type;
     node_t *condition;
-    node_t *elseif_branch;
+    node_t *else_if_branch;
 } else_if_node_t;
 
 typedef struct for_node {
@@ -344,10 +350,10 @@ node_t *new_integer_op_node(qualifier_t qualifier, type_t type, const unsigned s
 node_t *new_invert_op_node(qualifier_t qualifier, type_t type, const unsigned sizes[MAXARRAYDEPTH],
                            unsigned depth, node_t *child);
 
-node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branches, unsigned elseif_count,
+node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branches, unsigned num_of_else_ifs,
                     node_t *else_branch);
 
-node_t *new_else_node(node_t *condition, node_t *elseif_branch);
+node_t *new_else_if_node(node_t *condition, node_t *elseif_branch);
 
 node_t *new_for_node(node_t *initialize, node_t *condition, node_t *increment, node_t *for_branch);
 
@@ -361,7 +367,7 @@ node_t *new_jump_node(int statement_type);
 
 node_t *new_return_node(type_t ret_type, node_t *ret_val);
 
-type_info_t type_info_init(type_t type, unsigned depth);
+type_info_t create_type_info(type_t type, unsigned depth);
 
 init_info_t *new_init_info_from_node(node_t *node);
 
@@ -369,9 +375,15 @@ init_info_t *new_init_info_from_init_list(qualified_type_t qualified_type, array
 
 void append_to_init_info(init_info_t *array_init_info, qualified_type_t qualified_type, array_value_t value);
 
-access_info_t access_info_init(list_t *entry);
+bool stmt_is_unitary(const node_t *node);
 
-arg_list_t arg_list_init(node_t *node);
+access_info_t create_access_info(list_t *entry);
+
+else_if_list_t create_else_if_list(node_t *node);
+
+void append_to_else_if_list(else_if_list_t *else_if_list, node_t *node);
+
+arg_list_t create_arg_list(node_t *node);
 
 void append_to_arg_list(arg_list_t *arg_list, node_t *node);
 
@@ -382,6 +394,11 @@ bool are_matching_types(type_t type_1, type_t type_2);
 node_t *build_func_sp_node(list_t * entry, char error_msg[ERRORMSGLENGTH]);
 
 node_t *build_var_def_node(list_t *entry, init_info_t *init_info, char error_msg[ERRORMSGLENGTH]);
+
+node_t *build_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branches, unsigned num_of_else_ifs,
+                      node_t *else_branch, char error_msg[ERRORMSGLENGTH]);
+
+        node_t *build_else_if_node(node_t *condition, node_t *else_if_branch, char error_msg[ERRORMSGLENGTH]);
 
 node_t *build_do_node(node_t *do_branch, node_t *condition, char error_msg[ERRORMSGLENGTH]);
 
