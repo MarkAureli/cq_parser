@@ -70,7 +70,7 @@ typedef enum node_type {
     INTEGER_OP_NODE_T,
     INVERT_OP_NODE_T,
     IF_NODE_T,
-    ELSE_NODE_T,
+    ELSE_IF_NODE_T,
     FOR_NODE_T,
     DO_NODE_T,
     WHILE_NODE_T,
@@ -91,10 +91,10 @@ typedef struct stmt_list_node {
     unsigned num_of_stmt;
 } stmt_list_node_t;
 
-typedef union array_index {
+typedef union index {
     unsigned const_index;
     node_t *node_index;
-} array_index_t;
+} index_t;
 
 typedef union array_value {
     value_t const_value;
@@ -115,12 +115,12 @@ typedef struct init_info {
     };
 } init_info_t;
 
-typedef struct array_access_info {
+typedef struct access_info {
     list_t *entry;
     bool index_is_const[MAXARRAYDEPTH];
-    array_index_t indices[MAXARRAYDEPTH];
+    index_t indices[MAXARRAYDEPTH];
     unsigned depth;
-} array_access_info_t;
+} access_info_t;
 
 typedef struct array_values_info {
     bool *value_is_const;
@@ -167,7 +167,7 @@ typedef struct reference_node {
     node_type_t type;
     type_info_t type_info;
     bool index_is_const[MAXARRAYDEPTH];
-    array_index_t indices[MAXARRAYDEPTH];
+    index_t indices[MAXARRAYDEPTH];
     list_t *entry;
 } reference_node_t;
 
@@ -233,11 +233,11 @@ typedef struct if_node {
     node_t *else_branch;
 } if_node_t;
 
-typedef struct else_node {
+typedef struct else_if_node {
     node_type_t type;
     node_t *condition;
     node_t *elseif_branch;
-} else_node_t;
+} else_if_node_t;
 
 typedef struct for_node {
     node_type_t type;
@@ -323,7 +323,7 @@ node_t *new_var_def_node_from_init_list(list_t *entry, bool *value_is_const, arr
 node_t *new_const_node(type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, value_t *values);
 
 node_t *new_reference_node(const unsigned sizes[MAXARRAYDEPTH], unsigned depth, bool index_is_const[MAXARRAYDEPTH],
-                           array_index_t indices[MAXARRAYDEPTH], list_t *entry);
+                           index_t indices[MAXARRAYDEPTH], list_t *entry);
 
 node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars);
 
@@ -363,14 +363,13 @@ node_t *new_return_node(type_t ret_type, node_t *ret_val);
 
 type_info_t type_info_init(type_t type, unsigned depth);
 
-init_info_t *new_array_init_info_from_node(node_t *node);
+init_info_t *new_init_info_from_node(node_t *node);
 
-init_info_t *new_array_init_info_from_init_list(qualified_type_t qualified_type, array_value_t value);
+init_info_t *new_init_info_from_init_list(qualified_type_t qualified_type, array_value_t value);
 
-void append_to_array_init_info(init_info_t *array_init_info, qualified_type_t qualified_type,
-                               array_value_t value);
+void append_to_init_info(init_info_t *array_init_info, qualified_type_t qualified_type, array_value_t value);
 
-array_access_info_t array_access_info_init(list_t *entry);
+access_info_t access_info_init(list_t *entry);
 
 arg_list_t arg_list_init(node_t *node);
 

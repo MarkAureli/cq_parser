@@ -466,7 +466,7 @@ node_t *new_const_node(type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigne
 }
 
 node_t *new_reference_node(const unsigned sizes[MAXARRAYDEPTH], unsigned depth, bool index_is_const[MAXARRAYDEPTH],
-                           array_index_t indices[MAXARRAYDEPTH], list_t *entry) {
+                           index_t indices[MAXARRAYDEPTH], list_t *entry) {
     reference_node_t *new_node = calloc(1, sizeof (reference_node_t));
     new_node->type = REFERENCE_NODE_T;
     new_node->type_info.qualifier = entry->type_info.qualifier;
@@ -474,7 +474,7 @@ node_t *new_reference_node(const unsigned sizes[MAXARRAYDEPTH], unsigned depth, 
     memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
     new_node->type_info.depth = depth;
     memcpy(new_node->index_is_const, index_is_const, entry->type_info.depth * sizeof(bool));
-    memcpy(new_node->indices, indices, entry->type_info.depth * sizeof(array_index_t));
+    memcpy(new_node->indices, indices, entry->type_info.depth * sizeof(index_t));
     new_node->entry = entry;
     return (node_t *) new_node;
 }
@@ -586,8 +586,8 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branch
 }
 
 node_t *new_else_node(node_t *condition, node_t *elseif_branch) {
-    else_node_t *new_node = calloc(1, sizeof (else_node_t));
-    new_node->type = ELSE_NODE_T;
+    else_if_node_t *new_node = calloc(1, sizeof (else_if_node_t));
+    new_node->type = ELSE_IF_NODE_T;
     new_node->condition = condition;
     new_node->elseif_branch = elseif_branch;
     return (node_t *) new_node;
@@ -648,14 +648,14 @@ type_info_t type_info_init(type_t type, unsigned depth) {
     return new_type_info;
 }
 
-init_info_t *new_array_init_info_from_node(node_t *node) {
+init_info_t *new_init_info_from_node(node_t *node) {
     init_info_t *new_infos = calloc(1, sizeof (init_info_t));
     new_infos->is_init_list = false;
     new_infos->node = node;
     return new_infos;
 }
 
-init_info_t *new_array_init_info_from_init_list(qualified_type_t qualified_type, array_value_t value) {
+init_info_t *new_init_info_from_init_list(qualified_type_t qualified_type, array_value_t value) {
     init_info_t *new_infos = calloc(1, sizeof (init_info_t));
     new_infos->is_init_list = true;
     new_infos->init_list.qualified_types = calloc(1, sizeof (qualified_type_t));
@@ -666,8 +666,7 @@ init_info_t *new_array_init_info_from_init_list(qualified_type_t qualified_type,
     return new_infos;
 }
 
-void append_to_array_init_info(init_info_t *array_init_info, qualified_type_t qualified_type,
-                               array_value_t value) {
+void append_to_init_info(init_info_t *array_init_info, qualified_type_t qualified_type, array_value_t value) {
     unsigned current_length = (array_init_info->init_list.length)++;
     array_init_info->init_list.qualified_types = realloc(array_init_info->init_list.qualified_types,
                                                                (current_length + 1)
@@ -679,8 +678,8 @@ void append_to_array_init_info(init_info_t *array_init_info, qualified_type_t qu
     array_init_info->init_list.values[current_length] = value;
 }
 
-array_access_info_t array_access_info_init(list_t *entry) {
-    array_access_info_t new_array_access = { .entry=entry };
+access_info_t access_info_init(list_t *entry) {
+    access_info_t new_array_access = { .entry=entry };
     return new_array_access;
 }
 
@@ -1805,7 +1804,7 @@ void print_node(const node_t *node) {
             printf("If node with %u \"else if\"s\n", ((if_node_t *) node)->elseif_count);
             break;
         }
-        case ELSE_NODE_T: {
+        case ELSE_IF_NODE_T: {
             printf("Else node\n");
             break;
         }
@@ -1918,9 +1917,9 @@ void tree_traversal(const node_t *node) {
             tree_traversal(((if_node_t *) node)->else_branch);
             break;
         }
-        case ELSE_NODE_T: {
-            tree_traversal(((else_node_t *) node)->condition);
-            tree_traversal(((else_node_t *) node)->elseif_branch);
+        case ELSE_IF_NODE_T: {
+            tree_traversal(((else_if_node_t *) node)->condition);
+            tree_traversal(((else_if_node_t *) node)->elseif_branch);
             break;
         }
         case FOR_NODE_T: {
