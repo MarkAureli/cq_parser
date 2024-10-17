@@ -4,5 +4,6 @@
 #define MAXTOKENLEN 40
 #define MAXARRAYDEPTH 3
 #define ERRORMSGLENGTH 256
+#define HASHTABLESIZE 211
 
 #endif // RULES_H

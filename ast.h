@@ -107,7 +107,7 @@ typedef struct init_info {
 } init_info_t;
 
 typedef struct access_info {
-    list_t *entry;
+    entry_t *entry;
     bool index_is_const[MAXARRAYDEPTH];
     index_t indices[MAXARRAYDEPTH];
     unsigned depth;
@@ -148,22 +148,22 @@ typedef struct stmt_list_node {
 
 typedef struct func_decl_node {
     node_type_t type;
-    list_t *entry;
+    entry_t *entry;
 } func_decl_node_t;
 
 typedef struct func_sp_node {
     node_type_t type;
-    list_t *entry;
+    entry_t *entry;
 } func_sp_node_t;
 
 typedef struct var_decl_node {
     node_type_t type;
-    list_t *entry;
+    entry_t *entry;
 } var_decl_node_t;
 
 typedef struct var_def_node {
     node_type_t type;
-    list_t *entry;
+    entry_t *entry;
     bool is_init_list;
     union {
         node_t *node;
@@ -182,13 +182,13 @@ typedef struct reference_node {
     type_info_t type_info;
     bool index_is_const[MAXARRAYDEPTH];
     index_t indices[MAXARRAYDEPTH];
-    list_t *entry;
+    entry_t *entry;
 } reference_node_t;
 
 typedef struct func_call_node {
     node_type_t type;
     type_info_t type_info;
-    list_t *entry;
+    entry_t *entry;
     bool inverse;
     bool sp;
     node_t **pars;
@@ -343,24 +343,32 @@ node_t *new_stmt_list_node(node_t *stmt);
 
 void append_to_stmt_list(node_t *stmt_list_node, node_t *stmt);
 
-node_t *new_func_decl_node(list_t *entry);
+type_info_t create_type_info(qualifier_t qualifier, type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigned depth);
 
-node_t *new_func_sp_node(list_t *entry);
+func_info_t create_empty_func_info();
 
-node_t *new_var_decl_node(list_t *entry);
+func_info_t create_func_info(type_info_t type_info);
 
-node_t *new_var_def_node(list_t *entry, bool is_init_list, node_t *node, array_values_info_t array_values_info);
+void append_to_func_info(func_info_t *func_info, type_info_t type_info);
 
-node_t *new_var_def_node_from_node(list_t *entry, node_t *node);
+node_t *new_func_decl_node(entry_t *entry);
 
-node_t *new_var_def_node_from_init_list(list_t *entry, bool *value_is_const, array_value_t *values);
+node_t *new_func_sp_node(entry_t *entry);
+
+node_t *new_var_decl_node(entry_t *entry);
+
+node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, array_values_info_t array_values_info);
+
+node_t *new_var_def_node_from_node(entry_t *entry, node_t *node);
+
+node_t *new_var_def_node_from_init_list(entry_t *entry, bool *value_is_const, array_value_t *values);
 
 node_t *new_const_node(type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigned depth, value_t *values);
 
 node_t *new_reference_node(const unsigned sizes[MAXARRAYDEPTH], unsigned depth, bool index_is_const[MAXARRAYDEPTH],
-                           index_t indices[MAXARRAYDEPTH], list_t *entry);
+                           index_t indices[MAXARRAYDEPTH], entry_t *entry);
 
-node_t *new_func_call_node(list_t *entry, bool sp, node_t **pars, unsigned num_of_pars);
+node_t *new_func_call_node(entry_t *entry, bool sp, node_t **pars, unsigned num_of_pars);
 
 node_t *new_logical_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth,
                             logical_op_t op, node_t *left, node_t *right);
@@ -402,7 +410,7 @@ node_t *new_jump_node(int statement_type);
 
 node_t *new_return_node(type_t ret_type, node_t *ret_val);
 
-type_info_t create_type_info(type_t type, unsigned depth);
+type_info_t create_atomic_type_info(type_t type);
 
 init_info_t *new_init_info_from_node(node_t *node);
 
@@ -412,7 +420,7 @@ void append_to_init_info(init_info_t *array_init_info, qualified_type_t qualifie
 
 bool stmt_is_unitary(const node_t *node);
 
-access_info_t create_access_info(list_t *entry);
+access_info_t create_access_info(entry_t *entry);
 
 else_if_list_t create_else_if_list(node_t *node);
 
@@ -430,9 +438,9 @@ type_info_t *get_type_info_of_node(const node_t *node);
 
 bool are_matching_types(type_t type_1, type_t type_2);
 
-node_t *build_func_sp_node(list_t * entry, char error_msg[ERRORMSGLENGTH]);
+node_t *build_func_sp_node(entry_t * entry, char error_msg[ERRORMSGLENGTH]);
 
-node_t *build_var_def_node(list_t *entry, init_info_t *init_info, char error_msg[ERRORMSGLENGTH]);
+node_t *build_var_def_node(entry_t *entry, init_info_t *init_info, char error_msg[ERRORMSGLENGTH]);
 
 node_t *build_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branches, unsigned num_of_else_ifs,
                       node_t *else_branch, char error_msg[ERRORMSGLENGTH]);
@@ -465,7 +473,7 @@ node_t *build_integer_op_node(node_t *left, integer_op_t op, node_t *right, char
 
 node_t *build_invert_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]);
 
-node_t *build_func_call_node(bool sp,list_t *entry, node_t **pars, unsigned num_of_pars,
+node_t *build_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_of_pars,
                              char error_msg[ERRORMSGLENGTH]);
 
 void print_node(const node_t *node);

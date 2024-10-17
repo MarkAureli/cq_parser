@@ -141,13 +141,13 @@ phase				    { return PHASE; }
 %{ /* token actions */
 %}
 
-{BCONST}                { yylval.value.bval = strtob(yytext, NULL); return BCONST; }
+{BCONST}                { yylval.value.b_val = strtob(yytext, NULL); return BCONST; }
 {ID}				    { yylval.name = malloc(yyleng * sizeof (char)); strcpy(yylval.name, yytext); return ID; }
-{ICONST}			    { yylval.value.ival = (int) strtol(yytext, NULL, 10); return ICONST; }
+{ICONST}			    { yylval.value.i_val = (int) strtol(yytext, NULL, 10); return ICONST; }
 
 %{ /* match not found */
 %}
-.				        { fprintf(stderr, "Parsing failed in line %u: unknown symbol %s \n", yylineno, yytext); exit(1); }
+.				        { fprintf(stderr, "Parsing failed in line %u: bad symbol %s\n", yylineno, yytext); exit(1); }
 
 %%
 

@@ -136,15 +136,15 @@ char *assign_op_to_str(assign_op_t assign_op) {
 void logical_op_application(logical_op_t op, value_t *out, value_t in_1, value_t in_2) {
     switch (op) {
         case LOR_OP: {
-            out->bval = in_1.bval || in_2.bval;
+            out->b_val = in_1.b_val || in_2.b_val;
             break;
         }
         case LXOR_OP: {
-            out->bval = in_1.bval && !in_2.bval || !in_1.bval && in_2.bval;
+            out->b_val = in_1.b_val && !in_2.b_val || !in_1.b_val && in_2.b_val;
             break;
         }
         case LAND_OP: {
-            out->bval = in_1.bval && in_2.bval;
+            out->b_val = in_1.b_val && in_2.b_val;
             break;
         }
     }
@@ -155,33 +155,33 @@ void comparison_op_application(comparison_op_t op, value_t *out, type_t in_type_
     switch (op) {
         case GE_OP: {
             if (in_type_1 == INT_T && in_type_2 == INT_T) {
-                out->bval = in_value_1.ival > in_value_2.ival;
+                out->b_val = in_value_1.i_val > in_value_2.i_val;
             } else {
-                out->bval = in_value_1.uval > in_value_2.uval;
+                out->b_val = in_value_1.u_val > in_value_2.u_val;
             }
             break;
         }
         case GEQ_OP: {
             if (in_type_1 == INT_T && in_type_2 == INT_T) {
-                out->bval = in_value_1.ival >= in_value_2.ival;
+                out->b_val = in_value_1.i_val >= in_value_2.i_val;
             } else {
-                out->bval = in_value_1.ival >= in_value_2.uval;
+                out->b_val = in_value_1.i_val >= in_value_2.u_val;
             }
             break;
         }
         case LE_OP: {
             if (in_type_1 == INT_T && in_type_2 == INT_T) {
-                out->bval = in_value_1.ival < in_value_2.ival;
+                out->b_val = in_value_1.i_val < in_value_2.i_val;
             } else {
-                out->bval = in_value_1.ival < in_value_2.uval;
+                out->b_val = in_value_1.i_val < in_value_2.u_val;
             }
             break;
         }
         case LEQ_OP: {
             if (in_type_1 == INT_T && in_type_2 == INT_T) {
-                out->bval = in_value_1.ival >= in_value_2.ival;
+                out->b_val = in_value_1.i_val >= in_value_2.i_val;
             } else {
-                out->bval = in_value_1.ival >= in_value_2.uval;
+                out->b_val = in_value_1.i_val >= in_value_2.u_val;
             }
             break;
         }
@@ -192,21 +192,21 @@ void apply_equality_op(equality_op_t op, value_t *out, type_t in_type_1,
                        value_t in_value_1, type_t in_type_2, value_t in_value_2) {
     if (in_type_1 == BOOL_T) {
         if (op == EQ_OP) {
-            out->bval = in_value_1.bval == in_value_2.bval;
+            out->b_val = in_value_1.b_val == in_value_2.b_val;
         } else {
-            out->bval = in_value_1.bval != in_value_2.bval;
+            out->b_val = in_value_1.b_val != in_value_2.b_val;
         }
     } else if (in_type_1 == INT_T && in_type_2 == INT_T) {
         if (op == EQ_OP) {
-            out->bval = in_value_1.ival == in_value_2.ival;
+            out->b_val = in_value_1.i_val == in_value_2.i_val;
         } else {
-            out->bval = in_value_1.ival != in_value_2.ival;
+            out->b_val = in_value_1.i_val != in_value_2.i_val;
         }
     } else {
         if (op == EQ_OP) {
-            out->bval = in_value_1.uval == in_value_2.uval;
+            out->b_val = in_value_1.u_val == in_value_2.u_val;
         } else {
-            out->bval = in_value_1.uval != in_value_2.uval;
+            out->b_val = in_value_1.u_val != in_value_2.u_val;
         }
     }
 }
@@ -216,82 +216,82 @@ int integer_op_application(integer_op_t op, value_t *out, type_t in_type_1,
     if (in_type_1 == INT_T && in_type_2 == INT_T) {
         switch (op) {
             case ADD_OP: {
-                out->ival = in_value_1.ival + in_value_2.ival;
+                out->i_val = in_value_1.i_val + in_value_2.i_val;
                 break;
             }
             case AND_OP: {
-                out->ival = in_value_1.ival & in_value_2.ival;
+                out->i_val = in_value_1.i_val & in_value_2.i_val;
                 break;
             }
             case DIV_OP: {
-                if (in_value_2.ival == 0) {
+                if (in_value_2.i_val == 0) {
                     return 1;
                 }
-                out->ival = in_value_1.ival / in_value_2.ival;
+                out->i_val = in_value_1.i_val / in_value_2.i_val;
                 break;
             }
             case MOD_OP: {
-                if (in_value_2.ival == 0) {
+                if (in_value_2.i_val == 0) {
                     return 2;
                 }
-                out->ival = in_value_1.ival % in_value_2.ival;
+                out->i_val = in_value_1.i_val % in_value_2.i_val;
                 break;
             }
             case MUL_OP: {
-                out->ival = in_value_1.ival * in_value_2.ival;
+                out->i_val = in_value_1.i_val * in_value_2.i_val;
                 break;
             }
             case OR_OP: {
-                out->ival = in_value_1.ival | in_value_2.ival;
+                out->i_val = in_value_1.i_val | in_value_2.i_val;
                 break;
             }
             case SUB_OP: {
-                out->ival = in_value_1.ival - in_value_2.ival;
+                out->i_val = in_value_1.i_val - in_value_2.i_val;
                 break;
             }
             case XOR_OP: {
-                out->ival = in_value_1.ival ^ in_value_2.ival;
+                out->i_val = in_value_1.i_val ^ in_value_2.i_val;
                 break;
             }
         }
     } else {
         switch (op) {
             case ADD_OP: {
-                out->uval = in_value_1.uval + in_value_2.uval;
+                out->u_val = in_value_1.u_val + in_value_2.u_val;
                 break;
             }
             case AND_OP: {
-                out->uval = in_value_1.uval & in_value_2.uval;
+                out->u_val = in_value_1.u_val & in_value_2.u_val;
                 break;
             }
             case DIV_OP: {
-                if (in_value_2.uval == 0) {
+                if (in_value_2.u_val == 0) {
                     return 1;
                 }
-                out->uval = in_value_1.uval / in_value_2.uval;
+                out->u_val = in_value_1.u_val / in_value_2.u_val;
                 break;
             }
             case MOD_OP: {
-                if (in_value_2.uval == 0) {
+                if (in_value_2.u_val == 0) {
                     return 2;
                 }
-                out->uval = in_value_1.uval % in_value_2.uval;
+                out->u_val = in_value_1.u_val % in_value_2.u_val;
                 break;
             }
             case MUL_OP: {
-                out->uval = in_value_1.uval * in_value_2.uval;
+                out->u_val = in_value_1.u_val * in_value_2.u_val;
                 break;
             }
             case OR_OP: {
-                out->uval = in_value_1.uval | in_value_2.uval;
+                out->u_val = in_value_1.u_val | in_value_2.u_val;
                 break;
             }
             case SUB_OP: {
-                out->uval = in_value_1.uval - in_value_2.uval;
+                out->u_val = in_value_1.u_val - in_value_2.u_val;
                 break;
             }
             case XOR_OP: {
-                out->uval = in_value_1.uval ^ in_value_2.uval;
+                out->u_val = in_value_1.u_val ^ in_value_2.u_val;
                 break;
             }
         }
@@ -314,15 +314,15 @@ void print_array(type_t type, const value_t *values, const unsigned sizes[MAXARR
         for (unsigned i = 0; i < sizes[current_depth]; ++i) {
             switch (type) {
                 case BOOL_T: {
-                    printf("%s", (values[index + i].bval) ? "true" : "false");
+                    printf("%s", (values[index + i].b_val) ? "true" : "false");
                     break;
                 }
                 case INT_T: {
-                    printf("%d", values[index + i].ival);
+                    printf("%d", values[index + i].i_val);
                     break;
                 }
                 case UNSIGNED_T: {
-                    printf("%u", values[index + i].uval);
+                    printf("%u", values[index + i].u_val);
                     break;
                 }
                 case VOID_T: {
@@ -401,28 +401,54 @@ void append_to_stmt_list(node_t *stmt_list_node, node_t *stmt) {
     stmt_list_node_view->is_unitary = stmt_list_node_view->is_unitary && stmt_is_unitary(stmt);
 }
 
-node_t *new_func_decl_node(list_t *entry) {
+type_info_t create_type_info(qualifier_t qualifier, type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigned depth) {
+    type_info_t new_type_info = { .qualifier = qualifier, .type = type, .depth = depth };
+    memcpy(new_type_info.sizes, sizes, depth * sizeof (unsigned));
+    return new_type_info;
+}
+
+func_info_t create_empty_func_info() {
+    func_info_t new_func_info = { .is_unitary = true, .is_sp = false, .pars_type_info = NULL, .num_of_pars = 0};
+    return new_func_info;
+}
+
+func_info_t create_func_info(type_info_t type_info) {
+    func_info_t new_func_info = { .is_unitary = true, .is_sp = type_info.depth == 0,
+            .pars_type_info = calloc(1, sizeof (type_info_t)), .num_of_pars = 1};
+    new_func_info.pars_type_info[0] = type_info;
+    return new_func_info;
+}
+
+void append_to_func_info(func_info_t *func_info, type_info_t type_info) {
+    func_info->is_sp = false;
+    unsigned current_num_of_pars = (func_info->num_of_pars)++;
+    func_info->pars_type_info = realloc(func_info->pars_type_info,
+                                        (current_num_of_pars + 1) * sizeof (type_info_t));
+    func_info->pars_type_info[current_num_of_pars] = type_info;
+}
+
+node_t *new_func_decl_node(entry_t *entry) {
     func_decl_node_t *new_node = calloc(1, sizeof (func_decl_node_t));
     new_node->type = FUNC_DECL_NODE_T;
     new_node->entry = entry;
     return (node_t *) new_node;
 }
 
-node_t *new_func_sp_node(list_t *entry) {
+node_t *new_func_sp_node(entry_t *entry) {
     func_decl_node_t *new_node = calloc(1, sizeof (func_sp_node_t));
     new_node->type = FUNC_SP_NODE_T;
     new_node->entry = entry;
     return (node_t *) new_node;
 }
 
-node_t *new_var_decl_node(list_t *entry) {
+node_t *new_var_decl_node(entry_t *entry) {
     var_decl_node_t *new_node = calloc(1, sizeof (var_decl_node_t));
     new_node->type = VAR_DECL_NODE_T;
     new_node->entry = entry;
     return (node_t *) new_node;
 }
 
-node_t *new_var_def_node(list_t *entry, bool is_init_list, node_t *node, array_values_info_t array_values_info) {
+node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, array_values_info_t array_values_info) {
     var_def_node_t *new_node = calloc(1, sizeof (var_def_node_t));
     new_node->type = VAR_DEF_NODE_T;
     new_node->entry = entry;
@@ -435,7 +461,7 @@ node_t *new_var_def_node(list_t *entry, bool is_init_list, node_t *node, array_v
     return (node_t *) new_node;
 }
 
-node_t *new_var_def_node_from_node(list_t *entry, node_t *node) {
+node_t *new_var_def_node_from_node(entry_t *entry, node_t *node) {
     var_def_node_t *new_node = calloc(1, sizeof (var_def_node_t));
     new_node->type = VAR_DEF_NODE_T;
     new_node->entry = entry;
@@ -444,7 +470,7 @@ node_t *new_var_def_node_from_node(list_t *entry, node_t *node) {
     return (node_t *) new_node;
 }
 
-node_t *new_var_def_node_from_init_list(list_t *entry, bool *value_is_const, array_value_t *values) {
+node_t *new_var_def_node_from_init_list(entry_t *entry, bool *value_is_const, array_value_t *values) {
     var_def_node_t *new_node = calloc(1, sizeof (var_def_node_t));
     new_node->type = VAR_DEF_NODE_T;
     new_node->entry = entry;
@@ -468,7 +494,7 @@ node_t *new_const_node(type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigne
 }
 
 node_t *new_reference_node(const unsigned sizes[MAXARRAYDEPTH], unsigned depth, bool index_is_const[MAXARRAYDEPTH],
-                           index_t indices[MAXARRAYDEPTH], list_t *entry) {
+                           index_t indices[MAXARRAYDEPTH], entry_t *entry) {
     reference_node_t *new_node = calloc(1, sizeof (reference_node_t));
     new_node->type = REFERENCE_NODE_T;
     new_node->type_info.qualifier = entry->type_info.qualifier;
@@ -481,7 +507,7 @@ node_t *new_reference_node(const unsigned sizes[MAXARRAYDEPTH], unsigned depth, 
     return (node_t *) new_node;
 }
 
-node_t *new_func_call_node(list_t *entry, bool sp, node_t **pars, unsigned num_of_pars) {
+node_t *new_func_call_node(entry_t *entry, bool sp, node_t **pars, unsigned num_of_pars) {
     if (!entry->is_function) {
         return NULL;
     }
@@ -674,8 +700,8 @@ node_t *new_return_node(type_t ret_type, node_t *ret_val) {
     return (node_t *) new_node;
 }
 
-type_info_t create_type_info(type_t type, unsigned depth) {
-    type_info_t new_type_info = { .type = type, .depth = depth};
+type_info_t create_atomic_type_info(type_t type) {
+    type_info_t new_type_info = { .type = type};
     return new_type_info;
 }
 
@@ -729,7 +755,7 @@ bool stmt_is_unitary(const node_t *node) {
     }
 }
 
-access_info_t create_access_info(list_t *entry) {
+access_info_t create_access_info(entry_t *entry) {
     access_info_t new_array_access = { .entry=entry };
     return new_array_access;
 }
@@ -955,7 +981,7 @@ bool are_matching_types(type_t type_1, type_t type_2) {
     return true;
 }
 
-node_t *build_func_sp_node(list_t *entry, char error_msg[ERRORMSGLENGTH]) {
+node_t *build_func_sp_node(entry_t *entry, char error_msg[ERRORMSGLENGTH]) {
     if (!entry->is_function) {
         snprintf(error_msg, ERRORMSGLENGTH, "%s is not a function", entry->name);
         return NULL;
@@ -967,7 +993,7 @@ node_t *build_func_sp_node(list_t *entry, char error_msg[ERRORMSGLENGTH]) {
     return result;
 }
 
-node_t *build_var_def_node(list_t *entry, init_info_t *init_info, char error_msg[ERRORMSGLENGTH]) {
+node_t *build_var_def_node(entry_t *entry, init_info_t *init_info, char error_msg[ERRORMSGLENGTH]) {
     bool *value_is_const;
     if (init_info->is_init_list) {
         if (entry->type_info.depth == 0) {
@@ -1048,7 +1074,7 @@ node_t *build_var_def_node(list_t *entry, init_info_t *init_info, char error_msg
         for (unsigned i = init_info->init_list.length; i < entry->length; ++i) {
             value_is_const[i] = true;
         }
-    } else { /* no initializer list */
+    } else { /* no initializer entry */
         value_is_const = NULL;
         type_info_t *type_info = get_type_info_of_node(init_info->node);
         if (entry->type_info.qualifier == QUANTUM_T && init_info->node->type == FUNC_SP_NODE_T) {
@@ -1223,9 +1249,9 @@ node_t *build_switch_node(node_t *expression, node_t **case_branches, unsigned n
             case_node_t *prior_case_node_view = (case_node_t *) case_branches[j];
             const_node_t *prior_case_const_view = (const_node_t *) prior_case_node_view->case_const;
             if ((case_const_view->type_info.type == BOOL_T
-                 && case_const_view->values[0].bval == prior_case_const_view->values[0].bval)
+                 && case_const_view->values[0].b_val == prior_case_const_view->values[0].b_val)
                  || (case_const_view->type_info.type == INT_T
-                 && case_const_view->values[0].ival == prior_case_const_view->values[0].ival)) {
+                 && case_const_view->values[0].i_val == prior_case_const_view->values[0].i_val)) {
                 snprintf(error_msg, ERRORMSGLENGTH, "Cases %u and %u have the same value", j + 1, i + 1);
                 return NULL;
             }
@@ -1391,14 +1417,14 @@ node_t *build_assign_node(node_t *left, assign_op_t op, node_t *right, char erro
 
         if (op == ASSIGN_DIV_OP) {
             for (unsigned i = 0; i < length; ++i) {
-                if (const_node_view_right->values[i].ival == 0) {
+                if (const_node_view_right->values[i].i_val == 0) {
                     snprintf(error_msg, ERRORMSGLENGTH, "Division by zero");
                     return NULL;
                 }
             }
         } else if (op == ASSIGN_MOD_OP) {
             for (unsigned i = 0; i < length; ++i) {
-                if (const_node_view_right->values[i].ival == 0) {
+                if (const_node_view_right->values[i].i_val == 0) {
                     snprintf(error_msg, ERRORMSGLENGTH, "Modulo by zero");
                     return NULL;
                 }
@@ -1684,7 +1710,7 @@ node_t *build_not_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
         const_node_t *const_node_view_child = (const_node_t *) child;
         const_node_t *const_node_view_result = (const_node_t *) result;
         for (unsigned i = 0; i < length; ++i) {
-            const_node_view_result->values[i].bval = !(const_node_view_child->values[i].bval);
+            const_node_view_result->values[i].b_val = !(const_node_view_child->values[i].b_val);
         }
     } else if (child->type == NOT_OP_NODE_T) {
         not_op_node_t *not_op_node_view_child = (not_op_node_t *) child;
@@ -1798,11 +1824,11 @@ node_t *build_invert_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
         const_node_t *const_node_view_result = (const_node_t *) result;
         if (result_type == INT_T) {
             for (unsigned i = 0; i < length; ++i) {
-                const_node_view_result->values[i].ival = ~(const_node_view_child->values[i].ival);
+                const_node_view_result->values[i].i_val = ~(const_node_view_child->values[i].i_val);
             }
         } else {
             for (unsigned i = 0; i < length; ++i) {
-                const_node_view_result->values[i].uval = ~(const_node_view_child->values[i].uval);
+                const_node_view_result->values[i].u_val = ~(const_node_view_child->values[i].u_val);
             }
         }
 
@@ -1817,7 +1843,7 @@ node_t *build_invert_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]) {
     return result;
 }
 
-node_t *build_func_call_node(bool sp, list_t *entry, node_t **pars, unsigned num_of_pars,
+node_t *build_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_of_pars,
                              char error_msg[ERRORMSGLENGTH]) {
     if (!entry->is_function) {
         snprintf(error_msg, ERRORMSGLENGTH, "Trying to call non-function %s", entry->name);
@@ -1924,7 +1950,7 @@ void print_node(const node_t *node) {
             break;
         }
         case STMT_LIST_NODE_T: {
-            printf("Statement list node with %u statements\n", ((stmt_list_node_t *) node)->num_of_stmt);
+            printf("Statement entry node with %u statements\n", ((stmt_list_node_t *) node)->num_of_stmt);
             break;
         }
         case FUNC_SP_NODE_T: {
@@ -1954,15 +1980,15 @@ void print_node(const node_t *node) {
             if (info->depth == 0) {
                 switch (info->type) {
                     case BOOL_T: {
-                        printf("%s\n", ((const_node_t *) node)->values[0].bval ? "true" : "false");
+                        printf("%s\n", ((const_node_t *) node)->values[0].b_val ? "true" : "false");
                         break;
                     }
                     case INT_T: {
-                        printf("%d\n", ((const_node_t *) node)->values[0].ival);
+                        printf("%d\n", ((const_node_t *) node)->values[0].i_val);
                         break;
                     }
                     case UNSIGNED_T: {
-                        printf("%u\n", ((const_node_t *) node)->values[0].uval);
+                        printf("%u\n", ((const_node_t *) node)->values[0].u_val);
                         break;
                     }
                     case VOID_T: {

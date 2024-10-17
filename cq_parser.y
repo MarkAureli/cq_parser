@@ -9,7 +9,6 @@
 
 extern int yylex(void);
 extern int yylineno;
-extern bool hide;
 extern FILE *yyin;
 extern FILE *yyout;
 
@@ -22,7 +21,7 @@ char error_msg[ERRORMSGLENGTH];
 %union {
     char *name;
     value_t value;
-    list_t *symtab_item;
+    entry_t *symtab_item;
     node_t *node;
     type_info_t type_info;
     func_info_t func_info;
@@ -124,20 +123,23 @@ func_def:
 	QUANTUM type_specifier declarator { incr_scope(); /* global info for return check and to avoid recursion */ } func_head func_tail {
 	    hide_scope();
 	    $$ = new_func_decl_node($3);
-	    set_type_info_of_elem($3, QUANTUM_T, $2.type, $2.depth, $2.sizes, true);
-	    set_func_info_of_elem($3, $5);
+	    type_info_t type_info = create_type_info(QUANTUM_T, $2.type, $2.sizes, $2.depth);
+	    set_type_info($3, type_info);
+	    set_func_info($3, $5);
 	}
 	| type_specifier declarator { incr_scope(); /* global info for return check and to avoid recursion */ } func_head func_tail {
 	    hide_scope();
 	    $$ = new_func_decl_node($2);
-	    set_type_info_of_elem($2, NONE_T, $1.type, $1.depth, $1.sizes, true);
-	    set_func_info_of_elem($2, $4);
+	    type_info_t type_info = create_type_info(NONE_T, $1.type, $1.sizes, $1.depth);
+	    set_type_info($2, type_info);
+	    set_func_info($2, $4);
 	}
 	| VOID declarator { incr_scope(); /* global info for return check and to avoid recursion */ } func_head func_tail {
 	    hide_scope();
 	    $$ = new_func_decl_node($2);
-	    set_type_info_of_elem($2, NONE_T, VOID_T, 0, NULL, true);
-	    set_func_info_of_elem($2, $4);
+	    type_info_t type_info = create_type_info(NONE_T, VOID_T, NULL, 0);
+	    set_type_info($2, type_info);
+	    set_func_info($2, $4);
 	}
 	;
 
@@ -162,11 +164,13 @@ par_l:
 
 par:
 	QUANTUM type_specifier declarator {
-	    set_type_info_of_elem($3, QUANTUM_T, $2.type, $2.depth, $2.sizes, false);
+	    type_info_t type_info = create_type_info(QUANTUM_T, $2.type, $2.sizes, $2.depth);
+	    set_type_info($3, type_info);
 	    $$ = $3->type_info;
 	}
 	| type_specifier declarator {
-        set_type_info_of_elem($2, NONE_T, $1.type, $1.depth, $1.sizes, false);
+	    type_info_t type_info = create_type_info(NONE_T, $1.type, $1.sizes, $1.depth);
+        set_type_info($2, type_info);
         $$ = $2->type_info;
     }
 	;
@@ -178,24 +182,28 @@ func_tail:
 variable_decl:
     QUANTUM type_specifier declarator SEMICOLON {
         $$ = new_var_decl_node($3);
-        set_type_info_of_elem($3, QUANTUM_T, $2.type, $2.depth, $2.sizes, false);
+        type_info_t type_info = create_type_info(QUANTUM_T, $2.type, $2.sizes, $2.depth);
+        set_type_info($3, type_info);
     }
     | type_specifier declarator SEMICOLON {
         $$ = new_var_decl_node($2);
-        set_type_info_of_elem($2, NONE_T, $1.type, $1.depth, $1.sizes, false);
+        type_info_t type_info = create_type_info(NONE_T, $1.type, $1.sizes, $1.depth);
+        set_type_info($2, type_info);
     }
     ;
 
 variable_def:
     QUANTUM type_specifier declarator ASSIGN init SEMICOLON {
-	    set_type_info_of_elem($3, QUANTUM_T, $2.type, $2.depth, $2.sizes, false);
+        type_info_t type_info = create_type_info(QUANTUM_T, $2.type, $2.sizes, $2.depth);
+	    set_type_info($3, type_info);
 	    $$ = build_var_def_node($3, $5, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
 	}
 	| CONST type_specifier declarator ASSIGN init SEMICOLON {
-	    set_type_info_of_elem($3, CONST_T, $2.type, $2.depth, $2.sizes, false);
+	    type_info_t type_info = create_type_info(CONST_T, $2.type, $2.sizes, $2.depth);
+	    set_type_info($3, type_info);
 	    $$ = build_var_def_node($3, $5, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -212,7 +220,8 @@ variable_def:
         }
     }
 	| type_specifier declarator ASSIGN init SEMICOLON {
-	    set_type_info_of_elem($2, NONE_T, $1.type, $1.depth, $1.sizes, false);
+	    type_info_t type_info = create_type_info(NONE_T, $1.type, $1.sizes, $1.depth);
+	    set_type_info($2, type_info);
         $$ = build_var_def_node($2, $4, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -246,7 +255,7 @@ init_elem_l:
     logical_or_expr {
         type_info_t *info = get_type_info_of_node($1);
         if (info->depth != 0) {
-            snprintf(error_msg, sizeof (error_msg), "Element of array initializer list is itself a depth-%u array",
+            snprintf(error_msg, sizeof (error_msg), "Element of array initializer entry is itself a depth-%u array",
                      info->depth);
             yyerror(error_msg);
         }
@@ -285,7 +294,7 @@ init_elem_l:
     | init_elem_l COMMA logical_or_expr {
         type_info_t *info = get_type_info_of_node($3);
         if (info->depth != 0) {
-            snprintf(error_msg, sizeof (error_msg), "Element of array initializer list is itself a depth-%u array",
+            snprintf(error_msg, sizeof (error_msg), "Element of array initializer entry is itself a depth-%u array",
                      info->depth);
             yyerror(error_msg);
         }
@@ -303,13 +312,13 @@ init_elem_l:
 
 type_specifier:
 	BOOL {
-	    $$ = create_type_info(BOOL_T, 0);
+	    $$ = create_atomic_type_info(BOOL_T);
 	}
 	| INT {
-	    $$ = create_type_info(INT_T, 0);
+	    $$ = create_atomic_type_info(INT_T);
 	}
 	| UNSIGNED {
-	    $$ = create_type_info(UNSIGNED_T, 0);
+	    $$ = create_atomic_type_info(UNSIGNED_T);
 	}
 	| type_specifier LBRACKET or_expr RBRACKET {
 	    if ($1.depth == MAXARRAYDEPTH) {
@@ -332,7 +341,7 @@ type_specifier:
             yyerror(error_msg);
 	    } else {
             $$ = $1;
-            $$.sizes[($$.depth)++] = ((const_node_t *) $3)->values[0].uval;
+            $$.sizes[($$.depth)++] = ((const_node_t *) $3)->values[0].u_val;
 	    }
 	}
 	;
@@ -812,7 +821,7 @@ postfix_expr:
 
 array_access_expr:
 	array_access {
-	    list_t *entry = $1.entry;
+	    entry_t *entry = $1.entry;
         bool all_indices_const = true;
         unsigned new_depth = entry->type_info.depth - $1.depth;
         unsigned new_sizes[entry->type_info.depth];
@@ -845,7 +854,7 @@ array_access_expr:
 
 array_access:
     ID {
-        list_t *entry = insert($1, strlen($1), yylineno, false);
+        entry_t *entry = insert($1, strlen($1), yylineno, false);
         if (entry->is_function) {
             snprintf(error_msg, sizeof (error_msg), "Function %s is not called", entry->name);
             yyerror(error_msg);
@@ -882,7 +891,7 @@ array_access:
 
         if (index_info->qualifier == CONST_T) {
             $$.index_is_const[$$.depth] = true;
-            $$.indices[($$.depth)++].const_index = ((const_node_t *) $3)->values[0].uval;
+            $$.indices[($$.depth)++].const_index = ((const_node_t *) $3)->values[0].u_val;
         } else {
             $$.index_is_const[$$.depth] = false;
             $$.indices[($$.depth)++].node_index = $3;
@@ -960,30 +969,22 @@ int main(int argc, char **argv) {
         }
     }
 
-    init_hash_table();
-
     bool dump = (argc == 2 && strncmp(argv[1], "--dump", 7) == 0) || (argc == 3 && strncmp(argv[2], "--dump", 7) == 0);
+    init_symbol_table(dump);
 
-    if (dump) {
-        hide = false;
-    }
-
-    // parsing
     yyparse();
 
-    // close input file
     if (argc > 1) {
         fclose(yyin);
     }
 
-    // symbol table dump
     if (dump) {
         yyout = fopen("symtab_dump.out", "w");
         if (!yyout) {
             fprintf(stderr, "Could not open symtab_dump.out\n");
             return 1;
         }
-        symtab_dump(yyout);
+        dump_symbol_table(yyout);
         fclose(yyout);
     }
     return 0;

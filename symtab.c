@@ -1,3 +1,43 @@
+/**
+ * \file                                symtab.c
+ * \brief                               Symbol table source file
+ */
+
+/*
+ * Copyright (c) 2024 Lennart BINKOWSKI
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without restriction,
+ * including without limitation the rights to use, copy, modify, merge,
+ * publish, distribute, sublicense, and/or sell copies of the Software,
+ * and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE
+ * AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * This file is part of cq_compiler.
+ *
+ * Author:          Lennart BINKOWSKI <lennart.binkowski@itp.uni-hannover.de>
+ */
+
+
+/*
+ * =====================================================================================================================
+ *                                                includes
+ * =====================================================================================================================
+ */
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,9 +47,36 @@
 #endif
 #include "symtab.h"
 
-/* control scope hide for visual debugging via --dump */
-volatile bool hide = true;
 
+/*
+ * =====================================================================================================================
+ *                                                static variables
+ * =====================================================================================================================
+ */
+
+/**
+ * \brief                               Pointer to symbol table
+ */
+static struct entry **symbol_table;
+
+/**
+ * \brief                               Whether symbol table entries are hidden upon leaving the scope
+ */
+static bool hide;
+
+/**
+ * \brief                               Counter for the current scope (starts at `0`)
+ */
+static unsigned cur_scope;
+
+
+/*
+ * =====================================================================================================================
+ *                                                function definitions
+ * =====================================================================================================================
+ */
+
+// See header for documentation
 char *qualifier_to_str(qualifier_t qualifier) {
     switch (qualifier) {
         case NONE_T: {
@@ -24,6 +91,7 @@ char *qualifier_to_str(qualifier_t qualifier) {
     }
 }
 
+// See header for documentation
 char *type_to_str(type_t type) {
     switch (type) {
         case BOOL_T: {
@@ -41,10 +109,18 @@ char *type_to_str(type_t type) {
     }
 }
 
-void init_hash_table() {
-    hash_table = calloc(SIZE, sizeof(list_t*));
+// See header for documentation
+void init_symbol_table(bool dump_mode) {
+    symbol_table = calloc(HASHTABLESIZE, sizeof(entry_t*));
+    hide = !dump_mode;
+    cur_scope = 0;
 }
 
+/**
+ * \brief                               Calculate hash value of key
+ * \param[in]                           key: Key as string
+ * \return                              Hash value of input key
+ */
 unsigned hash(const char *key) {
     if (key == NULL) {
         return -1;
@@ -56,12 +132,13 @@ unsigned hash(const char *key) {
         ++key;
     }
     hashval += first_char % 11 + (first_char << 3) - first_char;
-    return hashval % SIZE;
+    return hashval % HASHTABLESIZE;
 }
 
-list_t *insert(const char *name, unsigned length, unsigned line_num, bool declaration) {
+// See header for documentation
+entry_t *insert(const char *name, unsigned length, unsigned line_num, bool declaration) {
     unsigned hashval = hash(name);
-    list_t *l = hash_table[hashval];
+    entry_t *l = symbol_table[hashval];
 	
     while ((l != NULL) && (strcmp(name,l->name) != 0)) {
         l = l->next;
@@ -73,7 +150,7 @@ list_t *insert(const char *name, unsigned length, unsigned line_num, bool declar
             fprintf(stderr, "Undeclared identifier %s at line %u\n", name, line_num);
             exit(1);
         }
-        l = (list_t*) calloc(1, sizeof (list_t));
+        l = (entry_t*) calloc(1, sizeof (entry_t));
         strncpy(l->name, name, length);
         l->scope = cur_scope;
         l->lines = calloc(1, sizeof (ref_list_t));
@@ -81,8 +158,8 @@ list_t *insert(const char *name, unsigned length, unsigned line_num, bool declar
         l->lines->next = NULL;
         l->type_info.qualifier = NONE_T;
         l->type_info.type = VOID_T;
-        l->next = hash_table[hashval];
-        hash_table[hashval] = l;
+        l->next = symbol_table[hashval];
+        symbol_table[hashval] = l;
     } else {
         if (declaration == true) {
             if (l->scope == cur_scope) {
@@ -90,7 +167,7 @@ list_t *insert(const char *name, unsigned length, unsigned line_num, bool declar
                         name, line_num, l->lines->line_num);
                 exit(1);
             } else {
-                l = calloc(1, sizeof (list_t));
+                l = calloc(1, sizeof (entry_t));
                 strncpy(l->name, name, length);
                 l->scope = cur_scope;
                 l->lines = calloc(1, sizeof (ref_list_t));
@@ -98,15 +175,15 @@ list_t *insert(const char *name, unsigned length, unsigned line_num, bool declar
                 l->lines->next = NULL;
                 l->type_info.qualifier = NONE_T;
                 l->type_info.type = VOID_T;
-                l->next = hash_table[hashval];
-                hash_table[hashval] = l;
+                l->next = symbol_table[hashval];
+                symbol_table[hashval] = l;
             }
         } else {
             ref_list_t *t = l->lines;
             while (t->next != NULL) {
                 t = t->next;
             }
-            /* add line number to reference list */
+            /* add line number to reference entry */
             t->next = calloc(1, sizeof (ref_list_t));
             t->next->line_num = line_num;
             t->next->next = NULL;
@@ -115,24 +192,16 @@ list_t *insert(const char *name, unsigned length, unsigned line_num, bool declar
     return l;
 }
 
-list_t *lookup(const char *name) { /* return symbol if found or NULL if not found */
-    unsigned hashval = hash(name);
-    list_t *l = hash_table[hashval];
-    while ((l != NULL) && (strcmp(name,l->name) != 0)) {
-        l = l->next;
-    }
-    return l; // NULL is not found
-}
-
-void hide_scope() { /* hide the current scope */
+// See header for documentation
+void hide_scope() {
     if (hide) {
-        for (unsigned i = 0; i < SIZE; ++i) {
-            if (hash_table[i] != NULL) {
-                list_t *l = hash_table[i];
+        for (unsigned i = 0; i < HASHTABLESIZE; ++i) {
+            if (symbol_table[i] != NULL) {
+                entry_t *l = symbol_table[i];
                 while (l != NULL && l->scope == cur_scope) {
                     l = l->next;
                 }
-                hash_table[i] = l;
+                symbol_table[i] = l;
             }
         }
     }
@@ -141,157 +210,128 @@ void hide_scope() { /* hide the current scope */
     }
 }
 
-void incr_scope() { /* go to next scope */
+// See header for documentation
+void incr_scope() {
     ++cur_scope;
 }
 
-void set_type_info_of_elem(list_t *entry, qualifier_t qualifier, type_t type, unsigned depth,
-                           const unsigned sizes[MAXARRAYDEPTH], bool is_function) {
-    entry->type_info.qualifier = qualifier;
-    entry->type_info.type = type;
-    entry->type_info.depth = depth;
+// See header for documentation
+void set_type_info(entry_t *entry, type_info_t type_info) {
+    entry->type_info = type_info;
     unsigned length = 1;
-    if (sizes != NULL) {
-        memcpy(entry->type_info.sizes, sizes, MAXARRAYDEPTH * sizeof (unsigned));
-        for (unsigned i = 0; i < depth; ++i) {
-            length *= sizes[i];
-        }
+    for (unsigned i = 0; i < type_info.depth; ++i) {
+        length *= type_info.sizes[i];
     }
     entry->length = length;
-    entry->is_function = is_function;
-    if (qualifier == CONST_T) {
+    if (type_info.qualifier == CONST_T) {
         entry->values = calloc(length, sizeof (value_t));
     }
 }
 
-void set_type_info(const char *name, qualifier_t qualifier, type_t type, unsigned depth,
-                   const unsigned sizes[MAXARRAYDEPTH], bool is_function) {
-    list_t *l = lookup(name);
-    set_type_info_of_elem(l, qualifier, type, depth, sizes, is_function);
-}
-
-func_info_t create_empty_func_info() {
-    func_info_t new_func_info = { .is_unitary = true, .is_sp = false, .pars_type_info = NULL, .num_of_pars = 0};
-    return new_func_info;
-}
-
-func_info_t create_func_info(type_info_t type_info) {
-    func_info_t new_func_info = { .is_unitary = true, .is_sp = type_info.depth == 0,
-                                  .pars_type_info = calloc(1, sizeof (type_info_t)), .num_of_pars = 1};
-    new_func_info.pars_type_info[0] = type_info;
-    return new_func_info;
-}
-
-void append_to_func_info(func_info_t *func_info, type_info_t type_info) {
-    func_info->is_sp = false;
-    unsigned current_num_of_pars = (func_info->num_of_pars)++;
-    func_info->pars_type_info = realloc(func_info->pars_type_info,
-                                        (current_num_of_pars + 1) * sizeof (type_info_t));
-    func_info->pars_type_info[current_num_of_pars] = type_info;
-}
-
-void set_func_info_of_elem(list_t *entry, func_info_t func_info) {
+// See header for documentation
+void set_func_info(entry_t *entry, func_info_t func_info) {
+    entry->is_function = true;
     entry->func_info = func_info;
     if (entry->type_info.qualifier != NONE_T || entry->type_info.type != BOOL_T || entry->type_info.depth != 0) {
         entry->func_info.is_sp = false;
     }
 }
 
-/* print to stdout by default */ 
-void symtab_dump(FILE * of){
+// See header for documentation
+void dump_symbol_table(FILE * output_file){
     for (unsigned i = 0; i < MAXTOKENLEN; ++i) {
-        fputc('-', of);
+        fputc('-', output_file);
     }
-    fputc(' ', of);
-    fprintf(of, "---------- ");
+    fputc(' ', output_file);
+    fprintf(output_file, "---------- ");
     for (unsigned i = 0; i < 11 + 2 * MAXARRAYDEPTH; ++i) {
-        fputc('-', of);
+        fputc('-', output_file);
     }
-    fputc(' ', of);
-    fprintf(of, "------ -------------\n");
+    fputc(' ', output_file);
+    fprintf(output_file, "------ -------------\n");
 
-    fprintf(of, "Name");
+    fprintf(output_file, "Name");
     for (unsigned i = 0; i < MAXTOKENLEN + 1- sizeof ("Name"); ++i) {
-        fputc(' ', of);
+        fputc(' ', output_file);
     }
-    fputc(' ', of);
-    fprintf(of, "Qualifier  Type");
+    fputc(' ', output_file);
+    fprintf(output_file, "Qualifier  Type");
     for (unsigned i = 0; i < 12 + 2 * MAXARRAYDEPTH - sizeof ("Type"); ++i) {
-        fputc(' ', of);
+        fputc(' ', output_file);
     }
-    fputc(' ', of);
-    fprintf(of, "Scope  Line Numbers \n");
+    fputc(' ', output_file);
+    fprintf(output_file, "Scope  Line Numbers \n");
 
     for (unsigned i = 0; i < MAXTOKENLEN; ++i) {
-        fputc('-', of);
+        fputc('-', output_file);
     }
-    fputc(' ', of);
-    fprintf(of, "---------- ");
+    fputc(' ', output_file);
+    fprintf(output_file, "---------- ");
     for (unsigned i = 0; i < 11 + 2 * MAXARRAYDEPTH; ++i) {
-        fputc('-', of);
+        fputc('-', output_file);
     }
-    fputc(' ', of);
-    fprintf(of, "------ -------------\n");
-    for (unsigned i = 0; i < SIZE; ++i) { 
-        if (hash_table[i] != NULL) { 
-            list_t *l = hash_table[i];
+    fputc(' ', output_file);
+    fprintf(output_file, "------ -------------\n");
+    for (unsigned i = 0; i < HASHTABLESIZE; ++i) {
+        if (symbol_table[i] != NULL) {
+            entry_t *l = symbol_table[i];
             while (l != NULL) { 
                 ref_list_t *t = l->lines;
-                fprintf(of,"%-*s", MAXTOKENLEN + 1, l->name);
+                fprintf(output_file, "%-*s", MAXTOKENLEN + 1, l->name);
                 switch (l->type_info.qualifier) {
                     case NONE_T: {
-                        fprintf(of, "%-11s", "");
+                        fprintf(output_file, "%-11s", "");
                         break;
                     }
                     case CONST_T: {
-                        fprintf(of, "%-11s", "const");
+                        fprintf(output_file, "%-11s", "const");
                         break;
                     }
                     case QUANTUM_T: {
-                        fprintf(of, "%-11s", "quantum");
+                        fprintf(output_file, "%-11s", "quantum");
                         break;
                     }
                 }
                 unsigned type_str_length = 0;
                 if (l->is_function) {
-                    fprintf(of, "-> ");
+                    fprintf(output_file, "-> ");
                     type_str_length += 3;
                 }
                 switch (l->type_info.type) {
                     case BOOL_T: {
-                        fprintf(of, "bool");
+                        fprintf(output_file, "bool");
                         type_str_length += 4;
                         break;
                     }
                     case INT_T: {
-                        fprintf(of, "int");
+                        fprintf(output_file, "int");
                         type_str_length += 3;
                         break;
                     }
                     case UNSIGNED_T: {
-                        fprintf(of, "unsigned");
+                        fprintf(output_file, "unsigned");
                         type_str_length += 8;
                         break;
                     }
                     case VOID_T: {
-                        fprintf(of, "void");
+                        fprintf(output_file, "void");
                         type_str_length += 4;
                         break;
                     }
                 }
                 for (unsigned j = 0; j < l->type_info.depth; ++j) {
-                    fprintf(of, "[]");
+                    fprintf(output_file, "[]");
                     type_str_length += 2;
                 }
                 for (unsigned k = type_str_length; k < 12  + MAXARRAYDEPTH * 2; ++k) {
-                    fprintf(of, " ");
+                    fprintf(output_file, " ");
                 }
-                fprintf(of, "%-7u", l->scope);
+                fprintf(output_file, "%-7u", l->scope);
                 while (t != NULL) {
-                    fprintf(of, "%-4u ", t->line_num);
+                    fprintf(output_file, "%-4u ", t->line_num);
                     t = t->next;
                 }
-                fprintf(of,"\n");
+                fprintf(output_file, "\n");
                 l = l->next;
 	        }
         }
