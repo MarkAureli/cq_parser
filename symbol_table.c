@@ -76,7 +76,7 @@ static unsigned cur_scope;
  * =====================================================================================================================
  */
 
-// See header for documentation
+/* See header for documentation */
 char *qualifier_to_str(qualifier_t qualifier) {
     switch (qualifier) {
         case NONE_T: {
@@ -91,7 +91,7 @@ char *qualifier_to_str(qualifier_t qualifier) {
     }
 }
 
-// See header for documentation
+/* See header for documentation */
 char *type_to_str(type_t type) {
     switch (type) {
         case BOOL_T: {
@@ -109,9 +109,9 @@ char *type_to_str(type_t type) {
     }
 }
 
-// See header for documentation
+/* See header for documentation */
 void init_symbol_table(bool dump_mode) {
-    symbol_table = calloc(HASHTABLESIZE, sizeof(entry_t*));
+    symbol_table = calloc(SYMBOL_TABLE_SIZE, sizeof(entry_t*));
     hide = !dump_mode;
     cur_scope = 0;
 }
@@ -126,25 +126,24 @@ unsigned hash(const char *key) {
         return -1;
     }
     char first_char = key[0];
-    unsigned hashval = 0;
+    unsigned hash_value = 0;
     while (*key != '\0') {
-        hashval += *key;
+        hash_value += *key;
         ++key;
     }
-    hashval += first_char % 11 + (first_char << 3) - first_char;
-    return hashval % HASHTABLESIZE;
+    hash_value += first_char % 11 + (first_char << 3) - first_char;
+    return hash_value % SYMBOL_TABLE_SIZE;
 }
 
-// See header for documentation
+/* See header for documentation */
 entry_t *insert(const char *name, unsigned length, unsigned line_num, bool declaration) {
-    unsigned hashval = hash(name);
-    entry_t *l = symbol_table[hashval];
+    unsigned hash_value = hash(name);
+    entry_t *l = symbol_table[hash_value];
 	
     while ((l != NULL) && (strcmp(name,l->name) != 0)) {
         l = l->next;
     }
 
-    /* variable not yet in table */
     if (l == NULL) {
         if (declaration == false) {
             fprintf(stderr, "Undeclared identifier %s at line %u\n", name, line_num);
@@ -158,8 +157,8 @@ entry_t *insert(const char *name, unsigned length, unsigned line_num, bool decla
         l->lines->next = NULL;
         l->type_info.qualifier = NONE_T;
         l->type_info.type = VOID_T;
-        l->next = symbol_table[hashval];
-        symbol_table[hashval] = l;
+        l->next = symbol_table[hash_value];
+        symbol_table[hash_value] = l;
     } else {
         if (declaration == true) {
             if (l->scope == cur_scope) {
@@ -175,15 +174,14 @@ entry_t *insert(const char *name, unsigned length, unsigned line_num, bool decla
                 l->lines->next = NULL;
                 l->type_info.qualifier = NONE_T;
                 l->type_info.type = VOID_T;
-                l->next = symbol_table[hashval];
-                symbol_table[hashval] = l;
+                l->next = symbol_table[hash_value];
+                symbol_table[hash_value] = l;
             }
         } else {
             ref_list_t *t = l->lines;
             while (t->next != NULL) {
                 t = t->next;
             }
-            /* add line number to reference entry */
             t->next = calloc(1, sizeof (ref_list_t));
             t->next->line_num = line_num;
             t->next->next = NULL;
@@ -192,10 +190,10 @@ entry_t *insert(const char *name, unsigned length, unsigned line_num, bool decla
     return l;
 }
 
-// See header for documentation
+/* See header for documentation */
 void hide_scope() {
     if (hide) {
-        for (unsigned i = 0; i < HASHTABLESIZE; ++i) {
+        for (unsigned i = 0; i < SYMBOL_TABLE_SIZE; ++i) {
             if (symbol_table[i] != NULL) {
                 entry_t *l = symbol_table[i];
                 while (l != NULL && l->scope == cur_scope) {
@@ -210,12 +208,12 @@ void hide_scope() {
     }
 }
 
-// See header for documentation
+/* See header for documentation */
 void incr_scope() {
     ++cur_scope;
 }
 
-// See header for documentation
+/* See header for documentation */
 void set_type_info(entry_t *entry, type_info_t type_info) {
     entry->type_info = type_info;
     unsigned length = 1;
@@ -228,7 +226,7 @@ void set_type_info(entry_t *entry, type_info_t type_info) {
     }
 }
 
-// See header for documentation
+/* See header for documentation */
 void set_func_info(entry_t *entry, func_info_t func_info) {
     entry->is_function = true;
     entry->func_info = func_info;
@@ -237,47 +235,47 @@ void set_func_info(entry_t *entry, func_info_t func_info) {
     }
 }
 
-// See header for documentation
+/* See header for documentation */
 void dump_symbol_table(FILE * output_file){
-    for (unsigned i = 0; i < MAXTOKENLEN; ++i) {
+    for (unsigned i = 0; i < MAX_TOKEN_LENGTH; ++i) {
         fputc('-', output_file);
     }
     fputc(' ', output_file);
     fprintf(output_file, "---------- ");
-    for (unsigned i = 0; i < 11 + 2 * MAXARRAYDEPTH; ++i) {
+    for (unsigned i = 0; i < 11 + 2 * MAX_ARRAY_DEPTH; ++i) {
         fputc('-', output_file);
     }
     fputc(' ', output_file);
     fprintf(output_file, "------ -------------\n");
 
     fprintf(output_file, "Name");
-    for (unsigned i = 0; i < MAXTOKENLEN + 1- sizeof ("Name"); ++i) {
+    for (unsigned i = 0; i < MAX_TOKEN_LENGTH + 1 - sizeof ("Name"); ++i) {
         fputc(' ', output_file);
     }
     fputc(' ', output_file);
     fprintf(output_file, "Qualifier  Type");
-    for (unsigned i = 0; i < 12 + 2 * MAXARRAYDEPTH - sizeof ("Type"); ++i) {
+    for (unsigned i = 0; i < 12 + 2 * MAX_ARRAY_DEPTH - sizeof ("Type"); ++i) {
         fputc(' ', output_file);
     }
     fputc(' ', output_file);
     fprintf(output_file, "Scope  Line Numbers \n");
 
-    for (unsigned i = 0; i < MAXTOKENLEN; ++i) {
+    for (unsigned i = 0; i < MAX_TOKEN_LENGTH; ++i) {
         fputc('-', output_file);
     }
     fputc(' ', output_file);
     fprintf(output_file, "---------- ");
-    for (unsigned i = 0; i < 11 + 2 * MAXARRAYDEPTH; ++i) {
+    for (unsigned i = 0; i < 11 + 2 * MAX_ARRAY_DEPTH; ++i) {
         fputc('-', output_file);
     }
     fputc(' ', output_file);
     fprintf(output_file, "------ -------------\n");
-    for (unsigned i = 0; i < HASHTABLESIZE; ++i) {
+    for (unsigned i = 0; i < SYMBOL_TABLE_SIZE; ++i) {
         if (symbol_table[i] != NULL) {
             entry_t *l = symbol_table[i];
             while (l != NULL) { 
                 ref_list_t *t = l->lines;
-                fprintf(output_file, "%-*s", MAXTOKENLEN + 1, l->name);
+                fprintf(output_file, "%-*s", MAX_TOKEN_LENGTH + 1, l->name);
                 switch (l->type_info.qualifier) {
                     case NONE_T: {
                         fprintf(output_file, "%-11s", "");
@@ -323,7 +321,7 @@ void dump_symbol_table(FILE * output_file){
                     fprintf(output_file, "[]");
                     type_str_length += 2;
                 }
-                for (unsigned k = type_str_length; k < 12  + MAXARRAYDEPTH * 2; ++k) {
+                for (unsigned k = type_str_length; k < 12 + MAX_ARRAY_DEPTH * 2; ++k) {
                     fprintf(output_file, " ");
                 }
                 fprintf(output_file, "%-7u", l->scope);

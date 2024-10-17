@@ -13,7 +13,7 @@ extern FILE *yyin;
 extern FILE *yyout;
 
 int yyerror(const char *s);
-char error_msg[ERRORMSGLENGTH];
+char error_msg[ERROR_MSG_LENGTH];
 
 %}
 
@@ -321,8 +321,8 @@ type_specifier:
 	    $$ = create_atomic_type_info(UNSIGNED_T);
 	}
 	| type_specifier LBRACKET or_expr RBRACKET {
-	    if ($1.depth == MAXARRAYDEPTH) {
-	        snprintf(error_msg, sizeof (error_msg), "Exceeding maximal array length of %i", MAXARRAYDEPTH);
+	    if ($1.depth == MAX_ARRAY_DEPTH) {
+	        snprintf(error_msg, sizeof (error_msg), "Exceeding maximal array length of %i", MAX_ARRAY_DEPTH);
 	        yyerror(error_msg);
 	    }
 	    type_info_t *size_info = get_type_info_of_node($3);
@@ -839,7 +839,7 @@ array_access_expr:
             }
         }
         if (entry->type_info.qualifier == CONST_T && all_indices_const) {
-            unsigned const_indices[MAXARRAYDEPTH];
+            unsigned const_indices[MAX_ARRAY_DEPTH];
             for (unsigned i = 0; i < $1.depth; ++i) {
                 const_indices[i] = $1.indices[i].const_index;
             }

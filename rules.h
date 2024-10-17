@@ -59,10 +59,10 @@ extern "C" {
  * =====================================================================================================================
  */
 
-#define MAXTOKENLEN 40
-#define MAXARRAYDEPTH 3
-#define ERRORMSGLENGTH 256
-#define HASHTABLESIZE 211
+#define MAX_TOKEN_LENGTH 40
+#define MAX_ARRAY_DEPTH 3
+#define ERROR_MSG_LENGTH 256
+#define SYMBOL_TABLE_SIZE 211
 
 
 /*

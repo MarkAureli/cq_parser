@@ -113,7 +113,7 @@ typedef struct qualified_type {
 typedef struct type_info {
     qualifier_t qualifier;                  /*!< Qualifier of type information */
     type_t type;                            /*!< Type of type information */
-    unsigned sizes[MAXARRAYDEPTH];          /*!< Sizes of type information */
+    unsigned sizes[MAX_ARRAY_DEPTH];          /*!< Sizes of type information */
     unsigned depth;                         /*!< Depth of type information */
 } type_info_t;
 
@@ -142,7 +142,7 @@ typedef struct ref_list {
  * \note                                This structure defines the symbol table as a linked list of entries
  */
 typedef struct entry {
-    char name[MAXTOKENLEN];                 /*!< Name of entry */
+    char name[MAX_TOKEN_LENGTH];                 /*!< Name of entry */
     unsigned scope;                         /*!< Scope of entry */
     ref_list_t *lines;                      /*!< List of references of entry */
     type_info_t type_info;                  /*!< Type information of entry */
