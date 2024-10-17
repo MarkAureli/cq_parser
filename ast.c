@@ -737,6 +737,9 @@ void append_to_init_info(init_info_t *array_init_info, qualified_type_t qualifie
 }
 
 bool stmt_is_unitary(const node_t *node) {
+    if (node == NULL) {
+        return false;
+    }
     switch (node->type) {
         case VAR_DECL_NODE_T: case VAR_DEF_NODE_T: case ASSIGN_NODE_T: {
             return get_type_info_of_node(node)->qualifier == QUANTUM_T;

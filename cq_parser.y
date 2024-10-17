@@ -5,7 +5,7 @@
 #include <string.h>
 #include "ast.h"
 #include "rules.h"
-#include "symtab.h"
+#include "symbol_table.h"
 
 extern int yylex(void);
 extern int yylineno;
