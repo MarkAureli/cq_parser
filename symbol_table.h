@@ -1,5 +1,5 @@
 /**
- * \file                                symtab.h
+ * \file                                symbol_table.h
  * \brief                               Symbol table include file
  */
 
@@ -38,8 +38,8 @@
  * =====================================================================================================================
  */
 
-#ifndef SYMTAB_H
-#define SYMTAB_H
+#ifndef SYMBOL_TABLE_H
+#define SYMBOL_TABLE_H
 
 
 /*
@@ -235,4 +235,4 @@ void dump_symbol_table(FILE *output_file);
 }
 #endif /* __cplusplus */
 
-#endif /* SYMTAB_H */
+#endif /* SYMBOL_TABLE_H */

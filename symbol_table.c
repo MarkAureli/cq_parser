@@ -1,5 +1,5 @@
 /**
- * \file                                symtab.c
+ * \file                                symbol_table.c
  * \brief                               Symbol table source file
  */
 
@@ -45,7 +45,7 @@
 #ifndef NULL
 #include <__stddef_null.h>
 #endif
-#include "symtab.h"
+#include "symbol_table.h"
 
 
 /*

@@ -1,7 +1,7 @@
 #ifndef AST_H
 #define AST_H
 #include <stdbool.h>
-#include "symtab.h"
+#include "symbol_table.h"
 
 typedef enum op_type {
     LOGICAL_OP,
