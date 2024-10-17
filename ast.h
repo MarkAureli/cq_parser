@@ -71,10 +71,13 @@ typedef enum node_type {
     INVERT_OP_NODE_T,
     IF_NODE_T,
     ELSE_IF_NODE_T,
+    SWITCH_NODE_T,
+    CASE_NODE_T,
     FOR_NODE_T,
     DO_NODE_T,
     WHILE_NODE_T,
     ASSIGN_NODE_T,
+    PHASE_NODE_T,
     JUMP_NODE_T,
     RETURN_NODE_T
 } node_type_t;
@@ -119,6 +122,11 @@ typedef struct else_if_list {
     struct node **else_if_nodes;
     unsigned num_of_else_ifs;
 } else_if_list_t;
+
+typedef struct case_list {
+    struct node **case_nodes;
+    unsigned num_of_cases;
+} case_list_t;
 
 typedef struct arg_list {
     struct node **args;
@@ -182,6 +190,7 @@ typedef struct func_call_node {
     type_info_t type_info;
     list_t *entry;
     bool inverse;
+    bool sp;
     node_t **pars;
     unsigned num_of_pars;
 } func_call_node_t;
@@ -245,6 +254,19 @@ typedef struct else_if_node {
     node_t *else_if_branch;
 } else_if_node_t;
 
+typedef struct switch_node {
+    node_type_t type;
+    node_t *expression;
+    node_t **case_branches;
+    unsigned num_of_cases;
+} switch_node_t;
+
+typedef struct case_node {
+    node_type_t type;
+    node_t *case_const;
+    node_t *case_branch;
+} case_node_t;
+
 typedef struct for_node {
     node_type_t type;
     node_t *initialize;
@@ -271,6 +293,13 @@ typedef struct assign_node {
     node_t *left;
     node_t *right;
 } assign_node_t;
+
+typedef struct phase_node {
+    node_type_t type;
+    bool is_positive;
+    node_t *left;
+    node_t *right;
+} phase_node_t;
 
 typedef struct jump_node {
     node_type_t type;
@@ -331,7 +360,7 @@ node_t *new_const_node(type_t type, const unsigned sizes[MAXARRAYDEPTH], unsigne
 node_t *new_reference_node(const unsigned sizes[MAXARRAYDEPTH], unsigned depth, bool index_is_const[MAXARRAYDEPTH],
                            index_t indices[MAXARRAYDEPTH], list_t *entry);
 
-node_t *new_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars);
+node_t *new_func_call_node(list_t *entry, bool sp, node_t **pars, unsigned num_of_pars);
 
 node_t *new_logical_op_node(qualifier_t qualifier, const unsigned sizes[MAXARRAYDEPTH], unsigned depth,
                             logical_op_t op, node_t *left, node_t *right);
@@ -355,6 +384,10 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branch
 
 node_t *new_else_if_node(node_t *condition, node_t *elseif_branch);
 
+node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num_of_cases);
+
+node_t *new_case_node(node_t *case_const, node_t *case_branch);
+
 node_t *new_for_node(node_t *initialize, node_t *condition, node_t *increment, node_t *for_branch);
 
 node_t *new_do_node(node_t *do_branch, node_t *condition);
@@ -362,6 +395,8 @@ node_t *new_do_node(node_t *do_branch, node_t *condition);
 node_t *new_while_node(node_t *condition, node_t *while_branch);
 
 node_t *new_assign_node(assign_op_t op, node_t *left, node_t *right);
+
+node_t *new_phase_node(bool is_positive, node_t *left, node_t *right);
 
 node_t *new_jump_node(int statement_type);
 
@@ -383,6 +418,10 @@ else_if_list_t create_else_if_list(node_t *node);
 
 void append_to_else_if_list(else_if_list_t *else_if_list, node_t *node);
 
+case_list_t create_case_list(node_t *node);
+
+void append_to_case_list(case_list_t *case_list, node_t *node);
+
 arg_list_t create_arg_list(node_t *node);
 
 void append_to_arg_list(arg_list_t *arg_list, node_t *node);
@@ -398,7 +437,10 @@ node_t *build_var_def_node(list_t *entry, init_info_t *init_info, char error_msg
 node_t *build_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branches, unsigned num_of_else_ifs,
                       node_t *else_branch, char error_msg[ERRORMSGLENGTH]);
 
-        node_t *build_else_if_node(node_t *condition, node_t *else_if_branch, char error_msg[ERRORMSGLENGTH]);
+node_t *build_else_if_node(node_t *condition, node_t *else_if_branch, char error_msg[ERRORMSGLENGTH]);
+
+node_t *build_switch_node(node_t *expression, node_t **case_branches, unsigned num_of_cases,
+                          char error_msg[ERRORMSGLENGTH]);
 
 node_t *build_do_node(node_t *do_branch, node_t *condition, char error_msg[ERRORMSGLENGTH]);
 
@@ -408,6 +450,8 @@ node_t *build_for_node(node_t *initialize, node_t *condition, node_t *increment,
                        char error_msg[ERRORMSGLENGTH]);
 
 node_t *build_assign_node(node_t *left, assign_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]);
+
+node_t *build_phase_node(node_t *left, bool is_positive, node_t *right, char error_msg[ERRORMSGLENGTH]);
 
 node_t *build_logical_op_node(node_t *left, logical_op_t op, node_t *right, char error_msg[ERRORMSGLENGTH]);
 
@@ -421,7 +465,8 @@ node_t *build_integer_op_node(node_t *left, integer_op_t op, node_t *right, char
 
 node_t *build_invert_op_node(node_t *child, char error_msg[ERRORMSGLENGTH]);
 
-node_t *build_func_call_node(list_t *entry, node_t **pars, unsigned num_of_pars, char error_msg[ERRORMSGLENGTH]);
+node_t *build_func_call_node(bool sp,list_t *entry, node_t **pars, unsigned num_of_pars,
+                             char error_msg[ERRORMSGLENGTH]);
 
 void print_node(const node_t *node);
 

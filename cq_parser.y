@@ -34,6 +34,7 @@ char error_msg[ERRORMSGLENGTH];
     comparison_op_t comparison_op;
     equality_op_t equality_op;
     else_if_list_t else_if_list;
+    case_list_t case_list;
     arg_list_t arg_list;
 }
 
@@ -77,9 +78,10 @@ char error_msg[ERRORMSGLENGTH];
 %type <node> logical_or_expr logical_xor_expr logical_and_expr comparison_expr equality_expr or_expr xor_expr and_expr
 %type <node> array_access_expr func_call assign_expr
 %type <node> stmt_l stmt decl_stmt res_stmt_l res_stmt
-%type <node> assign_stmt func_call_stmt if_stmt switch_stmt do_stmt while_stmt for_stmt for_first jump_stmt
-%type <node> optional_else
+%type <node> assign_stmt phase_stmt func_call_stmt if_stmt switch_stmt do_stmt while_stmt for_stmt for_first jump_stmt
+%type <node> optional_else case_stmt
 %type <else_if_list> else_if
+%type <case_list> case_stmt_l
 %type <init_info> init init_elem_l
 %type <access_info> array_access
 %type <arg_list> argument_expr_l
@@ -377,6 +379,9 @@ res_stmt:
 	assign_stmt {
 	    $$ = $1;
 	}
+	| phase_stmt {
+	    $$ = $1;
+	}
 	| func_call_stmt {
 	    $$ = $1;
 	}
@@ -406,11 +411,30 @@ assign_stmt:
 	}
 	;
 
+phase_stmt:
+    PHASE LPAREN array_access_expr RPAREN ASSIGN_ADD logical_or_expr SEMICOLON {
+	    $$ = build_phase_node($3, true, $6, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+    }
+    | PHASE LPAREN array_access_expr RPAREN ASSIGN_SUB logical_or_expr SEMICOLON {
+	    $$ = build_phase_node($3, false, $6, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+    }
+    ;
+
 func_call_stmt:
     INV func_call SEMICOLON {
         $$ = $2;
         func_call_node_t *func_call_node_view = (func_call_node_t *) $$;
-        if (func_call_node_view->type_info.type != VOID_T) {
+        if (!func_call_node_view->entry->func_info.is_unitary) {
+            snprintf(error_msg, sizeof (error_msg), "Trying to invert non-unitary function %s",
+                     func_call_node_view->entry->name);
+            yyerror(error_msg);
+        } else if (!func_call_node_view->sp && func_call_node_view->type_info.type != VOID_T) {
             snprintf(error_msg, sizeof (error_msg), "Trying to invert function %s with non-void return",
                      func_call_node_view->entry->name);
             yyerror(error_msg);
@@ -465,17 +489,31 @@ optional_else:
     ;
 
 switch_stmt:
-	SWITCH LPAREN logical_or_expr RPAREN LBRACE case_stmt_l RBRACE { /* dummy */ $$ = NULL; }
+	SWITCH LPAREN logical_or_expr RPAREN LBRACE case_stmt_l RBRACE {
+	    $$ = build_switch_node($3, $6.case_nodes, $6.num_of_cases, error_msg);
+	    if ($$ == NULL) {
+	        yyerror(error_msg);
+	    }
+	}
 	;
 
 case_stmt_l:
-    case_stmt
-    | case_stmt_l case_stmt
+    case_stmt {
+        $$ = create_case_list($1);
+    }
+    | case_stmt_l case_stmt {
+        $$ = $1;
+        append_to_case_list(&$$, $2);
+    }
     ;
 
 case_stmt:
-	CASE logical_or_expr COLON res_stmt_l
-	| DEFAULT COLON res_stmt_l
+	CASE const COLON res_stmt_l {
+	    $$ = new_case_node($2, $4);
+	}
+	| DEFAULT COLON res_stmt_l {
+	    $$ = new_case_node(NULL, $3);
+	}
 	;
 
 do_stmt:
@@ -876,17 +914,24 @@ const:
 
 func_call:
 	ID LPAREN argument_expr_l RPAREN {
-        $$ = build_func_call_node(insert($1, strlen($1), yylineno, false), $3.args, $3.num_of_args, error_msg);
+        $$ = build_func_call_node(false, insert($1, strlen($1), yylineno, false), $3.args, $3.num_of_args, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| ID LPAREN RPAREN {
-	    $$ = build_func_call_node(insert($1, strlen($1), yylineno, false), NULL, 0, error_msg);
+	    $$ = build_func_call_node(false, insert($1, strlen($1), yylineno, false), NULL, 0, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
+	| LBRACKET ID RBRACKET LPAREN argument_expr_l RPAREN {
+	    $$ = build_func_call_node(true, insert($2, strlen($2), yylineno, false), $5.args, $5.num_of_args, error_msg);
+	    if ($$ == NULL) {
+	        yyerror(error_msg);
+	    }
+	}
+	;
 
 argument_expr_l:
 	logical_or_expr {

@@ -171,18 +171,19 @@ void set_type_info(const char *name, qualifier_t qualifier, type_t type, unsigne
 }
 
 func_info_t create_empty_func_info() {
-    func_info_t new_func_info = { .is_unitary = true, .pars_type_info = NULL, .num_of_pars = 0};
+    func_info_t new_func_info = { .is_unitary = true, .is_sp = false, .pars_type_info = NULL, .num_of_pars = 0};
     return new_func_info;
 }
 
 func_info_t create_func_info(type_info_t type_info) {
-    func_info_t new_func_info = { .is_unitary = true, .pars_type_info = calloc(1, sizeof (type_info_t)),
-                                  .num_of_pars = 1};
+    func_info_t new_func_info = { .is_unitary = true, .is_sp = type_info.depth == 0,
+                                  .pars_type_info = calloc(1, sizeof (type_info_t)), .num_of_pars = 1};
     new_func_info.pars_type_info[0] = type_info;
     return new_func_info;
 }
 
 void append_to_func_info(func_info_t *func_info, type_info_t type_info) {
+    func_info->is_sp = false;
     unsigned current_num_of_pars = (func_info->num_of_pars)++;
     func_info->pars_type_info = realloc(func_info->pars_type_info,
                                         (current_num_of_pars + 1) * sizeof (type_info_t));
@@ -191,6 +192,9 @@ void append_to_func_info(func_info_t *func_info, type_info_t type_info) {
 
 void set_func_info_of_elem(list_t *entry, func_info_t func_info) {
     entry->func_info = func_info;
+    if (entry->type_info.qualifier != NONE_T || entry->type_info.type != BOOL_T || entry->type_info.depth != 0) {
+        entry->func_info.is_sp = false;
+    }
 }
 
 /* print to stdout by default */ 

@@ -44,6 +44,7 @@ typedef struct qualified_type {
 
 typedef struct func_info {
     bool is_unitary;
+    bool is_sp;
     type_info_t *pars_type_info;
     unsigned num_of_pars;
 } func_info_t;
