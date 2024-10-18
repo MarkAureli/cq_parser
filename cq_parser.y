@@ -122,24 +122,33 @@ decl:
 func_def:
 	QUANTUM type_specifier declarator { incr_scope(); /* global info for return check and to avoid recursion */ } func_head func_tail {
 	    hide_scope();
-	    $$ = new_func_decl_node($3);
 	    type_info_t type_info = create_type_info(QUANTUM_T, $2.type, $2.sizes, $2.depth);
 	    set_type_info($3, type_info);
 	    set_func_info($3, $5);
+	    $$ = new_func_decl_node($3, error_msg);
+	    if ($$ == NULL) {
+	        yyerror(error_msg);
+	    }
 	}
 	| type_specifier declarator { incr_scope(); /* global info for return check and to avoid recursion */ } func_head func_tail {
 	    hide_scope();
-	    $$ = new_func_decl_node($2);
 	    type_info_t type_info = create_type_info(NONE_T, $1.type, $1.sizes, $1.depth);
 	    set_type_info($2, type_info);
 	    set_func_info($2, $4);
+	    $$ = new_func_decl_node($2, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
 	}
 	| VOID declarator { incr_scope(); /* global info for return check and to avoid recursion */ } func_head func_tail {
 	    hide_scope();
-	    $$ = new_func_decl_node($2);
 	    type_info_t type_info = create_type_info(NONE_T, VOID_T, NULL, 0);
 	    set_type_info($2, type_info);
 	    set_func_info($2, $4);
+	    $$ = new_func_decl_node($2, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
 	}
 	;
 
@@ -181,14 +190,20 @@ func_tail:
 
 variable_decl:
     QUANTUM type_specifier declarator SEMICOLON {
-        $$ = new_var_decl_node($3);
         type_info_t type_info = create_type_info(QUANTUM_T, $2.type, $2.sizes, $2.depth);
         set_type_info($3, type_info);
+        $$ = new_var_decl_node($3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
     }
     | type_specifier declarator SEMICOLON {
-        $$ = new_var_decl_node($2);
         type_info_t type_info = create_type_info(NONE_T, $1.type, $1.sizes, $1.depth);
         set_type_info($2, type_info);
+        $$ = new_var_decl_node($2, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
     }
     ;
 
@@ -196,7 +211,7 @@ variable_def:
     QUANTUM type_specifier declarator ASSIGN init SEMICOLON {
         type_info_t type_info = create_type_info(QUANTUM_T, $2.type, $2.sizes, $2.depth);
 	    set_type_info($3, type_info);
-	    $$ = build_var_def_node($3, $5, error_msg);
+	    $$ = new_var_def_node($3, $5->is_init_list, $5->node, $5->array_values_info, $5->length, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
@@ -204,14 +219,14 @@ variable_def:
 	| CONST type_specifier declarator ASSIGN init SEMICOLON {
 	    type_info_t type_info = create_type_info(CONST_T, $2.type, $2.sizes, $2.depth);
 	    set_type_info($3, type_info);
-	    $$ = build_var_def_node($3, $5, error_msg);
+	    $$ = new_var_def_node($3, $5->is_init_list, $5->node, $5->array_values_info, $5->length, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 
         if ($5->is_init_list) {
-            for (unsigned i = 0; i < $5->init_list.length; ++i) {
-                $3->values[i] = $5->init_list.values[i].const_value;
+            for (unsigned i = 0; i < $5->length; ++i) {
+                $3->values[i] = $5->array_values_info.values[i].const_value;
             }
         } else {
             type_info_t *type_info = get_type_info_of_node($5->node);
@@ -222,7 +237,7 @@ variable_def:
 	| type_specifier declarator ASSIGN init SEMICOLON {
 	    type_info_t type_info = create_type_info(NONE_T, $1.type, $1.sizes, $1.depth);
 	    set_type_info($2, type_info);
-        $$ = build_var_def_node($2, $4, error_msg);
+        $$ = new_var_def_node($2, $4->is_init_list, $4->node, $4->array_values_info, $4->length, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -240,7 +255,7 @@ init:
         $$ = new_init_info_from_node($1);
     }
     | LBRACKET ID RBRACKET {
-        node_t *func_sp_node = build_func_sp_node(insert($2, strlen($2), yylineno, false), error_msg);
+        node_t *func_sp_node = new_func_sp_node(insert($2, strlen($2), yylineno, false), error_msg);
         if (func_sp_node == NULL) {
             yyerror(error_msg);
         }
@@ -269,7 +284,7 @@ init_elem_l:
         $$ = new_init_info_from_init_list(qualified_type, value);
     }
     | LBRACKET ID RBRACKET {
-        node_t *func_sp_node = build_func_sp_node(insert($2, strlen($2), yylineno, false), error_msg);
+        node_t *func_sp_node = new_func_sp_node(insert($2, strlen($2), yylineno, false), error_msg);
         if (func_sp_node == NULL) {
             yyerror(error_msg);
         }
@@ -280,7 +295,7 @@ init_elem_l:
         $$ = new_init_info_from_init_list(qualified_type, value);
     }
     | init_elem_l COMMA LBRACKET ID RBRACKET {
-        node_t *func_sp_node = build_func_sp_node(insert($4, strlen($4), yylineno, false), error_msg);
+        node_t *func_sp_node = new_func_sp_node(insert($4, strlen($4), yylineno, false), error_msg);
         if (func_sp_node == NULL) {
             yyerror(error_msg);
         }

@@ -185,20 +185,6 @@ typedef union array_value {
     struct node *node_value;                /*!< Node value */
 } array_value_t;
 
-typedef struct init_list {
-    qualified_type_t *qualified_types;
-    array_value_t *values;
-    unsigned length;
-} init_list_t;
-
-typedef struct init_info {
-    bool is_init_list;
-    union {
-        struct node *node;
-        init_list_t init_list;
-    };
-} init_info_t;
-
 typedef struct access_info {
     entry_t *entry;
     bool index_is_const[MAX_ARRAY_DEPTH];
@@ -207,9 +193,18 @@ typedef struct access_info {
 } access_info_t;
 
 typedef struct array_values_info {
-    bool *value_is_const;
+    qualified_type_t *qualified_types;
     array_value_t *values;
 } array_values_info_t;
+
+typedef struct init_info {
+    bool is_init_list;
+    union {
+        struct node *node;
+        array_values_info_t array_values_info;
+    };
+    unsigned length;
+} init_info_t;
 
 typedef struct else_if_list {
     struct node **else_if_nodes;
@@ -262,6 +257,7 @@ typedef struct var_def_node {
         node_t *node;
         array_values_info_t array_values_info;
     };
+    unsigned length;
 } var_def_node_t;
 
 typedef struct const_node {
@@ -451,17 +447,14 @@ func_info_t create_func_info(type_info_t type_info);
 
 void append_to_func_info(func_info_t *func_info, type_info_t type_info);
 
-node_t *new_func_decl_node(entry_t *entry);
+node_t *new_func_decl_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_func_sp_node(entry_t *entry);
+node_t *new_func_sp_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_var_decl_node(entry_t *entry);
+node_t *new_var_decl_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, array_values_info_t array_values_info);
-
-node_t *new_var_def_node_from_node(entry_t *entry, node_t *node);
-
-node_t *new_var_def_node_from_init_list(entry_t *entry, bool *value_is_const, array_value_t *values);
+node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, array_values_info_t array_values_info,
+                         unsigned length, char error_msg[ERROR_MSG_LENGTH]);
 
 node_t *new_const_node(type_t type, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth, value_t *values);
 
@@ -537,10 +530,6 @@ void append_to_arg_list(arg_list_t *arg_list, node_t *node);
 type_info_t *get_type_info_of_node(const node_t *node);
 
 bool are_matching_types(type_t type_1, type_t type_2);
-
-node_t *build_func_sp_node(entry_t * entry, char error_msg[ERROR_MSG_LENGTH]);
-
-node_t *build_var_def_node(entry_t *entry, init_info_t *init_info, char error_msg[ERROR_MSG_LENGTH]);
 
 node_t *build_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branches, unsigned num_of_else_ifs,
                       node_t *else_branch, char error_msg[ERROR_MSG_LENGTH]);

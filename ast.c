@@ -428,56 +428,41 @@ void append_to_func_info(func_info_t *func_info, type_info_t type_info) {
     func_info->pars_type_info[current_num_of_pars] = type_info;
 }
 
-node_t *new_func_decl_node(entry_t *entry) {
+node_t *new_func_decl_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
+    if (!entry->is_function) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not a function", entry->name);
+        return NULL;
+    }
+
     func_decl_node_t *new_node = calloc(1, sizeof (func_decl_node_t));
     new_node->type = FUNC_DECL_NODE_T;
     new_node->entry = entry;
     return (node_t *) new_node;
 }
 
-node_t *new_func_sp_node(entry_t *entry) {
+node_t *new_func_sp_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
+    if (!entry->is_function) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not a function", entry->name);
+        return NULL;
+    } else if (!entry->func_info.is_sp) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s cannot be used to create a superposition", entry->name);
+        return NULL;
+    }
     func_decl_node_t *new_node = calloc(1, sizeof (func_sp_node_t));
     new_node->type = FUNC_SP_NODE_T;
     new_node->entry = entry;
     return (node_t *) new_node;
 }
 
-node_t *new_var_decl_node(entry_t *entry) {
+node_t *new_var_decl_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
+    if (entry->is_function) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "%s is a function", entry->name);
+        return NULL;
+    }
+
     var_decl_node_t *new_node = calloc(1, sizeof (var_decl_node_t));
     new_node->type = VAR_DECL_NODE_T;
     new_node->entry = entry;
-    return (node_t *) new_node;
-}
-
-node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, array_values_info_t array_values_info) {
-    var_def_node_t *new_node = calloc(1, sizeof (var_def_node_t));
-    new_node->type = VAR_DEF_NODE_T;
-    new_node->entry = entry;
-    new_node->is_init_list = is_init_list;
-    if (is_init_list) {
-        new_node->array_values_info = array_values_info;
-    } else {
-        new_node->node = node;
-    }
-    return (node_t *) new_node;
-}
-
-node_t *new_var_def_node_from_node(entry_t *entry, node_t *node) {
-    var_def_node_t *new_node = calloc(1, sizeof (var_def_node_t));
-    new_node->type = VAR_DEF_NODE_T;
-    new_node->entry = entry;
-    new_node->is_init_list = false;
-    new_node->node = node;
-    return (node_t *) new_node;
-}
-
-node_t *new_var_def_node_from_init_list(entry_t *entry, bool *value_is_const, array_value_t *values) {
-    var_def_node_t *new_node = calloc(1, sizeof (var_def_node_t));
-    new_node->type = VAR_DEF_NODE_T;
-    new_node->entry = entry;
-    new_node->is_init_list = true;
-    new_node->array_values_info.value_is_const = value_is_const;
-    new_node->array_values_info.values = values;
     return (node_t *) new_node;
 }
 
@@ -716,24 +701,22 @@ init_info_t *new_init_info_from_node(node_t *node) {
 init_info_t *new_init_info_from_init_list(qualified_type_t qualified_type, array_value_t value) {
     init_info_t *new_infos = calloc(1, sizeof (init_info_t));
     new_infos->is_init_list = true;
-    new_infos->init_list.qualified_types = calloc(1, sizeof (qualified_type_t));
-    new_infos->init_list.qualified_types[0] = qualified_type;
-    new_infos->init_list.values = calloc(1, sizeof (array_value_t));
-    new_infos->init_list.values[0] = value;
-    new_infos->init_list.length = 1;
+    new_infos->array_values_info.qualified_types = calloc(1, sizeof (qualified_type_t));
+    new_infos->array_values_info.qualified_types[0] = qualified_type;
+    new_infos->array_values_info.values = calloc(1, sizeof (array_value_t));
+    new_infos->array_values_info.values[0] = value;
+    new_infos->length = 1;
     return new_infos;
 }
 
 void append_to_init_info(init_info_t *array_init_info, qualified_type_t qualified_type, array_value_t value) {
-    unsigned current_length = (array_init_info->init_list.length)++;
-    array_init_info->init_list.qualified_types = realloc(array_init_info->init_list.qualified_types,
-                                                               (current_length + 1)
-                                                               * sizeof (qualified_type_t));
-    array_init_info->init_list.values = realloc(array_init_info->init_list.values,
-                                                      (current_length + 1)
-                                                      * sizeof (array_value_t));
-    array_init_info->init_list.qualified_types[current_length] = qualified_type;
-    array_init_info->init_list.values[current_length] = value;
+    unsigned current_length = (array_init_info->length)++;
+    array_init_info->array_values_info.qualified_types = realloc(array_init_info->array_values_info.qualified_types,
+                                                                 (current_length + 1) * sizeof (qualified_type_t));
+    array_init_info->array_values_info.values = realloc(array_init_info->array_values_info.values,
+                                                        (current_length + 1) * sizeof (array_value_t));
+    array_init_info->array_values_info.qualified_types[current_length] = qualified_type;
+    array_init_info->array_values_info.values[current_length] = value;
 }
 
 bool stmt_is_unitary(const node_t *node) {
@@ -985,124 +968,97 @@ bool are_matching_types(type_t type_1, type_t type_2) {
     return true;
 }
 
-node_t *build_func_sp_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
-    if (!entry->is_function) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not a function", entry->name);
-        return NULL;
-    } else if (!entry->func_info.is_sp) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s cannot be used to create a superposition", entry->name);
-        return NULL;
-    }
-    node_t *result = new_func_sp_node(entry);
-    return result;
-}
-
-node_t *build_var_def_node(entry_t *entry, init_info_t *init_info, char error_msg[ERROR_MSG_LENGTH]) {
-    bool *value_is_const;
-    if (init_info->is_init_list) {
+node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, array_values_info_t array_values_info,
+                         unsigned length, char error_msg[ERROR_MSG_LENGTH]) {
+    if (is_init_list) {
         if (entry->type_info.depth == 0) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not an array, but is initialized as such", entry->name);
             return NULL;
-        } else if (init_info->init_list.length > entry->length) {
+        } else if (length > entry->length) {
             snprintf(error_msg, ERROR_MSG_LENGTH,
                      "Too many (%u) elements initialized for array %s of total length %u",
-                     init_info->init_list.length, entry->name, entry->length);
+                     length, entry->name, entry->length);
             return NULL;
         }
 
-        value_is_const = calloc(entry->length, sizeof (bool));
-        for (unsigned i = 0; i < init_info->init_list.length; ++i) {
-            if (entry->type_info.qualifier == QUANTUM_T && init_info->init_list.qualified_types[i].qualifier != CONST_T
-                && init_info->init_list.values[i].node_value->type == FUNC_SP_NODE_T) {
-                func_info_t sp_info = ((func_sp_node_t *) init_info->init_list.values[i].node_value)->entry->func_info;
-                if (sp_info.num_of_pars != 1) {
-                    free(value_is_const);
+        for (unsigned i = 0; i < length; ++i) {
+            if (entry->type_info.qualifier == QUANTUM_T
+                && array_values_info.qualified_types[i].qualifier != CONST_T
+                && array_values_info.values[i].node_value->type == FUNC_SP_NODE_T) {
+                func_info_t func_info = ((func_sp_node_t *) array_values_info.values[i].node_value)->entry->func_info;
+                if (func_info.num_of_pars != 1) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Element %u: Quantizable function %s must take exactly 1 parameter",
-                             i, ((func_sp_node_t *) init_info->init_list.values[i].node_value)->entry->name);
+                             i, ((func_sp_node_t *) array_values_info.values[i].node_value)->entry->name);
                     return NULL;
-                } else if (sp_info.pars_type_info[0].qualifier != NONE_T) {
-                    free(value_is_const);
+                } else if (func_info.pars_type_info[0].qualifier != NONE_T) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Element %u: Quantizable function %s must take a classical parameter",
-                             i, ((func_sp_node_t *) init_info->init_list.values[i].node_value)->entry->name);
+                             i, ((func_sp_node_t *) array_values_info.values[i].node_value)->entry->name);
                     return NULL;
-                } else if (sp_info.pars_type_info[0].type != entry->type_info.type) {
-                    free(value_is_const);
+                } else if (func_info.pars_type_info[0].type != entry->type_info.type) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Element %u: Quantizable function %s takes %s instead of %s",
-                             i, ((func_sp_node_t *) init_info->init_list.values[i].node_value)->entry->name,
-                             type_to_str(sp_info.pars_type_info[0].type), type_to_str(entry->type_info.type));
+                             i, ((func_sp_node_t *) array_values_info.values[i].node_value)->entry->name,
+                             type_to_str(func_info.pars_type_info[0].type), type_to_str(entry->type_info.type));
                     return NULL;
-                } else if (sp_info.pars_type_info[0].depth != 0) {
-                    free(value_is_const);
+                } else if (func_info.pars_type_info[0].depth != 0) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Element %u: Quantizable function %s takes an array of depth %u instead of a scalar",
-                             i, ((func_sp_node_t *) init_info->init_list.values[i].node_value)->entry->name,
-                             sp_info.pars_type_info[0].depth);
+                             i, ((func_sp_node_t *) array_values_info.values[i].node_value)->entry->name,
+                             func_info.pars_type_info[0].depth);
                     return NULL;
                 }
             } else if (entry->type_info.qualifier != QUANTUM_T
-                       && init_info->init_list.qualified_types[i].qualifier != CONST_T
-                       && init_info->init_list.values[i].node_value->type == FUNC_SP_NODE_T) {
-                free(value_is_const);
+                       && array_values_info.qualified_types[i].qualifier != CONST_T
+                       && array_values_info.values[i].node_value->type == FUNC_SP_NODE_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Element %u in initialization of classical array %s is a superposition instruction",
                          i, entry->name);
                 return NULL;
             } else if (entry->type_info.qualifier != QUANTUM_T
-                       && init_info->init_list.qualified_types[i].qualifier == QUANTUM_T) {
-                free(value_is_const);
+                       && array_values_info.qualified_types[i].qualifier == QUANTUM_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Element %u in initialization of classical array %s is quantum",
                          i, entry->name);
                 return NULL;
             } else if (entry->type_info.qualifier == CONST_T
-                       && init_info->init_list.qualified_types[i].qualifier != CONST_T) {
-                free(value_is_const);
+                       && array_values_info.qualified_types[i].qualifier != CONST_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Element %u in initialization of constant array %s is not constant", i, entry->name);
                 return NULL;
             } else if (!are_matching_types(entry->type_info.type,
-                                           init_info->init_list.qualified_types[i].type)) {
-                free(value_is_const);
+                                           array_values_info.qualified_types[i].type)) {
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Element %u in initialization of %s-array %s is of type %s",
                          i, type_to_str(entry->type_info.type), entry->name,
-                         type_to_str(init_info->init_list.qualified_types[i].type));
+                         type_to_str(array_values_info.qualified_types[i].type));
                 return NULL;
             }
-            if (init_info->init_list.qualified_types[i].qualifier == CONST_T) {
-                value_is_const[i] = true;
-            }
-        }
-        for (unsigned i = init_info->init_list.length; i < entry->length; ++i) {
-            value_is_const[i] = true;
         }
     } else { /* no initializer entry */
-        value_is_const = NULL;
-        type_info_t *type_info = get_type_info_of_node(init_info->node);
-        if (entry->type_info.qualifier == QUANTUM_T && init_info->node->type == FUNC_SP_NODE_T) {
-            func_info_t func_info = ((func_sp_node_t *) init_info->node)->entry->func_info;
+        type_info_t *type_info = get_type_info_of_node(node);
+        if (entry->type_info.qualifier == QUANTUM_T && node->type == FUNC_SP_NODE_T) {
+            func_info_t func_info = ((func_sp_node_t *) node)->entry->func_info;
             if (func_info.num_of_pars != 1) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Quantizable function %s must take exactly 1 parameter",
-                         ((func_sp_node_t *) init_info->node)->entry->name);
+                         ((func_sp_node_t *) node)->entry->name);
                 return NULL;
             } else if (func_info.pars_type_info[0].qualifier != NONE_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Quantizable function %s must take a classical parameter",
-                         ((func_sp_node_t *) init_info->node)->entry->name);
+                         ((func_sp_node_t *) node)->entry->name);
                 return NULL;
             } else if (func_info.pars_type_info[0].type != entry->type_info.type) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Quantizable function %s takes %s instead of %s",
-                         ((func_sp_node_t *) init_info->node)->entry->name,
+                         ((func_sp_node_t *) node)->entry->name,
                          type_to_str(func_info.pars_type_info[0].type), type_to_str(entry->type_info.type));
                 return NULL;
             } else if (func_info.pars_type_info[0].depth != 0) {
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Quantizable function %s takes an array of depth %u instead of a scalar",
-                         ((func_sp_node_t *) init_info->node)->entry->name, func_info.pars_type_info[0].depth);
+                         ((func_sp_node_t *) node)->entry->name, func_info.pars_type_info[0].depth);
                 return NULL;
             }
-        } else if (entry->type_info.qualifier != QUANTUM_T && init_info->node->type == FUNC_SP_NODE_T) {
+        } else if (entry->type_info.qualifier != QUANTUM_T && node->type == FUNC_SP_NODE_T) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Classical variable %s cannot be initialized in superposition",
                      entry->name);
         } else if (entry->type_info.depth == 0 && type_info->depth != 0) {
@@ -1143,7 +1099,7 @@ node_t *build_var_def_node(entry_t *entry, init_info_t *init_info, char error_ms
                          entry->name);
                 return NULL;
             }
-        } else if (init_info->node->type != FUNC_SP_NODE_T
+        } else if (node->type != FUNC_SP_NODE_T
                    && !are_matching_types(entry->type_info.type, type_info->type)) {
             if (entry->type_info.depth == 0) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Initialization of scalar %s of type %s with value of type %s",
@@ -1156,9 +1112,18 @@ node_t *build_var_def_node(entry_t *entry, init_info_t *init_info, char error_ms
             }
         }
     }
-    array_values_info_t array_values_info = { .value_is_const = value_is_const, .values = init_info->init_list.values};
-    node_t *result = new_var_def_node(entry, init_info->is_init_list, init_info->node, array_values_info);
-    return result;
+
+    var_def_node_t *new_node = calloc(1, sizeof (var_def_node_t));
+    new_node->type = VAR_DEF_NODE_T;
+    new_node->entry = entry;
+    new_node->is_init_list = is_init_list;
+    if (is_init_list) {
+        new_node->array_values_info = array_values_info;
+    } else {
+        new_node->node = node;
+    }
+    new_node->length = length;
+    return (node_t *) new_node;
 }
 
 node_t *build_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branches, unsigned num_of_else_ifs,
@@ -2174,7 +2139,7 @@ void tree_traversal(const node_t *node) {
             if (((var_def_node_t *) node)->is_init_list) {
                 for (unsigned i = 0; i < get_length_of_array(((var_def_node_t *) node)->entry->type_info.sizes,
                                                              ((var_def_node_t *) node)->entry->type_info.depth); ++i) {
-                    if (!(((var_def_node_t *) node)->array_values_info.value_is_const[i])) {
+                    if ((((var_def_node_t *) node)->array_values_info.qualified_types[i].qualifier != CONST_T)) {
                         tree_traversal(((var_def_node_t *) node)->array_values_info.values[i].node_value);
                     }
                 }
