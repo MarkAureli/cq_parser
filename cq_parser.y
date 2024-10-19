@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ast.h"
+#include "parsing.h"
 #include "rules.h"
 #include "symbol_table.h"
 
@@ -15,6 +16,9 @@ extern FILE *yyout;
 int yyerror(const char *s);
 char error_msg[ERROR_MSG_LENGTH];
 
+func_info_t func_info;
+init_info_t init_info;
+
 %}
 
 /* Union to define yylval's types */
@@ -24,7 +28,7 @@ char error_msg[ERROR_MSG_LENGTH];
     entry_t *symtab_item;
     node_t *node;
     type_info_t type_info;
-    func_info_t func_info;
+    func_info_t *func_info;
     init_info_t *init_info;
     access_info_t access_info;
     assign_op_t assign_op;
@@ -124,7 +128,7 @@ func_def:
 	    hide_scope();
 	    type_info_t type_info = create_type_info(QUANTUM_T, $2.type, $2.sizes, $2.depth);
 	    set_type_info($3, type_info);
-	    set_func_info($3, $5.is_unitary, $5.is_sp, $5.pars_type_info, $5.num_of_pars);
+	    set_func_info($3, $5->is_unitary, $5->is_sp, $5->pars_type_info, $5->num_of_pars);
 	    $$ = new_func_decl_node($3, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
@@ -134,7 +138,7 @@ func_def:
 	    hide_scope();
 	    type_info_t type_info = create_type_info(NONE_T, $1.type, $1.sizes, $1.depth);
 	    set_type_info($2, type_info);
-	    set_func_info($2, $4.is_unitary, $4.is_sp, $4.pars_type_info, $4.num_of_pars);
+	    set_func_info($2, $4->is_unitary, $4->is_sp, $4->pars_type_info, $4->num_of_pars);
 	    $$ = new_func_decl_node($2, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -144,7 +148,7 @@ func_def:
 	    hide_scope();
 	    type_info_t type_info = create_type_info(NONE_T, VOID_T, NULL, 0);
 	    set_type_info($2, type_info);
-	    set_func_info($2, $4.is_unitary, $4.is_sp, $4.pars_type_info, $4.num_of_pars);
+	    set_func_info($2, $4->is_unitary, $4->is_sp, $4->pars_type_info, $4->num_of_pars);
 	    $$ = new_func_decl_node($2, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -157,17 +161,25 @@ func_head:
         $$ = $2;
     }
     | LPAREN RPAREN {
-        $$ = create_empty_func_info();
+        $$ = &func_info;
+        if (!setup_empty_func_info($$, error_msg)) {
+            yyerror(error_msg);
+        }
     }
     ;
 
 par_l:
 	par {
-	    $$ = create_func_info($1);
+	    $$ = &func_info;
+        if (!setup_func_info($$, $1, error_msg)) {
+            yyerror(error_msg);
+        }
 	}
 	| par_l COMMA par {
 	    $$ = $1;
-	    append_to_func_info(&$$, $3);
+	    if (!append_to_func_info($$, $3, error_msg)) {
+	        yyerror(error_msg);
+	    }
 	}
 	;
 
@@ -211,7 +223,7 @@ variable_def:
     QUANTUM type_specifier declarator ASSIGN init SEMICOLON {
         type_info_t type_info = create_type_info(QUANTUM_T, $2.type, $2.sizes, $2.depth);
 	    set_type_info($3, type_info);
-	    $$ = new_var_def_node($3, $5->is_init_list, $5->node, $5->array_values_info, $5->length, error_msg);
+	    $$ = new_var_def_node($3, $5->is_init_list, $5->node, $5->qualified_types, $5->values, $5->length, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
@@ -219,14 +231,15 @@ variable_def:
 	| CONST type_specifier declarator ASSIGN init SEMICOLON {
 	    type_info_t type_info = create_type_info(CONST_T, $2.type, $2.sizes, $2.depth);
 	    set_type_info($3, type_info);
-	    $$ = new_var_def_node($3, $5->is_init_list, $5->node, $5->array_values_info, $5->length, error_msg);
+	    $$ = new_var_def_node($3, $5->is_init_list, $5->node, $5->qualified_types, $5->values, $5->length, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 
+        /* set values of constant symbol table entry */
         if ($5->is_init_list) {
             for (unsigned i = 0; i < $5->length; ++i) {
-                $3->values[i] = $5->array_values_info.values[i].const_value;
+                $3->values[i] = $5->values[i].const_value;
             }
         } else {
             type_info_t *type_info = get_type_info_of_node($5->node);
@@ -237,7 +250,7 @@ variable_def:
 	| type_specifier declarator ASSIGN init SEMICOLON {
 	    type_info_t type_info = create_type_info(NONE_T, $1.type, $1.sizes, $1.depth);
 	    set_type_info($2, type_info);
-        $$ = new_var_def_node($2, $4->is_init_list, $4->node, $4->array_values_info, $4->length, error_msg);
+        $$ = new_var_def_node($2, $4->is_init_list, $4->node, $4->qualified_types, $4->values, $4->length, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -252,14 +265,21 @@ declarator:
 
 init:
     logical_or_expr {
-        $$ = new_init_info_from_node($1);
+        $$ = &init_info;
+        if (!setup_init_info($$, false, $1, error_msg)) {
+            yyerror(error_msg);
+        }
     }
     | LBRACKET ID RBRACKET {
         node_t *func_sp_node = new_func_sp_node(insert($2, strlen($2), yylineno, false), error_msg);
         if (func_sp_node == NULL) {
             yyerror(error_msg);
         }
-        $$ = new_init_info_from_node(func_sp_node);
+
+        $$ = &init_info;
+        if (!setup_init_info($$, false, func_sp_node, error_msg)) {
+            yyerror(error_msg);
+        }
     }
     | LBRACE init_elem_l RBRACE {
         $$ = $2;
@@ -268,31 +288,21 @@ init:
 
 init_elem_l:
     logical_or_expr {
-        type_info_t *info = get_type_info_of_node($1);
-        if (info->depth != 0) {
-            snprintf(error_msg, sizeof (error_msg), "Element of array initializer entry is itself a depth-%u array",
-                     info->depth);
+        $$ = &init_info;
+        if (!setup_init_info($$, true, $1, error_msg)) {
             yyerror(error_msg);
         }
-        array_value_t value;
-        if (info->qualifier == CONST_T) {
-            value.const_value = ((const_node_t *) $1)->values[0];
-        } else {
-            value.node_value = $1;
-        }
-        qualified_type_t qualified_type = { .qualifier=info->qualifier, .type=info->type };
-        $$ = new_init_info_from_init_list(qualified_type, value);
     }
     | LBRACKET ID RBRACKET {
         node_t *func_sp_node = new_func_sp_node(insert($2, strlen($2), yylineno, false), error_msg);
         if (func_sp_node == NULL) {
             yyerror(error_msg);
         }
-        array_value_t value;
-        value.node_value = func_sp_node;
-        type_info_t *info = get_type_info_of_node(func_sp_node);
-        qualified_type_t qualified_type = { .qualifier=info->qualifier, .type=info->type };
-        $$ = new_init_info_from_init_list(qualified_type, value);
+
+        $$ = &init_info;
+        if (!setup_init_info($$, true, func_sp_node, error_msg)) {
+            yyerror(error_msg);
+        }
     }
     | init_elem_l COMMA LBRACKET ID RBRACKET {
         node_t *func_sp_node = new_func_sp_node(insert($4, strlen($4), yylineno, false), error_msg);
@@ -300,28 +310,15 @@ init_elem_l:
             yyerror(error_msg);
         }
         $$ = $1;
-        array_value_t value;
-        value.node_value = func_sp_node;
-        type_info_t *info = get_type_info_of_node(func_sp_node);
-        qualified_type_t qualified_type = { .qualifier=info->qualifier, .type=info->type };
-        append_to_init_info($$, qualified_type, value);
-    }
-    | init_elem_l COMMA logical_or_expr {
-        type_info_t *info = get_type_info_of_node($3);
-        if (info->depth != 0) {
-            snprintf(error_msg, sizeof (error_msg), "Element of array initializer entry is itself a depth-%u array",
-                     info->depth);
+        if (!append_to_init_info($$, func_sp_node, error_msg)) {
             yyerror(error_msg);
         }
+    }
+    | init_elem_l COMMA logical_or_expr {
         $$ = $1;
-        array_value_t value;
-        if (info->qualifier == CONST_T) {
-            value.const_value = ((const_node_t *) $3)->values[0];
-        } else {
-            value.node_value = $3;
+        if (!append_to_init_info($$, $3, error_msg)) {
+            yyerror(error_msg);
         }
-        qualified_type_t qualified_type = { .qualifier=info->qualifier, .type=info->type };
-        append_to_init_info($$, qualified_type, value);
     }
     ;
 
@@ -437,13 +434,13 @@ assign_stmt:
 
 phase_stmt:
     PHASE LPAREN array_access_expr RPAREN ASSIGN_ADD logical_or_expr SEMICOLON {
-	    $$ = build_phase_node($3, true, $6, error_msg);
+	    $$ = new_phase_node($3, true, $6, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
     }
     | PHASE LPAREN array_access_expr RPAREN ASSIGN_SUB logical_or_expr SEMICOLON {
-	    $$ = build_phase_node($3, false, $6, error_msg);
+	    $$ = new_phase_node($3, false, $6, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -472,13 +469,13 @@ func_call_stmt:
 
 if_stmt:
 	IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE optional_else {
-	    $$ = build_if_node($3, $6, NULL, 0, $8, error_msg);
+	    $$ = new_if_node($3, $6, NULL, 0, $8, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
 	}
 	| IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE else_if optional_else {
-	    $$ = build_if_node($3, $6, $8.else_if_nodes, $8.num_of_else_ifs, $9, error_msg);
+	    $$ = new_if_node($3, $6, $8.else_if_nodes, $8.num_of_else_ifs, $9, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
@@ -487,14 +484,14 @@ if_stmt:
 
 else_if:
     ELSE IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE {
-        node_t *else_if_node = build_else_if_node($4, $7, error_msg);
+        node_t *else_if_node = new_else_if_node($4, $7, error_msg);
         if (else_if_node == NULL) {
             yyerror(error_msg);
         }
         $$ = create_else_if_list(else_if_node);
     }
     | else_if ELSE IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE {
-        node_t *else_if_node = build_else_if_node($5, $8, error_msg);
+        node_t *else_if_node = new_else_if_node($5, $8, error_msg);
         if (else_if_node == NULL) {
             yyerror(error_msg);
         }
@@ -514,7 +511,7 @@ optional_else:
 
 switch_stmt:
 	SWITCH LPAREN logical_or_expr RPAREN LBRACE case_stmt_l RBRACE {
-	    $$ = build_switch_node($3, $6.case_nodes, $6.num_of_cases, error_msg);
+	    $$ = new_switch_node($3, $6.case_nodes, $6.num_of_cases, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
@@ -542,7 +539,7 @@ case_stmt:
 
 do_stmt:
 	DO { incr_scope(); } LBRACE stmt_l RBRACE { hide_scope(); } WHILE LPAREN logical_or_expr RPAREN SEMICOLON {
-	    $$ = build_do_node($4, $9, error_msg);
+	    $$ = new_do_node($4, $9, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -552,7 +549,7 @@ do_stmt:
 while_stmt:
     WHILE LPAREN logical_or_expr RPAREN { incr_scope(); } LBRACE stmt_l RBRACE {
         hide_scope();
-        $$ = build_while_node($3, $7, error_msg);
+        $$ = new_while_node($3, $7, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -562,7 +559,7 @@ while_stmt:
 for_stmt:
     FOR { incr_scope(); } LPAREN for_first logical_or_expr SEMICOLON assign_expr RPAREN LBRACE stmt_l RBRACE {
         hide_scope();
-        $$ = build_for_node($4, $5, $7, $10, error_msg);
+        $$ = new_for_node($4, $5, $7, $10, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -587,55 +584,55 @@ jump_stmt:
 
 assign_expr:
 	array_access_expr ASSIGN logical_or_expr {
-	    $$ = build_assign_node($1, ASSIGN_OP, $3, error_msg);
+	    $$ = new_assign_node($1, ASSIGN_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| array_access_expr ASSIGN_OR logical_or_expr {
-	    $$ = build_assign_node($1, ASSIGN_OR_OP, $3, error_msg);
+	    $$ = new_assign_node($1, ASSIGN_OR_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| array_access_expr ASSIGN_XOR logical_or_expr {
-	    $$ = build_assign_node($1, ASSIGN_XOR_OP, $3, error_msg);
+	    $$ = new_assign_node($1, ASSIGN_XOR_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| array_access_expr ASSIGN_AND logical_or_expr {
-	    $$ = build_assign_node($1, ASSIGN_AND_OP, $3, error_msg);
+	    $$ = new_assign_node($1, ASSIGN_AND_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| array_access_expr ASSIGN_ADD logical_or_expr {
-	    $$ = build_assign_node($1, ASSIGN_ADD_OP, $3, error_msg);
+	    $$ = new_assign_node($1, ASSIGN_ADD_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| array_access_expr ASSIGN_SUB logical_or_expr {
-	    $$ = build_assign_node($1, ASSIGN_SUB_OP, $3, error_msg);
+	    $$ = new_assign_node($1, ASSIGN_SUB_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| array_access_expr ASSIGN_MUL logical_or_expr {
-	    $$ = build_assign_node($1, ASSIGN_MUL_OP, $3, error_msg);
+	    $$ = new_assign_node($1, ASSIGN_MUL_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| array_access_expr ASSIGN_DIV logical_or_expr {
-	    $$ = build_assign_node($1, ASSIGN_DIV_OP, $3, error_msg);
+	    $$ = new_assign_node($1, ASSIGN_DIV_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| array_access_expr ASSIGN_MOD logical_or_expr {
-	    $$ = build_assign_node($1, ASSIGN_MOD_OP, $3, error_msg);
+	    $$ = new_assign_node($1, ASSIGN_MOD_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -938,19 +935,19 @@ const:
 
 func_call:
 	ID LPAREN argument_expr_l RPAREN {
-        $$ = build_func_call_node(false, insert($1, strlen($1), yylineno, false), $3.args, $3.num_of_args, error_msg);
+        $$ = new_func_call_node(false, insert($1, strlen($1), yylineno, false), $3.args, $3.num_of_args, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| ID LPAREN RPAREN {
-	    $$ = build_func_call_node(false, insert($1, strlen($1), yylineno, false), NULL, 0, error_msg);
+	    $$ = new_func_call_node(false, insert($1, strlen($1), yylineno, false), NULL, 0, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| LBRACKET ID RBRACKET LPAREN argument_expr_l RPAREN {
-	    $$ = build_func_call_node(true, insert($2, strlen($2), yylineno, false), $5.args, $5.num_of_args, error_msg);
+	    $$ = new_func_call_node(true, insert($2, strlen($2), yylineno, false), $5.args, $5.num_of_args, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }

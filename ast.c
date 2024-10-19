@@ -299,17 +299,6 @@ int integer_op_application(integer_op_t op, value_t *out, type_t in_type_1,
     return 0;
 }
 
-func_info_t get_func_info_of_entry(const entry_t *entry) {
-    if (!entry->is_function) {
-        fprintf(stderr, "Trying to get function information of non-function %s\n", entry->name);
-        exit(1);
-    }
-
-    func_info_t func_info = { .is_unitary = entry->is_unitary, .is_sp = entry->is_sp,
-            .pars_type_info = entry->pars_type_info, .num_of_pars = entry->num_of_pars };
-    return func_info;
-}
-
 unsigned get_length_of_array(const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth) {
     unsigned result = 1;
     for (unsigned i = 0; i < depth; ++i) {
@@ -412,33 +401,6 @@ void append_to_stmt_list(node_t *stmt_list_node, node_t *stmt) {
     stmt_list_node_view->is_unitary = stmt_list_node_view->is_unitary && stmt_is_unitary(stmt);
 }
 
-type_info_t create_type_info(qualifier_t qualifier, type_t type, const unsigned sizes[MAX_ARRAY_DEPTH],
-                             unsigned depth) {
-    type_info_t new_type_info = { .qualifier = qualifier, .type = type, .depth = depth };
-    memcpy(new_type_info.sizes, sizes, depth * sizeof (unsigned));
-    return new_type_info;
-}
-
-func_info_t create_empty_func_info() {
-    func_info_t new_func_info = { .is_unitary = true, .is_sp = false, .pars_type_info = NULL, .num_of_pars = 0};
-    return new_func_info;
-}
-
-func_info_t create_func_info(type_info_t type_info) {
-    func_info_t new_func_info = { .is_unitary = true, .is_sp = type_info.depth == 0,
-            .pars_type_info = calloc(1, sizeof (type_info_t)), .num_of_pars = 1};
-    new_func_info.pars_type_info[0] = type_info;
-    return new_func_info;
-}
-
-void append_to_func_info(func_info_t *func_info, type_info_t type_info) {
-    func_info->is_sp = false;
-    unsigned current_num_of_pars = (func_info->num_of_pars)++;
-    func_info->pars_type_info = realloc(func_info->pars_type_info,
-                                        (current_num_of_pars + 1) * sizeof (type_info_t));
-    func_info->pars_type_info[current_num_of_pars] = type_info;
-}
-
 node_t *new_func_decl_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
     if (!entry->is_function) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not a function", entry->name);
@@ -504,10 +466,83 @@ node_t *new_reference_node(const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth
     return (node_t *) new_node;
 }
 
-node_t *new_func_call_node(entry_t *entry, bool sp, node_t **pars, unsigned num_of_pars) {
+node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_of_pars,
+                           char error_msg[ERROR_MSG_LENGTH]) {
     if (!entry->is_function) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to call non-function %s", entry->name);
+        return NULL;
+    } else if (entry->num_of_pars != num_of_pars) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s requires %u parameter%s, but is called with %u parameter%s",
+                 entry->name, entry->num_of_pars, (entry->num_of_pars == 1) ? "" : "s",
+                 num_of_pars, (num_of_pars == 1) ? "" : "s");
         return NULL;
     }
+
+    if (sp) {
+        type_info_t *type_info_of_par = get_type_info_of_node(pars[0]);
+        if (!entry->is_sp) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s cannot be used to create a superposition", entry->name);
+            return NULL;
+        } else if (pars[0]->type != REFERENCE_NODE_T || type_info_of_par->qualifier != QUANTUM_T) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Parameter in call to function %s is not a quantum variable",
+                     entry->name);
+            return NULL;
+        } else if (type_info_of_par->type != entry->pars_type_info[0].type) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Parameter in call to function %s is of type %s instead of %s ",
+                     entry->name, type_to_str(type_info_of_par->type),
+                     type_to_str(entry->pars_type_info[0].type));
+            return NULL;
+        }
+    } else {
+        for (unsigned i = 0; i < num_of_pars; ++i) {
+            type_info_t *type_info_of_par = get_type_info_of_node(pars[i]);
+            if (type_info_of_par == NULL) {
+                snprintf(error_msg, ERROR_MSG_LENGTH, "Parameter %u in call to function %s is not an expression",
+                         i + 1, entry->name);
+                return NULL;
+            } else if (entry->pars_type_info[i].qualifier != QUANTUM_T
+                       && type_info_of_par->qualifier == QUANTUM_T) {
+                snprintf(error_msg, ERROR_MSG_LENGTH,
+                         "Parameter %u in call to function %s is required to be classical, but is quantum",
+                         i + 1, entry->name);
+                return NULL;
+            } else if (!are_matching_types(entry->pars_type_info[i].type,
+                                           type_info_of_par->type)) {
+                snprintf(error_msg, ERROR_MSG_LENGTH,
+                         "Parameter %u in call to function %s is required to be of type %s, but is of type %s",
+                         i + 1, entry->name, type_to_str(entry->pars_type_info[i].type),
+                         type_to_str(type_info_of_par->type));
+                return NULL;
+            } else if (entry->pars_type_info[i].depth != type_info_of_par->depth) {
+                if (entry->pars_type_info[i].depth == 0) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH,
+                             "Parameter %u in call to function %s is required to be a scalar, but is a depth-%u array",
+                             i + 1, entry->name, type_info_of_par->depth);
+                    return NULL;
+                } else if (type_info_of_par->depth == 0) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH,
+                             "Parameter %u in call to function %s is required to be a depth-%u array, but is a scalar",
+                             i + 1, entry->name, entry->pars_type_info[i].depth);
+                    return NULL;
+                } else {
+                    snprintf(error_msg, ERROR_MSG_LENGTH,
+                             "Parameter %u in call to function %s is required to be a depth-%u array, but has depth %u",
+                             i + 1, entry->name, entry->pars_type_info[i].depth, type_info_of_par->depth);
+                    return NULL;
+                }
+            }
+            for (unsigned j = 0; j < type_info_of_par->depth; ++j) {
+                if (entry->pars_type_info[i].sizes[j] != type_info_of_par->sizes[j]) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH,
+                             "Parameter %u in call to function %s has size %u instead of %u in dimension %u",
+                             i + 1, entry->name, entry->pars_type_info[i].sizes[j],
+                             type_info_of_par->sizes[j], j + 1);
+                    return NULL;
+                }
+            }
+        }
+    }
+
     func_call_node_t *new_node = calloc(1, sizeof (func_call_node_t));
     new_node->type = FUNC_CALL_NODE_T;
     new_node->type_info.qualifier = entry->type_info.qualifier;
@@ -601,27 +636,116 @@ node_t *new_invert_op_node(qualifier_t qualifier, type_t type, const unsigned si
     return (node_t *) new_node;
 }
 
-node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **elseif_branches, unsigned num_of_else_ifs,
-                    node_t *else_branch) {
+node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branches, unsigned num_of_else_ifs,
+                    node_t *else_branch, char error_msg[ERROR_MSG_LENGTH]) {
+    type_info_t *condition_type_info = get_type_info_of_node(condition);
+    if (condition_type_info->type != BOOL_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "If condition must be of type bool, but is of type %s",
+                 type_to_str(condition_type_info->type));
+        return NULL;
+    } else if (condition_type_info->depth != 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "If condition must be a single bool, but is an array of depth %u",
+                 condition_type_info->depth);
+        return NULL;
+    }
+
+    if (condition_type_info->qualifier == QUANTUM_T) {
+        if (!(((stmt_list_node_t *) if_branch)->is_unitary)) {
+            snprintf(error_msg, ERROR_MSG_LENGTH,
+                     "If condition is quantum, but statements in if-branch are not unitary");
+            return NULL;
+        } else if (else_branch != NULL && !(((stmt_list_node_t *) else_branch)->is_unitary)) {
+            snprintf(error_msg, ERROR_MSG_LENGTH,
+                     "If condition is quantum, but statements in else-branch are not unitary");
+            return NULL;
+        }
+    }
+
+    for (unsigned i = 0; i < num_of_else_ifs; ++i) {
+        else_if_node_t *else_if_node_view = (else_if_node_t *) (else_if_node_t *) else_if_branches[i];
+        qualifier_t condition_qualifier = get_type_info_of_node((else_if_node_view)->condition)->qualifier;
+        if (condition_qualifier != condition_type_info->qualifier) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if condition %u is %s while if condition is %s",
+                     i + 1, (condition_qualifier == QUANTUM_T) ? "quantum" : "classical",
+                     (condition_type_info->qualifier == QUANTUM_T) ? "quantum" : "classical");
+            return NULL;
+        }
+    }
+
     if_node_t *new_node = calloc(1, sizeof (if_node_t));
     new_node->type = IF_NODE_T;
     new_node->condition = condition;
     new_node->if_branch = if_branch;
-    new_node->else_if_branches = elseif_branches;
+    new_node->else_if_branches = else_if_branches;
     new_node->num_of_else_ifs = num_of_else_ifs;
     new_node->else_branch = else_branch;
     return (node_t *) new_node;
 }
 
-node_t *new_else_if_node(node_t *condition, node_t *elseif_branch) {
+node_t *new_else_if_node(node_t *condition, node_t *else_if_branch, char error_msg[ERROR_MSG_LENGTH]) {
+    type_info_t *condition_type_info = get_type_info_of_node(condition);
+    if (condition_type_info->type != BOOL_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if condition must be of type bool, but is of type %s",
+                 type_to_str(condition_type_info->type));
+        return NULL;
+    } else if (condition_type_info->depth != 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if condition must be a single bool, but is an array of depth %u",
+                 condition_type_info->depth);
+        return NULL;
+    } else if (condition_type_info->qualifier == QUANTUM_T && !(((stmt_list_node_t *) else_if_branch)->is_unitary)) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if condition is quantum, but statements are not unitary");
+        return NULL;
+    }
+
     else_if_node_t *new_node = calloc(1, sizeof (else_if_node_t));
     new_node->type = ELSE_IF_NODE_T;
     new_node->condition = condition;
-    new_node->else_if_branch = elseif_branch;
+    new_node->else_if_branch = else_if_branch;
     return (node_t *) new_node;
 }
 
-node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num_of_cases) {
+node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num_of_cases,
+                        char error_msg[ERROR_MSG_LENGTH]) {
+    type_info_t *expression_type_info = get_type_info_of_node(expression);
+    if (expression_type_info->depth != 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Switch expression must be a scalar, but is an array of depth %u",
+                 expression_type_info->depth);
+        return NULL;
+    }
+    for (unsigned i = 0; i < num_of_cases; ++i) {
+        case_node_t *case_node_view = (case_node_t *) case_branches[i];
+        stmt_list_node_t *case_branch_view = (stmt_list_node_t *) case_node_view->case_branch;
+        const_node_t *case_const_view = (const_node_t *) case_node_view->case_const;
+        if (case_const_view != NULL
+            && !are_matching_types(expression_type_info->type, case_const_view->type_info.type)) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Case %u is of type %s while switch expression is of type %s",
+                     i + 1, type_to_str(case_const_view->type_info.type), type_to_str(expression_type_info->type));
+            return NULL;
+        } else if (expression_type_info->qualifier == QUANTUM_T && !case_branch_view->is_unitary) {
+            snprintf(error_msg, ERROR_MSG_LENGTH,
+                     "Switch expression is quantum, but statements in case %u are not unitary", i + 1);
+            return NULL;
+        }
+
+        if (case_const_view == NULL) { /* default statement reached, discard all following cases */
+            num_of_cases = i + 1;
+            case_branches = realloc(case_branches, num_of_cases * sizeof (node_t *));
+            break;
+        }
+
+        for (unsigned j = 0; j < i; ++j) {
+            case_node_t *prior_case_node_view = (case_node_t *) case_branches[j];
+            const_node_t *prior_case_const_view = (const_node_t *) prior_case_node_view->case_const;
+            if ((case_const_view->type_info.type == BOOL_T
+                 && case_const_view->values[0].b_val == prior_case_const_view->values[0].b_val)
+                || (case_const_view->type_info.type == INT_T
+                    && case_const_view->values[0].i_val == prior_case_const_view->values[0].i_val)) {
+                snprintf(error_msg, ERROR_MSG_LENGTH, "Cases %u and %u have the same value", j + 1, i + 1);
+                return NULL;
+            }
+        }
+    }
+
     switch_node_t *new_node = calloc(1, sizeof (switch_node_t));
     new_node->type = SWITCH_NODE_T;
     new_node->expression = expression;
@@ -638,7 +762,22 @@ node_t *new_case_node(node_t *case_const, node_t *case_branch) {
     return (node_t *) new_node;
 }
 
-node_t *new_for_node(node_t *initialize, node_t *condition, node_t *increment, node_t *for_branch) {
+node_t *new_for_node(node_t *initialize, node_t *condition, node_t *increment, node_t *for_branch,
+                     char error_msg[ERROR_MSG_LENGTH]) {
+    type_info_t *type_info = get_type_info_of_node(condition);
+    if (type_info->qualifier == QUANTUM_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "For-loop condition cannot be quantum");
+        return NULL;
+    } else if (type_info->type != BOOL_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "For-loop condition must be of type bool, but is of type %s",
+                 type_to_str(type_info->type));
+        return NULL;
+    } else if (type_info->depth != 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "For-loop condition must be a single bool, but is an array of depth %u",
+                 type_info->depth);
+        return NULL;
+    }
+
     for_node_t *new_node = calloc(1, sizeof (for_node_t));
     new_node->type = FOR_NODE_T;
     new_node->initialize = initialize;
@@ -648,7 +787,21 @@ node_t *new_for_node(node_t *initialize, node_t *condition, node_t *increment, n
     return (node_t *) new_node;
 }
 
-node_t *new_do_node(node_t *do_branch, node_t *condition) {
+node_t *new_do_node(node_t *do_branch, node_t *condition, char error_msg[ERROR_MSG_LENGTH]) {
+    type_info_t *type_info = get_type_info_of_node(condition);
+    if (type_info->qualifier == QUANTUM_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Do-while-loop condition cannot be quantum");
+        return NULL;
+    } else if (type_info->type != BOOL_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Do-while-loop condition must be of type bool, but is of type %s",
+                 type_to_str(type_info->type));
+        return NULL;
+    } else if (type_info->depth != 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH,
+                 "Do-while-loop condition must be a single bool, but is an array of depth %u", type_info->depth);
+        return NULL;
+    }
+
     do_node_t *new_node = calloc(1, sizeof (do_node_t));
     new_node->type = DO_NODE_T;
     new_node->do_branch = do_branch;
@@ -656,7 +809,21 @@ node_t *new_do_node(node_t *do_branch, node_t *condition) {
     return (node_t *) new_node;
 }
 
-node_t *new_while_node(node_t *condition, node_t *while_branch) {
+node_t *new_while_node(node_t *condition, node_t *while_branch, char error_msg[ERROR_MSG_LENGTH]) {
+    type_info_t *type_info = get_type_info_of_node(condition);
+    if (type_info->qualifier == QUANTUM_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "While-loop condition cannot be quantum");
+        return NULL;
+    } else if (type_info->type != BOOL_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "While-loop condition must be of type bool, but is of type %s",
+                 type_to_str(type_info->type));
+        return NULL;
+    } else if (type_info->depth != 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "While-loop condition must be a single bool, but is an array of depth %u",
+                 type_info->depth);
+        return NULL;
+    }
+
     while_node_t *new_node = calloc(1, sizeof (while_node_t));
     new_node->type = WHILE_NODE_T;
     new_node->condition = condition;
@@ -664,7 +831,118 @@ node_t *new_while_node(node_t *condition, node_t *while_branch) {
     return (node_t *) new_node;
 }
 
-node_t *new_assign_node(assign_op_t op, node_t *left, node_t *right) {
+node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
+    if (left->type == CONST_NODE_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to reassign constant value");
+        return NULL;
+    } else if (left->type != REFERENCE_NODE_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Left-hand side of assignment is not a variable");
+        return NULL;
+    }
+
+    type_info_t *left_type_info = get_type_info_of_node(left);
+    type_info_t *right_type_info = get_type_info_of_node(right);
+    if (right_type_info == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Right-hand side of assignment is not an expression");
+        return NULL;
+    }
+    if (left_type_info->qualifier != QUANTUM_T && right_type_info->qualifier == QUANTUM_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Classical left-hand side of assignment, but quantum right-hand side");
+        return NULL;
+    }
+    switch (op) {
+        case ASSIGN_OP: {
+            if (left_type_info->type == BOOL_T && right_type_info->type != BOOL_T) {
+                snprintf(error_msg, ERROR_MSG_LENGTH, "Assigning %s to bool", type_to_str(right_type_info->type));
+                return NULL;
+            } else if (left_type_info->type == INT_T && right_type_info->type != INT_T) {
+                snprintf(error_msg, ERROR_MSG_LENGTH, "Assigning %s to int", type_to_str(right_type_info->type));
+                return NULL;
+            } else if (left_type_info->type == UNSIGNED_T && right_type_info->type == BOOL_T) {
+                snprintf(error_msg, ERROR_MSG_LENGTH, "Assigning bool to unsigned");
+                return NULL;
+            }
+            break;
+        }
+        case ASSIGN_OR_OP: case ASSIGN_XOR_OP: case ASSIGN_AND_OP: {
+            if (left_type_info->type == BOOL_T && right_type_info->type != BOOL_T) {
+                snprintf(error_msg, ERROR_MSG_LENGTH, "Logically assigning %s to bool",
+                         type_to_str(right_type_info->type));
+                return NULL;
+            } else if (left_type_info->type == INT_T && right_type_info->type != INT_T) {
+                snprintf(error_msg, ERROR_MSG_LENGTH, "Bitwisely assigning %s to int",
+                         type_to_str(right_type_info->type));
+                return NULL;
+            } else if (left_type_info->type == UNSIGNED_T && right_type_info->type == BOOL_T) {
+                snprintf(error_msg, ERROR_MSG_LENGTH, "Bitwisely assigning bool to unsigned");
+                return NULL;
+            }
+            break;
+        }
+        case ASSIGN_ADD_OP: case ASSIGN_SUB_OP: case ASSIGN_MUL_OP: case ASSIGN_DIV_OP: case ASSIGN_MOD_OP: {
+            if (left_type_info->type == BOOL_T) {
+                snprintf(error_msg, ERROR_MSG_LENGTH, "Arithmetically assigning to bool");
+                return NULL;
+            } else if (right_type_info->type == BOOL_T) {
+                snprintf(error_msg, ERROR_MSG_LENGTH, "Arithmetically assigning bool to %s",
+                         type_to_str(left_type_info->type));
+                return NULL;
+            } else if (left_type_info->type == INT_T && right_type_info->type == UNSIGNED_T) {
+                snprintf(error_msg, ERROR_MSG_LENGTH, "Arithmetically assigning unsigned to int");
+                return NULL;
+            }
+            break;
+        }
+    }
+
+    if (left_type_info->depth == 0 && right_type_info->depth != 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH,
+                 "Left-hand side of \"%s\" is a scalar, right-hand side is an array of depth %u)",
+                 assign_op_to_str(op), right_type_info->depth);
+        return NULL;
+    } else if (left_type_info->depth != 0 && right_type_info->depth == 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH,
+                 "Left-hand side of \"%s\" is an array of depth %u, right-hand side is a scalar)",
+                 assign_op_to_str(op), left_type_info->depth);
+        return NULL;
+    } else if (left_type_info->depth != right_type_info->depth) {
+        snprintf(error_msg, ERROR_MSG_LENGTH,
+                 "Left-hand and right-hand side of \"%s\" are arrays of different depth (%u != %u)",
+                 assign_op_to_str(op), left_type_info->depth, right_type_info->depth);
+        return NULL;
+    }
+    unsigned depth = left_type_info->depth;
+
+    for (unsigned i = 0; i < depth; ++i) {
+        if (left_type_info->sizes[i] != right_type_info->sizes[i]) {
+            snprintf(error_msg, ERROR_MSG_LENGTH,
+                     "Left-hand and right-hand side of \"%s\" are arrays of different sizes in dimension %u (%u != %u)",
+                     assign_op_to_str(op), depth, left_type_info->sizes[i], right_type_info->sizes[i]);
+            return NULL;
+        }
+    }
+    unsigned *sizes = left_type_info->sizes;
+    unsigned length = get_length_of_array(sizes, depth);
+
+    if (right_type_info->qualifier == CONST_T) { /* right is of node_type CONST_NODE_T */
+        const_node_t *const_node_view_right = (const_node_t *) right;
+
+        if (op == ASSIGN_DIV_OP) {
+            for (unsigned i = 0; i < length; ++i) {
+                if (const_node_view_right->values[i].i_val == 0) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH, "Division by zero");
+                    return NULL;
+                }
+            }
+        } else if (op == ASSIGN_MOD_OP) {
+            for (unsigned i = 0; i < length; ++i) {
+                if (const_node_view_right->values[i].i_val == 0) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH, "Modulo by zero");
+                    return NULL;
+                }
+            }
+        }
+    }
     assign_node_t *new_node = calloc(1, sizeof (assign_node_t));
     new_node->type = ASSIGN_NODE_T;
     new_node->op = op;
@@ -673,7 +951,41 @@ node_t *new_assign_node(assign_op_t op, node_t *left, node_t *right) {
     return (node_t *) new_node;
 }
 
-node_t *new_phase_node(bool is_positive, node_t *left, node_t *right) {
+node_t *new_phase_node(node_t *left, bool is_positive, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
+    if (left->type == CONST_NODE_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to reassign constant value");
+        return NULL;
+    } else if (left->type != REFERENCE_NODE_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Left-hand side of assignment is not a variable");
+        return NULL;
+    }
+
+    type_info_t *left_type_info = get_type_info_of_node(left);
+    if (left_type_info == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to change the phase of a non-variable");
+        return NULL;
+    } else if (left_type_info->qualifier != QUANTUM_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to change the phase of a classical variable");
+        return NULL;
+    }
+
+    type_info_t *right_type_info = get_type_info_of_node(right);
+    if (right_type_info == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Right-hand side of phase change is not an expression");
+        return NULL;
+    } else if (right_type_info->qualifier == QUANTUM_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Cannot change the phase by a quantum value");
+        return NULL;
+    } else if (right_type_info->type == BOOL_T || right_type_info->type == VOID_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Cannot change the phase by a value of type %s",
+                 type_to_str(right_type_info->type));
+        return NULL;
+    } else if (right_type_info->depth != 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Right-hand side of phase change is an array of depth %u",
+                 right_type_info->depth);
+        return NULL;
+    }
+
     phase_node_t *new_node = calloc(1, sizeof (phase_node_t));
     new_node->type = PHASE_NODE_T;
     new_node->is_positive = is_positive;
@@ -697,39 +1009,6 @@ node_t *new_return_node(type_t ret_type, node_t *ret_val) {
     return (node_t *) new_node;
 }
 
-type_info_t create_atomic_type_info(type_t type) {
-    type_info_t new_type_info = { .type = type};
-    return new_type_info;
-}
-
-init_info_t *new_init_info_from_node(node_t *node) {
-    init_info_t *new_infos = calloc(1, sizeof (init_info_t));
-    new_infos->is_init_list = false;
-    new_infos->node = node;
-    return new_infos;
-}
-
-init_info_t *new_init_info_from_init_list(qualified_type_t qualified_type, array_value_t value) {
-    init_info_t *new_infos = calloc(1, sizeof (init_info_t));
-    new_infos->is_init_list = true;
-    new_infos->array_values_info.qualified_types = calloc(1, sizeof (qualified_type_t));
-    new_infos->array_values_info.qualified_types[0] = qualified_type;
-    new_infos->array_values_info.values = calloc(1, sizeof (array_value_t));
-    new_infos->array_values_info.values[0] = value;
-    new_infos->length = 1;
-    return new_infos;
-}
-
-void append_to_init_info(init_info_t *array_init_info, qualified_type_t qualified_type, array_value_t value) {
-    unsigned current_length = (array_init_info->length)++;
-    array_init_info->array_values_info.qualified_types = realloc(array_init_info->array_values_info.qualified_types,
-                                                                 (current_length + 1) * sizeof (qualified_type_t));
-    array_init_info->array_values_info.values = realloc(array_init_info->array_values_info.values,
-                                                        (current_length + 1) * sizeof (array_value_t));
-    array_init_info->array_values_info.qualified_types[current_length] = qualified_type;
-    array_init_info->array_values_info.values[current_length] = value;
-}
-
 bool stmt_is_unitary(const node_t *node) {
     if (node == NULL) {
         return false;
@@ -751,49 +1030,6 @@ bool stmt_is_unitary(const node_t *node) {
             return false;
         }
     }
-}
-
-access_info_t create_access_info(entry_t *entry) {
-    access_info_t new_array_access = { .entry=entry };
-    return new_array_access;
-}
-
-else_if_list_t create_else_if_list(node_t *node) {
-    else_if_list_t new_else_if_list = { .else_if_nodes = calloc(1, sizeof (node_t *)),
-                                        .num_of_else_ifs = 1 };
-    new_else_if_list.else_if_nodes[0] = node;
-    return new_else_if_list;
-}
-
-void append_to_else_if_list(else_if_list_t *else_if_list, node_t *node) {
-    unsigned current_num_of_else_ifs = (else_if_list->num_of_else_ifs)++;
-    else_if_list->else_if_nodes = realloc(else_if_list->else_if_nodes,
-                                          (current_num_of_else_ifs + 1) * sizeof (node_t *));
-    else_if_list->else_if_nodes[current_num_of_else_ifs] = node;
-}
-
-case_list_t create_case_list(node_t *node) {
-    case_list_t new_case_list = { .case_nodes = calloc(1, sizeof (node_t *)), .num_of_cases = 1 };
-    new_case_list.case_nodes[0] = node;
-    return new_case_list;
-}
-
-void append_to_case_list(case_list_t *case_list, node_t *node) {
-    unsigned current_num_of_cases = (case_list->num_of_cases)++;
-    case_list->case_nodes = realloc(case_list->case_nodes, (current_num_of_cases + 1) * sizeof (node_t *));
-    case_list->case_nodes[current_num_of_cases] = node;
-}
-
-arg_list_t create_arg_list(node_t *node) {
-    arg_list_t new_arg_list = { .args = calloc(1, sizeof (node_t *)), .num_of_args = 1 };
-    new_arg_list.args[0] = node;
-    return new_arg_list;
-}
-
-void append_to_arg_list(arg_list_t *arg_list, node_t *node) {
-    unsigned current_num_of_args = (arg_list->num_of_args)++;
-    arg_list->args = realloc(arg_list->args, (current_num_of_args) * sizeof (node_t *));
-    arg_list->args[current_num_of_args] = node;
 }
 
 type_info_t *get_type_info_of_node(const node_t *node) {
@@ -979,8 +1215,8 @@ bool are_matching_types(type_t type_1, type_t type_2) {
     return true;
 }
 
-node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, array_values_info_t array_values_info,
-                         unsigned length, char error_msg[ERROR_MSG_LENGTH]) {
+node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, qualified_type_t *qualified_types,
+                         array_value_t *values, unsigned length, char error_msg[ERROR_MSG_LENGTH]) {
     if (is_init_list) {
         if (entry->type_info.depth == 0) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not an array, but is initialized as such", entry->name);
@@ -994,79 +1230,78 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, array_
 
         for (unsigned i = 0; i < length; ++i) {
             if (entry->type_info.qualifier == QUANTUM_T
-                && array_values_info.qualified_types[i].qualifier != CONST_T
-                && array_values_info.values[i].node_value->type == FUNC_SP_NODE_T) {
-                entry_t *current_entry = ((func_sp_node_t *) array_values_info.values[i].node_value)->entry;
-                func_info_t func_info = get_func_info_of_entry(current_entry);
-                if (func_info.num_of_pars != 1) {
+                && qualified_types[i].qualifier != CONST_T
+                && values[i].node_value->type == FUNC_SP_NODE_T) {
+                entry_t *current_entry = ((func_sp_node_t *) values[i].node_value)->entry;
+                unsigned num_of_pars = current_entry->num_of_pars;
+                if (current_entry->num_of_pars != 1) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Element %u: Quantizable function %s must take exactly 1 parameter",
                              i, current_entry->name);
                     return NULL;
-                } else if (func_info.pars_type_info[0].qualifier != NONE_T) {
+                } else if (current_entry->pars_type_info[0].qualifier != NONE_T) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Element %u: Quantizable function %s must take a classical parameter",
                              i, current_entry->name);
                     return NULL;
-                } else if (func_info.pars_type_info[0].type != entry->type_info.type) {
+                } else if (current_entry->pars_type_info[0].type != entry->type_info.type) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Element %u: Quantizable function %s takes %s instead of %s",
-                             i, current_entry->name, type_to_str(func_info.pars_type_info[0].type),
+                             i, current_entry->name, type_to_str(current_entry->pars_type_info[0].type),
                              type_to_str(entry->type_info.type));
                     return NULL;
-                } else if (func_info.pars_type_info[0].depth != 0) {
+                } else if (current_entry->pars_type_info[0].depth != 0) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Element %u: Quantizable function %s takes an array of depth %u instead of a scalar",
-                             i, current_entry->name, func_info.pars_type_info[0].depth);
+                             i, current_entry->name, current_entry->pars_type_info[0].depth);
                     return NULL;
                 }
             } else if (entry->type_info.qualifier != QUANTUM_T
-                       && array_values_info.qualified_types[i].qualifier != CONST_T
-                       && array_values_info.values[i].node_value->type == FUNC_SP_NODE_T) {
+                       && qualified_types[i].qualifier != CONST_T
+                       && values[i].node_value->type == FUNC_SP_NODE_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Element %u in initialization of classical array %s is a superposition instruction",
                          i, entry->name);
                 return NULL;
             } else if (entry->type_info.qualifier != QUANTUM_T
-                       && array_values_info.qualified_types[i].qualifier == QUANTUM_T) {
+                       && qualified_types[i].qualifier == QUANTUM_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Element %u in initialization of classical array %s is quantum",
                          i, entry->name);
                 return NULL;
             } else if (entry->type_info.qualifier == CONST_T
-                       && array_values_info.qualified_types[i].qualifier != CONST_T) {
+                       && qualified_types[i].qualifier != CONST_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Element %u in initialization of constant array %s is not constant", i, entry->name);
                 return NULL;
-            } else if (!are_matching_types(entry->type_info.type,
-                                           array_values_info.qualified_types[i].type)) {
+            } else if (!are_matching_types(entry->type_info.type, qualified_types[i].type)) {
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Element %u in initialization of %s-array %s is of type %s",
                          i, type_to_str(entry->type_info.type), entry->name,
-                         type_to_str(array_values_info.qualified_types[i].type));
+                         type_to_str(qualified_types[i].type));
                 return NULL;
             }
         }
     } else { /* no initializer entry */
         type_info_t *type_info = get_type_info_of_node(node);
         if (entry->type_info.qualifier == QUANTUM_T && node->type == FUNC_SP_NODE_T) {
-            func_info_t func_info = get_func_info_of_entry(((func_sp_node_t *) node)->entry);
-            if (func_info.num_of_pars != 1) {
+            entry_t *current_entry = ((func_sp_node_t *) node)->entry;
+            if (current_entry->num_of_pars != 1) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Quantizable function %s must take exactly 1 parameter",
                          ((func_sp_node_t *) node)->entry->name);
                 return NULL;
-            } else if (func_info.pars_type_info[0].qualifier != NONE_T) {
+            } else if (current_entry->pars_type_info[0].qualifier != NONE_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Quantizable function %s must take a classical parameter",
                          ((func_sp_node_t *) node)->entry->name);
                 return NULL;
-            } else if (func_info.pars_type_info[0].type != entry->type_info.type) {
+            } else if (current_entry->pars_type_info[0].type != entry->type_info.type) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Quantizable function %s takes %s instead of %s",
                          ((func_sp_node_t *) node)->entry->name,
-                         type_to_str(func_info.pars_type_info[0].type), type_to_str(entry->type_info.type));
+                         type_to_str(current_entry->pars_type_info[0].type), type_to_str(entry->type_info.type));
                 return NULL;
-            } else if (func_info.pars_type_info[0].depth != 0) {
+            } else if (current_entry->pars_type_info[0].depth != 0) {
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Quantizable function %s takes an array of depth %u instead of a scalar",
-                         ((func_sp_node_t *) node)->entry->name, func_info.pars_type_info[0].depth);
+                         ((func_sp_node_t *) node)->entry->name, current_entry->pars_type_info[0].depth);
                 return NULL;
             }
         } else if (entry->type_info.qualifier != QUANTUM_T && node->type == FUNC_SP_NODE_T) {
@@ -1129,330 +1364,13 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, array_
     new_node->entry = entry;
     new_node->is_init_list = is_init_list;
     if (is_init_list) {
-        new_node->array_values_info = array_values_info;
+        new_node->qualified_types = qualified_types;
+        new_node->values = values;
     } else {
         new_node->node = node;
     }
     new_node->length = length;
     return (node_t *) new_node;
-}
-
-node_t *build_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branches, unsigned num_of_else_ifs,
-                      node_t *else_branch, char error_msg[ERROR_MSG_LENGTH]) {
-    type_info_t *condition_type_info = get_type_info_of_node(condition);
-    if (condition_type_info->type != BOOL_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "If condition must be of type bool, but is of type %s",
-                 type_to_str(condition_type_info->type));
-        return NULL;
-    } else if (condition_type_info->depth != 0) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "If condition must be a single bool, but is an array of depth %u",
-                 condition_type_info->depth);
-        return NULL;
-    }
-
-    if (condition_type_info->qualifier == QUANTUM_T) {
-        if (!(((stmt_list_node_t *) if_branch)->is_unitary)) {
-            snprintf(error_msg, ERROR_MSG_LENGTH,
-                     "If condition is quantum, but statements in if-branch are not unitary");
-            return NULL;
-        } else if (else_branch != NULL && !(((stmt_list_node_t *) else_branch)->is_unitary)) {
-            snprintf(error_msg, ERROR_MSG_LENGTH,
-                     "If condition is quantum, but statements in else-branch are not unitary");
-            return NULL;
-        }
-    }
-
-    for (unsigned i = 0; i < num_of_else_ifs; ++i) {
-        else_if_node_t *else_if_node_view = (else_if_node_t *) (else_if_node_t *) else_if_branches[i];
-        qualifier_t condition_qualifier = get_type_info_of_node((else_if_node_view)->condition)->qualifier;
-        if (condition_qualifier != condition_type_info->qualifier) {
-            snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if condition %u is %s while if condition is %s",
-                     i + 1, (condition_qualifier == QUANTUM_T) ? "quantum" : "classical",
-                     (condition_type_info->qualifier == QUANTUM_T) ? "quantum" : "classical");
-            return NULL;
-        }
-    }
-
-
-    node_t *result = new_if_node(condition, if_branch, else_if_branches, num_of_else_ifs, else_branch);
-    return result;
-}
-
-node_t *build_else_if_node(node_t *condition, node_t *else_if_branch, char error_msg[ERROR_MSG_LENGTH]) {
-    type_info_t *condition_type_info = get_type_info_of_node(condition);
-    if (condition_type_info->type != BOOL_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if condition must be of type bool, but is of type %s",
-                 type_to_str(condition_type_info->type));
-        return NULL;
-    } else if (condition_type_info->depth != 0) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if condition must be a single bool, but is an array of depth %u",
-                 condition_type_info->depth);
-        return NULL;
-    } else if (condition_type_info->qualifier == QUANTUM_T && !(((stmt_list_node_t *) else_if_branch)->is_unitary)) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if condition is quantum, but statements are not unitary");
-        return NULL;
-    }
-
-    node_t *result = new_else_if_node(condition, else_if_branch);
-    return result;
-}
-
-node_t *build_switch_node(node_t *expression, node_t **case_branches, unsigned num_of_cases,
-                          char error_msg[ERROR_MSG_LENGTH]) {
-    type_info_t *expression_type_info = get_type_info_of_node(expression);
-    if (expression_type_info->depth != 0) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Switch expression must be a scalar, but is an array of depth %u",
-                 expression_type_info->depth);
-        return NULL;
-    }
-    for (unsigned i = 0; i < num_of_cases; ++i) {
-        case_node_t *case_node_view = (case_node_t *) case_branches[i];
-        stmt_list_node_t *case_branch_view = (stmt_list_node_t *) case_node_view->case_branch;
-        const_node_t *case_const_view = (const_node_t *) case_node_view->case_const;
-        if (case_const_view != NULL
-            && !are_matching_types(expression_type_info->type, case_const_view->type_info.type)) {
-            snprintf(error_msg, ERROR_MSG_LENGTH, "Case %u is of type %s while switch expression is of type %s",
-                     i + 1, type_to_str(case_const_view->type_info.type), type_to_str(expression_type_info->type));
-            return NULL;
-        } else if (expression_type_info->qualifier == QUANTUM_T && !case_branch_view->is_unitary) {
-            snprintf(error_msg, ERROR_MSG_LENGTH,
-                     "Switch expression is quantum, but statements in case %u are not unitary", i + 1);
-            return NULL;
-        }
-
-        if (case_const_view == NULL) { /* default statement reached, discard all following cases */
-            num_of_cases = i + 1;
-            case_branches = realloc(case_branches, num_of_cases * sizeof (node_t *));
-            break;
-        }
-
-        for (unsigned j = 0; j < i; ++j) {
-            case_node_t *prior_case_node_view = (case_node_t *) case_branches[j];
-            const_node_t *prior_case_const_view = (const_node_t *) prior_case_node_view->case_const;
-            if ((case_const_view->type_info.type == BOOL_T
-                 && case_const_view->values[0].b_val == prior_case_const_view->values[0].b_val)
-                 || (case_const_view->type_info.type == INT_T
-                 && case_const_view->values[0].i_val == prior_case_const_view->values[0].i_val)) {
-                snprintf(error_msg, ERROR_MSG_LENGTH, "Cases %u and %u have the same value", j + 1, i + 1);
-                return NULL;
-            }
-        }
-    }
-    node_t *result = new_switch_node(expression, case_branches, num_of_cases);
-    return result;
-}
-
-node_t *build_do_node(node_t *do_branch, node_t *condition, char error_msg[ERROR_MSG_LENGTH]) {
-    type_info_t *type_info = get_type_info_of_node(condition);
-    if (type_info->qualifier == QUANTUM_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Do-while-loop condition cannot be quantum");
-        return NULL;
-    } else if (type_info->type != BOOL_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Do-while-loop condition must be of type bool, but is of type %s",
-                 type_to_str(type_info->type));
-        return NULL;
-    } else if (type_info->depth != 0) {
-        snprintf(error_msg, ERROR_MSG_LENGTH,
-                 "Do-while-loop condition must be a single bool, but is an array of depth %u", type_info->depth);
-        return NULL;
-    }
-
-    node_t *result = new_do_node(do_branch, condition);
-    return result;
-}
-
-node_t *build_while_node(node_t *condition, node_t *while_branch, char error_msg[ERROR_MSG_LENGTH]) {
-    type_info_t *type_info = get_type_info_of_node(condition);
-    if (type_info->qualifier == QUANTUM_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "While-loop condition cannot be quantum");
-        return NULL;
-    } else if (type_info->type != BOOL_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "While-loop condition must be of type bool, but is of type %s",
-                 type_to_str(type_info->type));
-        return NULL;
-    } else if (type_info->depth != 0) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "While-loop condition must be a single bool, but is an array of depth %u",
-                 type_info->depth);
-        return NULL;
-    }
-
-    node_t *result = new_while_node(condition, while_branch);
-    return result;
-}
-
-node_t *build_for_node(node_t *initialize, node_t *condition, node_t *increment, node_t *for_branch,
-                       char error_msg[ERROR_MSG_LENGTH]) {
-    type_info_t *type_info = get_type_info_of_node(condition);
-    if (type_info->qualifier == QUANTUM_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "For-loop condition cannot be quantum");
-        return NULL;
-    } else if (type_info->type != BOOL_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "For-loop condition must be of type bool, but is of type %s",
-                 type_to_str(type_info->type));
-        return NULL;
-    } else if (type_info->depth != 0) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "For-loop condition must be a single bool, but is an array of depth %u",
-                 type_info->depth);
-        return NULL;
-    }
-
-    node_t *result = new_for_node(initialize, condition, increment, for_branch);
-    return result;
-}
-
-node_t *build_assign_node(node_t *left, assign_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
-    if (left->type == CONST_NODE_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to reassign constant value");
-        return NULL;
-    } else if (left->type != REFERENCE_NODE_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Left-hand side of assignment is not a variable");
-        return NULL;
-    }
-
-    type_info_t *left_type_info = get_type_info_of_node(left);
-    type_info_t *right_type_info = get_type_info_of_node(right);
-    if (right_type_info == NULL) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Right-hand side of assignment is not an expression");
-        return NULL;
-    }
-    if (left_type_info->qualifier != QUANTUM_T && right_type_info->qualifier == QUANTUM_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Classical left-hand side of assignment, but quantum right-hand side");
-        return NULL;
-    }
-    switch (op) {
-        case ASSIGN_OP: {
-            if (left_type_info->type == BOOL_T && right_type_info->type != BOOL_T) {
-                snprintf(error_msg, ERROR_MSG_LENGTH, "Assigning %s to bool", type_to_str(right_type_info->type));
-                return NULL;
-            } else if (left_type_info->type == INT_T && right_type_info->type != INT_T) {
-                snprintf(error_msg, ERROR_MSG_LENGTH, "Assigning %s to int", type_to_str(right_type_info->type));
-                return NULL;
-            } else if (left_type_info->type == UNSIGNED_T && right_type_info->type == BOOL_T) {
-                snprintf(error_msg, ERROR_MSG_LENGTH, "Assigning bool to unsigned");
-                return NULL;
-            }
-            break;
-        }
-        case ASSIGN_OR_OP: case ASSIGN_XOR_OP: case ASSIGN_AND_OP: {
-            if (left_type_info->type == BOOL_T && right_type_info->type != BOOL_T) {
-                snprintf(error_msg, ERROR_MSG_LENGTH, "Logically assigning %s to bool",
-                         type_to_str(right_type_info->type));
-                return NULL;
-            } else if (left_type_info->type == INT_T && right_type_info->type != INT_T) {
-                snprintf(error_msg, ERROR_MSG_LENGTH, "Bitwisely assigning %s to int",
-                         type_to_str(right_type_info->type));
-                return NULL;
-            } else if (left_type_info->type == UNSIGNED_T && right_type_info->type == BOOL_T) {
-                snprintf(error_msg, ERROR_MSG_LENGTH, "Bitwisely assigning bool to unsigned");
-                return NULL;
-            }
-            break;
-        }
-        case ASSIGN_ADD_OP: case ASSIGN_SUB_OP: case ASSIGN_MUL_OP: case ASSIGN_DIV_OP: case ASSIGN_MOD_OP: {
-            if (left_type_info->type == BOOL_T) {
-                snprintf(error_msg, ERROR_MSG_LENGTH, "Arithmetically assigning to bool");
-                return NULL;
-            } else if (right_type_info->type == BOOL_T) {
-                snprintf(error_msg, ERROR_MSG_LENGTH, "Arithmetically assigning bool to %s",
-                         type_to_str(left_type_info->type));
-                return NULL;
-            } else if (left_type_info->type == INT_T && right_type_info->type == UNSIGNED_T) {
-                snprintf(error_msg, ERROR_MSG_LENGTH, "Arithmetically assigning unsigned to int");
-                return NULL;
-            }
-            break;
-        }
-    }
-
-    if (left_type_info->depth == 0 && right_type_info->depth != 0) {
-        snprintf(error_msg, ERROR_MSG_LENGTH,
-                 "Left-hand side of \"%s\" is a scalar, right-hand side is an array of depth %u)",
-                 assign_op_to_str(op), right_type_info->depth);
-        return NULL;
-    } else if (left_type_info->depth != 0 && right_type_info->depth == 0) {
-        snprintf(error_msg, ERROR_MSG_LENGTH,
-                 "Left-hand side of \"%s\" is an array of depth %u, right-hand side is a scalar)",
-                 assign_op_to_str(op), left_type_info->depth);
-        return NULL;
-    } else if (left_type_info->depth != right_type_info->depth) {
-        snprintf(error_msg, ERROR_MSG_LENGTH,
-                 "Left-hand and right-hand side of \"%s\" are arrays of different depth (%u != %u)",
-                 assign_op_to_str(op), left_type_info->depth, right_type_info->depth);
-        return NULL;
-    }
-    unsigned depth = left_type_info->depth;
-
-    for (unsigned i = 0; i < depth; ++i) {
-        if (left_type_info->sizes[i] != right_type_info->sizes[i]) {
-            snprintf(error_msg, ERROR_MSG_LENGTH,
-                     "Left-hand and right-hand side of \"%s\" are arrays of different sizes in dimension %u (%u != %u)",
-                     assign_op_to_str(op), depth, left_type_info->sizes[i], right_type_info->sizes[i]);
-            return NULL;
-        }
-    }
-    unsigned *sizes = left_type_info->sizes;
-    unsigned length = get_length_of_array(sizes, depth);
-
-    if (right_type_info->qualifier == CONST_T) { /* right is of node_type CONST_NODE_T */
-        const_node_t *const_node_view_right = (const_node_t *) right;
-
-        if (op == ASSIGN_DIV_OP) {
-            for (unsigned i = 0; i < length; ++i) {
-                if (const_node_view_right->values[i].i_val == 0) {
-                    snprintf(error_msg, ERROR_MSG_LENGTH, "Division by zero");
-                    return NULL;
-                }
-            }
-        } else if (op == ASSIGN_MOD_OP) {
-            for (unsigned i = 0; i < length; ++i) {
-                if (const_node_view_right->values[i].i_val == 0) {
-                    snprintf(error_msg, ERROR_MSG_LENGTH, "Modulo by zero");
-                    return NULL;
-                }
-            }
-        }
-    }
-    node_t *result = new_assign_node(op, left, right);
-    return result;
-}
-
-node_t *build_phase_node(node_t *left, bool is_positive, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
-    if (left->type == CONST_NODE_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to reassign constant value");
-        return NULL;
-    } else if (left->type != REFERENCE_NODE_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Left-hand side of assignment is not a variable");
-        return NULL;
-    }
-
-    type_info_t *left_type_info = get_type_info_of_node(left);
-    if (left_type_info == NULL) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to change the phase of a non-variable");
-        return NULL;
-    } else if (left_type_info->qualifier != QUANTUM_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to change the phase of a classical variable");
-        return NULL;
-    }
-
-    type_info_t *right_type_info = get_type_info_of_node(right);
-    if (right_type_info == NULL) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Right-hand side of phase change is not an expression");
-        return NULL;
-    } else if (right_type_info->qualifier == QUANTUM_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Cannot change the phase by a quantum value");
-        return NULL;
-    } else if (right_type_info->type == BOOL_T || right_type_info->type == VOID_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Cannot change the phase by a value of type %s",
-                 type_to_str(right_type_info->type));
-        return NULL;
-    } else if (right_type_info->depth != 0) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Right-hand side of phase change is an array of depth %u",
-                 right_type_info->depth);
-        return NULL;
-    }
-
-    node_t *result = new_phase_node(is_positive, left, right);
-    return result;
 }
 
 node_t *build_logical_op_node(node_t *left, logical_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
@@ -1824,86 +1742,6 @@ node_t *build_invert_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
     return result;
 }
 
-node_t *build_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_of_pars,
-                             char error_msg[ERROR_MSG_LENGTH]) {
-    if (!entry->is_function) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to call non-function %s", entry->name);
-        return NULL;
-    } else if (entry->num_of_pars != num_of_pars) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s requires %u parameter%s, but is called with %u parameter%s",
-                 entry->name, entry->num_of_pars, (entry->num_of_pars == 1) ? "" : "s",
-                 num_of_pars, (num_of_pars == 1) ? "" : "s");
-        return NULL;
-    }
-
-    if (sp) {
-        type_info_t *type_info_of_par = get_type_info_of_node(pars[0]);
-        if (!entry->is_sp) {
-            snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s cannot be used to create a superposition", entry->name);
-            return NULL;
-        } else if (pars[0]->type != REFERENCE_NODE_T || type_info_of_par->qualifier != QUANTUM_T) {
-            snprintf(error_msg, ERROR_MSG_LENGTH, "Parameter in call to function %s is not a quantum variable",
-                     entry->name);
-            return NULL;
-        } else if (type_info_of_par->type != entry->pars_type_info[0].type) {
-            snprintf(error_msg, ERROR_MSG_LENGTH, "Parameter in call to function %s is of type %s instead of %s ",
-                     entry->name, type_to_str(type_info_of_par->type),
-                     type_to_str(entry->pars_type_info[0].type));
-            return NULL;
-        }
-    } else {
-        for (unsigned i = 0; i < num_of_pars; ++i) {
-            type_info_t *type_info_of_par = get_type_info_of_node(pars[i]);
-            if (type_info_of_par == NULL) {
-                snprintf(error_msg, ERROR_MSG_LENGTH, "Parameter %u in call to function %s is not an expression",
-                         i + 1, entry->name);
-                return NULL;
-            } else if (entry->pars_type_info[i].qualifier != QUANTUM_T
-                       && type_info_of_par->qualifier == QUANTUM_T) {
-                snprintf(error_msg, ERROR_MSG_LENGTH,
-                         "Parameter %u in call to function %s is required to be classical, but is quantum",
-                         i + 1, entry->name);
-                return NULL;
-            } else if (!are_matching_types(entry->pars_type_info[i].type,
-                                           type_info_of_par->type)) {
-                snprintf(error_msg, ERROR_MSG_LENGTH,
-                         "Parameter %u in call to function %s is required to be of type %s, but is of type %s",
-                         i + 1, entry->name, type_to_str(entry->pars_type_info[i].type),
-                         type_to_str(type_info_of_par->type));
-                return NULL;
-            } else if (entry->pars_type_info[i].depth != type_info_of_par->depth) {
-                if (entry->pars_type_info[i].depth == 0) {
-                    snprintf(error_msg, ERROR_MSG_LENGTH,
-                             "Parameter %u in call to function %s is required to be a scalar, but is a depth-%u array",
-                             i + 1, entry->name, type_info_of_par->depth);
-                    return NULL;
-                } else if (type_info_of_par->depth == 0) {
-                    snprintf(error_msg, ERROR_MSG_LENGTH,
-                             "Parameter %u in call to function %s is required to be a depth-%u array, but is a scalar",
-                             i + 1, entry->name, entry->pars_type_info[i].depth);
-                    return NULL;
-                } else {
-                    snprintf(error_msg, ERROR_MSG_LENGTH,
-                             "Parameter %u in call to function %s is required to be a depth-%u array, but has depth %u",
-                             i + 1, entry->name, entry->pars_type_info[i].depth, type_info_of_par->depth);
-                    return NULL;
-                }
-            }
-            for (unsigned j = 0; j < type_info_of_par->depth; ++j) {
-                if (entry->pars_type_info[i].sizes[j] != type_info_of_par->sizes[j]) {
-                    snprintf(error_msg, ERROR_MSG_LENGTH,
-                             "Parameter %u in call to function %s has size %u instead of %u in dimension %u",
-                             i + 1, entry->name, entry->pars_type_info[i].sizes[j],
-                             type_info_of_par->sizes[j], j + 1);
-                    return NULL;
-                }
-            }
-        }
-    }
-    node_t *result = new_func_call_node(entry, sp, pars, num_of_pars);
-    return result;
-}
-
 void print_type_info(const type_info_t *type_info) {
     switch (type_info->qualifier) {
         case NONE_T: {
@@ -2150,8 +1988,8 @@ void tree_traversal(const node_t *node) {
             if (((var_def_node_t *) node)->is_init_list) {
                 for (unsigned i = 0; i < get_length_of_array(((var_def_node_t *) node)->entry->type_info.sizes,
                                                              ((var_def_node_t *) node)->entry->type_info.depth); ++i) {
-                    if ((((var_def_node_t *) node)->array_values_info.qualified_types[i].qualifier != CONST_T)) {
-                        tree_traversal(((var_def_node_t *) node)->array_values_info.values[i].node_value);
+                    if ((((var_def_node_t *) node)->qualified_types[i].qualifier != CONST_T)) {
+                        tree_traversal(((var_def_node_t *) node)->values[i].node_value);
                     }
                 }
             } else {
