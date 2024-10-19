@@ -124,7 +124,7 @@ func_def:
 	    hide_scope();
 	    type_info_t type_info = create_type_info(QUANTUM_T, $2.type, $2.sizes, $2.depth);
 	    set_type_info($3, type_info);
-	    set_func_info($3, $5);
+	    set_func_info($3, $5.is_unitary, $5.is_sp, $5.pars_type_info, $5.num_of_pars);
 	    $$ = new_func_decl_node($3, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
@@ -134,7 +134,7 @@ func_def:
 	    hide_scope();
 	    type_info_t type_info = create_type_info(NONE_T, $1.type, $1.sizes, $1.depth);
 	    set_type_info($2, type_info);
-	    set_func_info($2, $4);
+	    set_func_info($2, $4.is_unitary, $4.is_sp, $4.pars_type_info, $4.num_of_pars);
 	    $$ = new_func_decl_node($2, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -144,7 +144,7 @@ func_def:
 	    hide_scope();
 	    type_info_t type_info = create_type_info(NONE_T, VOID_T, NULL, 0);
 	    set_type_info($2, type_info);
-	    set_func_info($2, $4);
+	    set_func_info($2, $4.is_unitary, $4.is_sp, $4.pars_type_info, $4.num_of_pars);
 	    $$ = new_func_decl_node($2, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -454,7 +454,7 @@ func_call_stmt:
     INV func_call SEMICOLON {
         $$ = $2;
         func_call_node_t *func_call_node_view = (func_call_node_t *) $$;
-        if (!func_call_node_view->entry->func_info.is_unitary) {
+        if (!func_call_node_view->entry->is_unitary) {
             snprintf(error_msg, sizeof (error_msg), "Trying to invert non-unitary function %s",
                      func_call_node_view->entry->name);
             yyerror(error_msg);

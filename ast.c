@@ -299,6 +299,17 @@ int integer_op_application(integer_op_t op, value_t *out, type_t in_type_1,
     return 0;
 }
 
+func_info_t get_func_info_of_entry(const entry_t *entry) {
+    if (!entry->is_function) {
+        fprintf(stderr, "Trying to get function information of non-function %s\n", entry->name);
+        exit(1);
+    }
+
+    func_info_t func_info = { .is_unitary = entry->is_unitary, .is_sp = entry->is_sp,
+            .pars_type_info = entry->pars_type_info, .num_of_pars = entry->num_of_pars };
+    return func_info;
+}
+
 unsigned get_length_of_array(const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth) {
     unsigned result = 1;
     for (unsigned i = 0; i < depth; ++i) {
@@ -444,7 +455,7 @@ node_t *new_func_sp_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
     if (!entry->is_function) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not a function", entry->name);
         return NULL;
-    } else if (!entry->func_info.is_sp) {
+    } else if (!entry->is_sp) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s cannot be used to create a superposition", entry->name);
         return NULL;
     }
@@ -728,7 +739,7 @@ bool stmt_is_unitary(const node_t *node) {
             return get_type_info_of_node(node)->qualifier == QUANTUM_T;
         }
         case FUNC_CALL_NODE_T: {
-            return ((func_call_node_t *) node)->entry->func_info.is_unitary;
+            return ((func_call_node_t *) node)->entry->is_unitary;
         }
         case IF_NODE_T: {
             return get_type_info_of_node(((if_node_t *) node)->condition)->qualifier == QUANTUM_T;
@@ -985,28 +996,28 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, array_
             if (entry->type_info.qualifier == QUANTUM_T
                 && array_values_info.qualified_types[i].qualifier != CONST_T
                 && array_values_info.values[i].node_value->type == FUNC_SP_NODE_T) {
-                func_info_t func_info = ((func_sp_node_t *) array_values_info.values[i].node_value)->entry->func_info;
+                entry_t *current_entry = ((func_sp_node_t *) array_values_info.values[i].node_value)->entry;
+                func_info_t func_info = get_func_info_of_entry(current_entry);
                 if (func_info.num_of_pars != 1) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Element %u: Quantizable function %s must take exactly 1 parameter",
-                             i, ((func_sp_node_t *) array_values_info.values[i].node_value)->entry->name);
+                             i, current_entry->name);
                     return NULL;
                 } else if (func_info.pars_type_info[0].qualifier != NONE_T) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Element %u: Quantizable function %s must take a classical parameter",
-                             i, ((func_sp_node_t *) array_values_info.values[i].node_value)->entry->name);
+                             i, current_entry->name);
                     return NULL;
                 } else if (func_info.pars_type_info[0].type != entry->type_info.type) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Element %u: Quantizable function %s takes %s instead of %s",
-                             i, ((func_sp_node_t *) array_values_info.values[i].node_value)->entry->name,
-                             type_to_str(func_info.pars_type_info[0].type), type_to_str(entry->type_info.type));
+                             i, current_entry->name, type_to_str(func_info.pars_type_info[0].type),
+                             type_to_str(entry->type_info.type));
                     return NULL;
                 } else if (func_info.pars_type_info[0].depth != 0) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Element %u: Quantizable function %s takes an array of depth %u instead of a scalar",
-                             i, ((func_sp_node_t *) array_values_info.values[i].node_value)->entry->name,
-                             func_info.pars_type_info[0].depth);
+                             i, current_entry->name, func_info.pars_type_info[0].depth);
                     return NULL;
                 }
             } else if (entry->type_info.qualifier != QUANTUM_T
@@ -1038,7 +1049,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, array_
     } else { /* no initializer entry */
         type_info_t *type_info = get_type_info_of_node(node);
         if (entry->type_info.qualifier == QUANTUM_T && node->type == FUNC_SP_NODE_T) {
-            func_info_t func_info = ((func_sp_node_t *) node)->entry->func_info;
+            func_info_t func_info = get_func_info_of_entry(((func_sp_node_t *) node)->entry);
             if (func_info.num_of_pars != 1) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Quantizable function %s must take exactly 1 parameter",
                          ((func_sp_node_t *) node)->entry->name);
@@ -1818,26 +1829,26 @@ node_t *build_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned nu
     if (!entry->is_function) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to call non-function %s", entry->name);
         return NULL;
-    } else if (entry->func_info.num_of_pars != num_of_pars) {
+    } else if (entry->num_of_pars != num_of_pars) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s requires %u parameter%s, but is called with %u parameter%s",
-                 entry->name, entry->func_info.num_of_pars, (entry->func_info.num_of_pars == 1) ? "" : "s",
+                 entry->name, entry->num_of_pars, (entry->num_of_pars == 1) ? "" : "s",
                  num_of_pars, (num_of_pars == 1) ? "" : "s");
         return NULL;
     }
 
     if (sp) {
         type_info_t *type_info_of_par = get_type_info_of_node(pars[0]);
-        if (!entry->func_info.is_sp) {
+        if (!entry->is_sp) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s cannot be used to create a superposition", entry->name);
             return NULL;
         } else if (pars[0]->type != REFERENCE_NODE_T || type_info_of_par->qualifier != QUANTUM_T) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Parameter in call to function %s is not a quantum variable",
                      entry->name);
             return NULL;
-        } else if (type_info_of_par->type != entry->func_info.pars_type_info[0].type) {
+        } else if (type_info_of_par->type != entry->pars_type_info[0].type) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Parameter in call to function %s is of type %s instead of %s ",
                      entry->name, type_to_str(type_info_of_par->type),
-                     type_to_str(entry->func_info.pars_type_info[0].type));
+                     type_to_str(entry->pars_type_info[0].type));
             return NULL;
         }
     } else {
@@ -1847,21 +1858,21 @@ node_t *build_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned nu
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Parameter %u in call to function %s is not an expression",
                          i + 1, entry->name);
                 return NULL;
-            } else if (entry->func_info.pars_type_info[i].qualifier != QUANTUM_T
+            } else if (entry->pars_type_info[i].qualifier != QUANTUM_T
                        && type_info_of_par->qualifier == QUANTUM_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Parameter %u in call to function %s is required to be classical, but is quantum",
                          i + 1, entry->name);
                 return NULL;
-            } else if (!are_matching_types(entry->func_info.pars_type_info[i].type,
+            } else if (!are_matching_types(entry->pars_type_info[i].type,
                                            type_info_of_par->type)) {
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Parameter %u in call to function %s is required to be of type %s, but is of type %s",
-                         i + 1, entry->name, type_to_str(entry->func_info.pars_type_info[i].type),
+                         i + 1, entry->name, type_to_str(entry->pars_type_info[i].type),
                          type_to_str(type_info_of_par->type));
                 return NULL;
-            } else if (entry->func_info.pars_type_info[i].depth != type_info_of_par->depth) {
-                if (entry->func_info.pars_type_info[i].depth == 0) {
+            } else if (entry->pars_type_info[i].depth != type_info_of_par->depth) {
+                if (entry->pars_type_info[i].depth == 0) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Parameter %u in call to function %s is required to be a scalar, but is a depth-%u array",
                              i + 1, entry->name, type_info_of_par->depth);
@@ -1869,20 +1880,20 @@ node_t *build_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned nu
                 } else if (type_info_of_par->depth == 0) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Parameter %u in call to function %s is required to be a depth-%u array, but is a scalar",
-                             i + 1, entry->name, entry->func_info.pars_type_info[i].depth);
+                             i + 1, entry->name, entry->pars_type_info[i].depth);
                     return NULL;
                 } else {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Parameter %u in call to function %s is required to be a depth-%u array, but has depth %u",
-                             i + 1, entry->name, entry->func_info.pars_type_info[i].depth, type_info_of_par->depth);
+                             i + 1, entry->name, entry->pars_type_info[i].depth, type_info_of_par->depth);
                     return NULL;
                 }
             }
             for (unsigned j = 0; j < type_info_of_par->depth; ++j) {
-                if (entry->func_info.pars_type_info[i].sizes[j] != type_info_of_par->sizes[j]) {
+                if (entry->pars_type_info[i].sizes[j] != type_info_of_par->sizes[j]) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Parameter %u in call to function %s has size %u instead of %u in dimension %u",
-                             i + 1, entry->name, entry->func_info.pars_type_info[i].sizes[j],
+                             i + 1, entry->name, entry->pars_type_info[i].sizes[j],
                              type_info_of_par->sizes[j], j + 1);
                     return NULL;
                 }

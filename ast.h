@@ -185,6 +185,17 @@ typedef union array_value {
     struct node *node_value;                /*!< Node value */
 } array_value_t;
 
+/**
+ * \brief                               Function info struct
+ * \note                                This structure defines all characteristics (except return type) of a function
+ */
+typedef struct func_info {
+    bool is_unitary;                        /*!< Whether function is unitary */
+    bool is_sp;                             /*!< Whether function can be used for creating a superposition */
+    type_info_t *pars_type_info;            /*!< Type information of function parameters */
+    unsigned num_of_pars;                   /*!< Number of function parameters */
+} func_info_t;
+
 typedef struct access_info {
     entry_t *entry;
     bool index_is_const[MAX_ARRAY_DEPTH];
@@ -420,6 +431,8 @@ char *integer_op_to_str(integer_op_t integer_op);
 
 char *assign_op_to_str(assign_op_t assign_op);
 
+
+
 void apply_logical_op(logical_op_t op, value_t *out, value_t in_1, value_t in_2);
 
 void apply_comparison_op(comparison_op_t op, value_t *out, type_t in_type_1, value_t in_value_1, type_t in_type_2,
@@ -427,6 +440,8 @@ void apply_comparison_op(comparison_op_t op, value_t *out, type_t in_type_1, val
 
 int apply_integer_op(integer_op_t op, value_t *out, type_t in_type_1, value_t in_value_1, type_t in_type_2,
                      value_t in_value_2);
+
+func_info_t get_func_info_of_entry(const entry_t *entry);
 
 unsigned get_length_of_array(const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth);
 

@@ -227,11 +227,14 @@ void set_type_info(entry_t *entry, type_info_t type_info) {
 }
 
 /* See header for documentation */
-void set_func_info(entry_t *entry, func_info_t func_info) {
+void set_func_info(entry_t *entry, bool is_unitary, bool is_sp, type_info_t *pars_type_info, unsigned num_of_pars) {
     entry->is_function = true;
-    entry->func_info = func_info;
+    entry->is_unitary = is_unitary;
+    entry->is_sp = is_sp;
+    entry->pars_type_info = pars_type_info;
+    entry->num_of_pars = num_of_pars;
     if (entry->type_info.qualifier != NONE_T || entry->type_info.type != BOOL_T || entry->type_info.depth != 0) {
-        entry->func_info.is_sp = false;
+        entry->is_sp = false;
     }
 }
 

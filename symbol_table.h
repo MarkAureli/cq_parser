@@ -118,17 +118,6 @@ typedef struct type_info {
 } type_info_t;
 
 /**
- * \brief                               Function info struct
- * \note                                This structure defines all characteristics (except return type) of a function
- */
-typedef struct func_info {
-    bool is_unitary;                        /*!< Whether function is unitary */
-    bool is_sp;                             /*!< Whether function can be used for creating a superposition */
-    type_info_t *pars_type_info;            /*!< Type information of function parameters */
-    unsigned num_of_pars;                   /*!< Number of function parameters */
-} func_info_t;
-
-/**
  * \brief                               Reference entry struct
  * \note                                This structure defines a linked entry of references (line numbers) to a variable
  */
@@ -150,7 +139,12 @@ typedef struct entry {
     bool is_function;                       /*!< Whether entry is a function */
     union {
         value_t *values;                    /*!< Array of entry's values */
-        func_info_t func_info;              /*!< Function information of entry */
+        struct {
+            bool is_unitary;                /*!< Whether function is unitary */
+            bool is_sp;                     /*!< Whether function can be used for creating a superposition */
+            type_info_t *pars_type_info;    /*!< Type information of function parameters */
+            unsigned num_of_pars;           /*!< Number of function parameters */
+        };
     };
     struct entry *next;                     /*!< Next symbol table entry */
 } entry_t;
@@ -214,9 +208,12 @@ void set_type_info(entry_t *entry, type_info_t type_info);
  * \brief                               Set function information of symbol table entry
  * \note                                Also sets \ref is_function of entry to true
  * \param[in]                           entry: Symbol table entry
- * \param[in]                           func_info: Function information to be set
+ * \param[in]                           is_unitary: Whether function is unitary
+ * \param[in]                           is_sp: Whether function can be used for creating a superposition
+ * \param[in]                           pars_type_info: Type information of function parameters
+ * \param[in]                           num_of_pars: Number of function parameters
  */
-void set_func_info(entry_t *entry, func_info_t func_info);
+void set_func_info(entry_t *entry, bool is_unitary, bool is_sp, type_info_t *pars_type_info, unsigned num_of_pars);
 
 /**
  * \brief                               Dump symbol table content to output file
