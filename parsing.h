@@ -122,9 +122,9 @@ typedef struct arg_list {
  * =====================================================================================================================
  */
 
-type_info_t create_atomic_type_info(type_t type);
+bool setup_atomic_type_info(type_info_t *type_info, type_t type, char error_msg[ERROR_MSG_LENGTH]);
 
-type_info_t create_type_info(qualifier_t qualifier, type_t type, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth);
+bool append_to_type_info(type_info_t *type_info, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
 bool setup_empty_func_info(func_info_t *func_info, char error_msg[ERROR_MSG_LENGTH]);
 

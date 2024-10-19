@@ -418,7 +418,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, qualif
 node_t *new_const_node(type_t type, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth, value_t *values);
 
 node_t *new_reference_node(const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth, bool index_is_const[MAX_ARRAY_DEPTH],
-                           index_t indices[MAX_ARRAY_DEPTH], entry_t *entry);
+                           const index_t indices[MAX_ARRAY_DEPTH], entry_t *entry);
 
 node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_of_pars,
                            char error_msg[ERROR_MSG_LENGTH]);
@@ -467,7 +467,9 @@ node_t *new_return_node(type_t ret_type, node_t *ret_val);
 
 bool stmt_is_unitary(const node_t *node);
 
-type_info_t *get_type_info_of_node(const node_t *node);
+void copy_type_info_of_entry(type_info_t *type_info, const entry_t *entry);
+
+bool copy_type_info_of_node(type_info_t *type_info, const node_t *node);
 
 bool are_matching_types(type_t type_1, type_t type_2);
 

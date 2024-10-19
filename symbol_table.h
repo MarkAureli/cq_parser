@@ -114,7 +114,7 @@ typedef struct qualified_type {
 typedef struct type_info {
     qualifier_t qualifier;                  /*!< Qualifier of type information */
     type_t type;                            /*!< Type of type information */
-    unsigned sizes[MAX_ARRAY_DEPTH];          /*!< Sizes of type information */
+    unsigned sizes[MAX_ARRAY_DEPTH];        /*!< Sizes of type information */
     unsigned depth;                         /*!< Depth of type information */
 } type_info_t;
 
@@ -135,7 +135,10 @@ typedef struct entry {
     char name[MAX_TOKEN_LENGTH];                 /*!< Name of entry */
     unsigned scope;                         /*!< Scope of entry */
     ref_list_t *lines;                      /*!< List of references of entry */
-    type_info_t type_info;                  /*!< Type information of entry */
+    qualifier_t qualifier;                  /*!< Qualifier of entry */
+    type_t type;                            /*!< Type of entry */
+    unsigned sizes[MAX_ARRAY_DEPTH];        /*!< Sizes of entry */
+    unsigned depth;                         /*!< Depth of entry */
     unsigned length;                        /*!< Length of flattened array of entry's values */
     bool is_function;                       /*!< Whether entry is a function */
     union {
@@ -201,9 +204,13 @@ void incr_scope();
 /**
  * \brief                               Set type information of symbol table entry
  * \param[in]                           entry: Symbol table entry
- * \param[in]                           type_info: Type information to be set
+ * \param[in]                           qualifier: Qualifier to be set
+ * \param[in]                           type: Type to be set
+ * \param[in]                           sizes: Sizes to be set
+ * \param[in]                           depth: Depth to be set
  */
-void set_type_info(entry_t *entry, type_info_t type_info);
+void set_type_info(entry_t *entry, qualifier_t qualifier, type_t type, const unsigned sizes[MAX_ARRAY_DEPTH],
+                   unsigned depth);
 
 /**
  * \brief                               Set function information of symbol table entry

@@ -155,8 +155,8 @@ entry_t *insert(const char *name, unsigned length, unsigned line_num, bool decla
         l->lines = calloc(1, sizeof (ref_list_t));
         l->lines->line_num = line_num;
         l->lines->next = NULL;
-        l->type_info.qualifier = NONE_T;
-        l->type_info.type = VOID_T;
+        l->qualifier = NONE_T;
+        l->type = VOID_T;
         l->next = symbol_table[hash_value];
         symbol_table[hash_value] = l;
     } else {
@@ -172,8 +172,8 @@ entry_t *insert(const char *name, unsigned length, unsigned line_num, bool decla
                 l->lines = calloc(1, sizeof (ref_list_t));
                 l->lines->line_num = line_num;
                 l->lines->next = NULL;
-                l->type_info.qualifier = NONE_T;
-                l->type_info.type = VOID_T;
+                l->qualifier = NONE_T;
+                l->type = VOID_T;
                 l->next = symbol_table[hash_value];
                 symbol_table[hash_value] = l;
             }
@@ -214,14 +214,19 @@ void incr_scope() {
 }
 
 /* See header for documentation */
-void set_type_info(entry_t *entry, type_info_t type_info) {
-    entry->type_info = type_info;
+void set_type_info(entry_t *entry, qualifier_t qualifier, type_t type, const unsigned sizes[MAX_ARRAY_DEPTH],
+                   unsigned depth) {
+    entry->qualifier = qualifier;
+    entry->type = type;
+    memcpy(entry->sizes, sizes, depth * sizeof (unsigned));
+    entry->depth = depth;
     unsigned length = 1;
-    for (unsigned i = 0; i < type_info.depth; ++i) {
-        length *= type_info.sizes[i];
+    for (unsigned i = 0; i < depth; ++i) {
+        entry->sizes[i] = sizes[i];
+        length *= sizes[i];
     }
     entry->length = length;
-    if (type_info.qualifier == CONST_T) {
+    if (qualifier == CONST_T) {
         entry->values = calloc(length, sizeof (value_t));
     }
 }
@@ -233,7 +238,7 @@ void set_func_info(entry_t *entry, bool is_unitary, bool is_sp, type_info_t *par
     entry->is_sp = is_sp;
     entry->pars_type_info = pars_type_info;
     entry->num_of_pars = num_of_pars;
-    if (entry->type_info.qualifier != NONE_T || entry->type_info.type != BOOL_T || entry->type_info.depth != 0) {
+    if (entry->qualifier != NONE_T || entry->type != BOOL_T || entry->depth != 0) {
         entry->is_sp = false;
     }
 }
@@ -279,7 +284,7 @@ void dump_symbol_table(FILE * output_file){
             while (l != NULL) { 
                 ref_list_t *t = l->lines;
                 fprintf(output_file, "%-*s", MAX_TOKEN_LENGTH + 1, l->name);
-                switch (l->type_info.qualifier) {
+                switch (l->qualifier) {
                     case NONE_T: {
                         fprintf(output_file, "%-11s", "");
                         break;
@@ -298,7 +303,7 @@ void dump_symbol_table(FILE * output_file){
                     fprintf(output_file, "-> ");
                     type_str_length += 3;
                 }
-                switch (l->type_info.type) {
+                switch (l->type) {
                     case BOOL_T: {
                         fprintf(output_file, "bool");
                         type_str_length += 4;
@@ -320,7 +325,7 @@ void dump_symbol_table(FILE * output_file){
                         break;
                     }
                 }
-                for (unsigned j = 0; j < l->type_info.depth; ++j) {
+                for (unsigned j = 0; j < l->depth; ++j) {
                     fprintf(output_file, "[]");
                     type_str_length += 2;
                 }
