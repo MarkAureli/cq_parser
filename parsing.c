@@ -93,18 +93,6 @@ bool append_to_type_info(type_info_t *type_info, node_t *node, char error_msg[ER
     return true;
 }
 
-type_info_t create_atomic_type_info(type_t type) {
-    type_info_t new_type_info = { .type = type};
-    return new_type_info;
-}
-
-type_info_t create_type_info(qualifier_t qualifier, type_t type, const unsigned sizes[MAX_ARRAY_DEPTH],
-                             unsigned depth) {
-    type_info_t new_type_info = { .qualifier = qualifier, .type = type, .depth = depth };
-    memcpy(new_type_info.sizes, sizes, depth * sizeof (unsigned));
-    return new_type_info;
-}
-
 bool setup_empty_func_info(func_info_t *func_info, char error_msg[ERROR_MSG_LENGTH]) {
     if (func_info == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for function information failed");
@@ -127,6 +115,11 @@ bool setup_func_info(func_info_t *func_info, type_info_t type_info, char error_m
     func_info->is_unitary = true;
     func_info->is_sp = type_info.depth == 0;
     func_info->pars_type_info = malloc(sizeof (type_info_t));
+    if (func_info->pars_type_info == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for function information failed");
+        return false;
+    }
+
     func_info->pars_type_info[0] = type_info;
     func_info->num_of_pars = 1;
     return true;
@@ -171,9 +164,14 @@ bool setup_init_info(init_info_t *init_info, bool is_init_list, node_t *node, ch
 
         init_info->is_init_list = true;
         init_info->qualified_types = malloc(sizeof (qualified_type_t));
+        init_info->values = malloc(sizeof (array_value_t));
+        if (init_info->qualified_types == NULL || init_info->values == NULL) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for initialization information failed");
+            return false;
+        }
+
         qualified_type_t qualified_type = { .qualifier=type_info.qualifier, .type=type_info.type };
         init_info->qualified_types[0] = qualified_type;
-        init_info->values = malloc(sizeof (array_value_t));
         if (type_info.qualifier == CONST_T) {
             init_info->values[0].const_value = ((const_node_t *) node)->values[0];
         } else {
@@ -187,6 +185,11 @@ bool setup_init_info(init_info_t *init_info, bool is_init_list, node_t *node, ch
 }
 
 bool append_to_init_info(init_info_t *init_info, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
+    if (init_info == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Accessing memory for initialization information failed");
+        return false;
+    }
+
     type_info_t type_info;
     if (!copy_type_info_of_node(&type_info, node)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Element of array initializer entry is not an expression");
@@ -196,6 +199,7 @@ bool append_to_init_info(init_info_t *init_info, node_t *node, char error_msg[ER
                  type_info.depth);
         return false;
     }
+
     array_value_t value;
     if (type_info.qualifier == CONST_T) {
         value.const_value = ((const_node_t *) node)->values[0];
@@ -204,54 +208,181 @@ bool append_to_init_info(init_info_t *init_info, node_t *node, char error_msg[ER
     }
     qualified_type_t qualified_type = { .qualifier=type_info.qualifier, .type=type_info.type };
     unsigned current_length = (init_info->length)++;
-    init_info->qualified_types = realloc(init_info->qualified_types,
-                                               (current_length + 1) * sizeof (qualified_type_t));
-    init_info->values = realloc(init_info->values,
-                                      (current_length + 1) * sizeof (array_value_t));
+    qualified_type_t *temp_1 = realloc(init_info->qualified_types,
+                                     (current_length + 1) * sizeof (qualified_type_t));
+    array_value_t *temp_2 = realloc(init_info->values, (current_length + 1) * sizeof (array_value_t));
+    if (temp_1 == NULL || temp_2 == NULL) {
+        free(init_info->qualified_types);
+        free(init_info->values);
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Reallocating memory for initialization information failed");
+        return false;
+    }
+
+    init_info->qualified_types = temp_1;
     init_info->qualified_types[current_length] = qualified_type;
+    init_info->values = temp_2;
     init_info->values[current_length] = value;
     return true;
 }
 
-access_info_t create_access_info(entry_t *entry) {
-    access_info_t new_array_access = { .entry=entry };
-    return new_array_access;
+bool setup_access_info(access_info_t *access_info, entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
+    if (access_info == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for access information failed");
+        return false;
+    } else if (entry->is_function) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s is not called", entry->name);
+        return false;
+    }
+
+    access_info->entry = entry;
+    return true;
 }
 
-else_if_list_t create_else_if_list(node_t *node) {
-    else_if_list_t new_else_if_list = { .else_if_nodes = calloc(1, sizeof (node_t *)),
-            .num_of_else_ifs = 1 };
-    new_else_if_list.else_if_nodes[0] = node;
-    return new_else_if_list;
+bool append_to_access_info(access_info_t *access_info, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
+    if (access_info == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Accessing memory for access information failed");
+        return false;
+    } else if (access_info->entry->depth == 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Array access of scalar %s", access_info->entry->name);
+        return false;
+    } else if (access_info->depth == access_info->entry->depth) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Depth-%u access of depth-%u array %s",
+                 access_info->depth + 1, access_info->entry->depth, access_info->entry->name);
+        return false;
+    }
+
+    type_info_t index_type_info;
+    copy_type_info_of_node(&index_type_info, node);
+    if (index_type_info.qualifier == QUANTUM_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Index at position %u of access of depth-%u array %s is quantum",
+                 access_info->depth, access_info->entry->depth, access_info->entry->name);
+        return false;
+    } else if (index_type_info.type == BOOL_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH,
+                 "Index at position %u of access of depth-%u array %s is of type bool",
+                 access_info->depth, access_info->entry->depth, access_info->entry->name);
+        return false;
+    } else if (index_type_info.depth != 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH,
+                 "Index at position %u of access of depth-%u array %s is array-valued",
+                 access_info->depth, access_info->entry->depth, access_info->entry->name);
+        return false;
+    }
+
+    if (index_type_info.qualifier == CONST_T) {
+        access_info->index_is_const[access_info->depth] = true;
+        access_info->indices[(access_info->depth)++].const_index = ((const_node_t *) node)->values[0].u_val;
+    } else {
+        access_info->index_is_const[access_info->depth] = false;
+        access_info->indices[(access_info->depth)++].node_index = node;
+    }
+    return true;
 }
 
-void append_to_else_if_list(else_if_list_t *else_if_list, node_t *node) {
+bool setup_else_if_list(else_if_list_t *else_if_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
+    if (else_if_list == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for else-if list failed");
+        return false;
+    }
+
+    else_if_list->else_if_nodes = malloc(sizeof (node_t *));
+    if (else_if_list->else_if_nodes == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for else-if list failed");
+        return false;
+    }
+
+    else_if_list->else_if_nodes[0] = node;
+    else_if_list->num_of_else_ifs = 1;
+    return true;
+}
+
+bool append_to_else_if_list(else_if_list_t *else_if_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
+    if (else_if_list == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Accessing memory for else-if list failed");
+        return false;
+    }
+
     unsigned current_num_of_else_ifs = (else_if_list->num_of_else_ifs)++;
-    else_if_list->else_if_nodes = realloc(else_if_list->else_if_nodes,
-                                          (current_num_of_else_ifs + 1) * sizeof (node_t *));
+    node_t **temp = realloc(else_if_list->else_if_nodes, (current_num_of_else_ifs + 1) * sizeof (type_info_t));
+    if (temp == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Reallocating memory for else-if list failed");
+        free(else_if_list->else_if_nodes);
+        return false;
+    }
+
+    else_if_list->else_if_nodes = temp;
     else_if_list->else_if_nodes[current_num_of_else_ifs] = node;
+    return true;
 }
 
-case_list_t create_case_list(node_t *node) {
-    case_list_t new_case_list = { .case_nodes = calloc(1, sizeof (node_t *)), .num_of_cases = 1 };
-    new_case_list.case_nodes[0] = node;
-    return new_case_list;
+bool setup_case_list(case_list_t *case_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
+    if (case_list == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for case list failed");
+        return false;
+    }
+
+    case_list->case_nodes = malloc(sizeof (node_t *));
+    if (case_list->case_nodes == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for case list failed");
+        return false;
+    }
+
+    case_list->case_nodes[0] = node;
+    case_list->num_of_cases = 1;
+    return true;
 }
 
-void append_to_case_list(case_list_t *case_list, node_t *node) {
+bool append_to_case_list(case_list_t *case_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
+    if (case_list == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Accessing memory for case list failed");
+        return false;
+    }
+
     unsigned current_num_of_cases = (case_list->num_of_cases)++;
-    case_list->case_nodes = realloc(case_list->case_nodes, (current_num_of_cases + 1) * sizeof (node_t *));
+    node_t **temp = realloc(case_list->case_nodes, (current_num_of_cases + 1) * sizeof (node_t *));
+    if (temp == NULL) {
+        free(case_list->case_nodes);
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Reallocating memory for case list failed");
+        return false;
+    }
+
+    case_list->case_nodes = temp;
     case_list->case_nodes[current_num_of_cases] = node;
+    return true;
 }
 
-arg_list_t create_arg_list(node_t *node) {
-    arg_list_t new_arg_list = { .args = calloc(1, sizeof (node_t *)), .num_of_args = 1 };
-    new_arg_list.args[0] = node;
-    return new_arg_list;
+bool setup_arg_list(arg_list_t *arg_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
+    if (arg_list == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for argument list failed");
+        return false;
+    }
+
+    arg_list->args = malloc(sizeof (node_t *));
+    if (arg_list->args == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for argument list failed");
+        return false;
+    }
+
+    arg_list->args[0] = node;
+    arg_list->num_of_args = 1;
+    return true;
 }
 
-void append_to_arg_list(arg_list_t *arg_list, node_t *node) {
+bool append_to_arg_list(arg_list_t *arg_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
+    if (arg_list == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for argument list failed");
+        return false;
+    }
+
     unsigned current_num_of_args = (arg_list->num_of_args)++;
-    arg_list->args = realloc(arg_list->args, (current_num_of_args) * sizeof (node_t *));
+    node_t **temp = realloc(arg_list->args, (current_num_of_args + 1) * sizeof (type_info_t));
+    if (temp == NULL) {
+        free(arg_list->args);
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Reallocating memory for argument list failed");
+        return false;
+    }
+
+    arg_list->args = temp;
     arg_list->args[current_num_of_args] = node;
+    return true;
 }

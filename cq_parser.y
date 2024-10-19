@@ -27,15 +27,15 @@ char error_msg[ERROR_MSG_LENGTH];
     type_info_t *type_info;
     func_info_t *func_info;
     init_info_t *init_info;
-    access_info_t access_info;
+    access_info_t *access_info;
     assign_op_t assign_op;
     integer_op_t integer_op;
     logical_op_t logical_op;
     comparison_op_t comparison_op;
     equality_op_t equality_op;
-    else_if_list_t else_if_list;
-    case_list_t case_list;
-    arg_list_t arg_list;
+    else_if_list_t *else_if_list;
+    case_list_t *case_list;
+    arg_list_t *arg_list;
 }
 
 %token <name> ID
@@ -466,7 +466,7 @@ if_stmt:
 	    }
 	}
 	| IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE else_if optional_else {
-	    $$ = new_if_node($3, $6, $8.else_if_nodes, $8.num_of_else_ifs, $9, error_msg);
+	    $$ = new_if_node($3, $6, $8->else_if_nodes, $8->num_of_else_ifs, $9, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
@@ -479,15 +479,23 @@ else_if:
         if (else_if_node == NULL) {
             yyerror(error_msg);
         }
-        $$ = create_else_if_list(else_if_node);
+
+        else_if_list_t else_if_list;
+        $$ = &else_if_list;
+        if (!setup_else_if_list($$, else_if_node, error_msg)) {
+            yyerror(error_msg);
+        }
     }
     | else_if ELSE IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE {
         node_t *else_if_node = new_else_if_node($5, $8, error_msg);
         if (else_if_node == NULL) {
             yyerror(error_msg);
         }
+
         $$ = $1;
-        append_to_else_if_list(&$$, else_if_node);
+        if (!append_to_else_if_list($$, else_if_node, error_msg)) {
+            yyerror(error_msg);
+        }
     }
     ;
 
@@ -502,7 +510,7 @@ optional_else:
 
 switch_stmt:
 	SWITCH LPAREN logical_or_expr RPAREN LBRACE case_stmt_l RBRACE {
-	    $$ = new_switch_node($3, $6.case_nodes, $6.num_of_cases, error_msg);
+	    $$ = new_switch_node($3, $6->case_nodes, $6->num_of_cases, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
@@ -511,11 +519,17 @@ switch_stmt:
 
 case_stmt_l:
     case_stmt {
-        $$ = create_case_list($1);
+        case_list_t case_list;
+        $$ = &case_list;
+        if (!setup_case_list($$, $1, error_msg)) {
+            yyerror(error_msg);
+        }
     }
     | case_stmt_l case_stmt {
         $$ = $1;
-        append_to_case_list(&$$, $2);
+        if (!append_to_case_list($$, $2, error_msg)) {
+            yyerror(error_msg);
+        }
     }
     ;
 
@@ -824,16 +838,16 @@ postfix_expr:
 
 array_access_expr:
 	array_access {
-	    entry_t *entry = $1.entry;
+	    entry_t *entry = $1->entry;
         bool all_indices_const = true;
-        unsigned new_depth = entry->depth - $1.depth;
+        unsigned new_depth = entry->depth - $1->depth;
         unsigned new_sizes[entry->depth];
         memcpy(new_sizes, entry->sizes, entry->depth * sizeof (unsigned));
-        for (unsigned i = 0; i < $1.depth; ++i) {
-            all_indices_const &= $1.index_is_const[i];
-            if ($1.index_is_const[i] && $1.indices[i].const_index >= entry->sizes[i]) {
+        for (unsigned i = 0; i < $1->depth; ++i) {
+            all_indices_const &= $1->index_is_const[i];
+            if ($1->index_is_const[i] && $1->indices[i].const_index >= entry->sizes[i]) {
                 snprintf(error_msg, sizeof (error_msg), "%u-th index (%u) of array %s%s out of bounds (%u)",
-                         i, $1.indices[i].const_index, ($1.entry->is_function) ? "returned by " : "", entry->name,
+                         i, $1->indices[i].const_index, ($1->entry->is_function) ? "returned by " : "", entry->name,
                          entry->sizes[i]);
                 yyerror(error_msg);
             }
@@ -843,61 +857,29 @@ array_access_expr:
         }
         if (entry->qualifier == CONST_T && all_indices_const) {
             unsigned const_indices[MAX_ARRAY_DEPTH];
-            for (unsigned i = 0; i < $1.depth; ++i) {
-                const_indices[i] = $1.indices[i].const_index;
+            for (unsigned i = 0; i < $1->depth; ++i) {
+                const_indices[i] = $1->indices[i].const_index;
             }
-            value_t *new_values = get_reduced_array(entry->values, entry->sizes, entry->depth, const_indices, $1.depth);
+            value_t *new_values = get_reduced_array(entry->values, entry->sizes, entry->depth, const_indices, $1->depth);
             $$ = new_const_node(entry->type, new_sizes, new_depth, new_values);
         } else {
-            $$ = new_reference_node(new_sizes, new_depth, $1.index_is_const, $1.indices, entry);
+            $$ = new_reference_node(new_sizes, new_depth, $1->index_is_const, $1->indices, entry);
         }
 	}
 	;
 
 array_access:
     ID {
-        entry_t *entry = insert($1, strlen($1), yylineno, false);
-        if (entry->is_function) {
-            snprintf(error_msg, sizeof (error_msg), "Function %s is not called", entry->name);
+        access_info_t access_info;
+        $$ = &access_info;
+        if (!setup_access_info($$, insert($1, strlen($1), yylineno, false), error_msg)) {
             yyerror(error_msg);
         }
-        $$ = create_access_info(entry);
     }
     | array_access LBRACKET or_expr RBRACKET {
         $$ = $1;
-        if ($$.entry->depth == 0) {
-            snprintf(error_msg, sizeof (error_msg), "Array access of scalar %s", $$.entry->name);
+        if (!append_to_access_info($$, $3, error_msg)) {
             yyerror(error_msg);
-        } else if ($$.depth == $$.entry->depth) {
-            snprintf(error_msg, sizeof (error_msg), "Depth-%u access of depth-%u array %s",
-                     $$.depth + 1, $$.entry->depth, $$.entry->name);
-            yyerror(error_msg);
-        }
-
-        type_info_t index_type_info;
-        copy_type_info_of_node(&index_type_info, $3);
-        if (index_type_info.qualifier == QUANTUM_T) {
-            snprintf(error_msg, sizeof (error_msg), "Index at position %u of access of depth-%u array %s is quantum",
-                     $$.depth, $$.entry->depth, $$.entry->name);
-            yyerror(error_msg);
-        } else if (index_type_info.type == BOOL_T) {
-            snprintf(error_msg, sizeof (error_msg),
-                     "Index at position %u of access of depth-%u array %s is of type bool",
-                     $$.depth, $$.entry->depth, $$.entry->name);
-            yyerror(error_msg);
-        } else if (index_type_info.depth != 0) {
-            snprintf(error_msg, sizeof (error_msg),
-                     "Index at position %u of access of depth-%u array %s is array-valued",
-                     $$.depth, $$.entry->depth, $$.entry->name);
-            yyerror(error_msg);
-        }
-
-        if (index_type_info.qualifier == CONST_T) {
-            $$.index_is_const[$$.depth] = true;
-            $$.indices[($$.depth)++].const_index = ((const_node_t *) $3)->values[0].u_val;
-        } else {
-            $$.index_is_const[$$.depth] = false;
-            $$.indices[($$.depth)++].node_index = $3;
         }
     }
     ;
@@ -926,7 +908,7 @@ const:
 
 func_call:
 	ID LPAREN argument_expr_l RPAREN {
-        $$ = new_func_call_node(false, insert($1, strlen($1), yylineno, false), $3.args, $3.num_of_args, error_msg);
+        $$ = new_func_call_node(false, insert($1, strlen($1), yylineno, false), $3->args, $3->num_of_args, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -938,7 +920,7 @@ func_call:
         }
 	}
 	| LBRACKET ID RBRACKET LPAREN argument_expr_l RPAREN {
-	    $$ = new_func_call_node(true, insert($2, strlen($2), yylineno, false), $5.args, $5.num_of_args, error_msg);
+	    $$ = new_func_call_node(true, insert($2, strlen($2), yylineno, false), $5->args, $5->num_of_args, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
@@ -947,11 +929,17 @@ func_call:
 
 argument_expr_l:
 	logical_or_expr {
-	    $$ = create_arg_list($1);
+	    arg_list_t arg_list;
+	    $$ = &arg_list;
+	    if (!setup_arg_list($$, $1, error_msg)) {
+	        yyerror(error_msg);
+	    }
 	}
 	| argument_expr_l COMMA logical_or_expr {
 	    $$ = $1;
-	    append_to_arg_list(&$$, $3);
+	    if (!append_to_arg_list($$, $3, error_msg)) {
+	        yyerror(error_msg);
+	    }
 	}
 	;
 

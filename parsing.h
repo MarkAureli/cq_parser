@@ -132,23 +132,26 @@ bool setup_func_info(func_info_t *func_info, type_info_t type_info, char error_m
 
 bool append_to_func_info(func_info_t *func_info, type_info_t type_info, char error_msg[ERROR_MSG_LENGTH]);
 
+bool setup_access_info(access_info_t *access_info, entry_t *entry, char error_msg[ERROR_MSG_LENGTH]);
+
+bool append_to_access_info(access_info_t *access_info, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
+
 bool setup_init_info(init_info_t *init_info, bool is_init_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
 bool append_to_init_info(init_info_t *init_info, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
-access_info_t create_access_info(entry_t *entry);
+bool setup_else_if_list(else_if_list_t *else_if_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
-else_if_list_t create_else_if_list(node_t *node);
+bool append_to_else_if_list(else_if_list_t *else_if_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
-void append_to_else_if_list(else_if_list_t *else_if_list, node_t *node);
+bool setup_case_list(case_list_t *case_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
-case_list_t create_case_list(node_t *node);
+bool append_to_case_list(case_list_t *case_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
-void append_to_case_list(case_list_t *case_list, node_t *node);
+bool setup_arg_list(arg_list_t *arg_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
-arg_list_t create_arg_list(node_t *node);
+bool append_to_arg_list(arg_list_t *arg_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
-void append_to_arg_list(arg_list_t *arg_list, node_t *node);
 
 /*
  * =====================================================================================================================
