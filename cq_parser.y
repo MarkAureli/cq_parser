@@ -80,7 +80,8 @@ char error_msg[ERROR_MSG_LENGTH];
 %type <node> variable_decl variable_def func_def const primary_expr postfix_expr unary_expr mul_expr add_expr
 %type <node> logical_or_expr logical_xor_expr logical_and_expr comparison_expr equality_expr or_expr xor_expr and_expr
 %type <node> array_access_expr func_call assign_expr
-%type <node> assign_stmt phase_stmt func_call_stmt if_stmt switch_stmt do_stmt while_stmt for_stmt for_first
+%type <node> assign_stmt phase_stmt measure_stmt func_call_stmt
+%type <node> if_stmt switch_stmt do_stmt while_stmt for_stmt for_first
 %type <node> break_stmt continue_stmt return_stmt
 %type <node> optional_else case_stmt
 %type <else_if_list> else_if
@@ -439,6 +440,9 @@ res_stmt:
 	| phase_stmt {
 	    $$ = $1;
 	}
+	| measure_stmt {
+	    $$ = $1;
+	}
 	| func_call_stmt {
 	    $$ = $1;
 	}
@@ -483,6 +487,15 @@ phase_stmt:
     }
     | PHASE LPAREN array_access_expr RPAREN ASSIGN_SUB logical_or_expr SEMICOLON {
 	    $$ = new_phase_node($3, false, $6, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+    }
+    ;
+
+measure_stmt:
+    MEASURE LPAREN logical_or_expr RPAREN SEMICOLON {
+        $$ = new_measure_node($3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -898,6 +911,12 @@ unary_expr:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
+	}
+	| MEASURE LPAREN unary_expr RPAREN {
+	    $$ = new_measure_node($3, error_msg);
+	    if ($$ == NULL) {
+	        yyerror(error_msg);
+	    }
 	}
 	;
 

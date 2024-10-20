@@ -165,6 +165,7 @@ typedef enum node_type {
     WHILE_NODE_T,
     ASSIGN_NODE_T,
     PHASE_NODE_T,
+    MEASURE_NODE_T,
     BREAK_NODE_T,
     CONTINUE_NODE_T,
     RETURN_NODE_T,
@@ -358,6 +359,12 @@ typedef struct phase_node {
     node_t *right;
 } phase_node_t;
 
+typedef struct measure_node {
+    node_type_t node_type;
+    type_info_t type_info;
+    node_t *node;
+} measure_node_t;
+
 typedef struct break_node {
     node_type_t node_type;
 } break_node_t;
@@ -461,6 +468,8 @@ node_t *new_while_node(node_t *condition, node_t *while_branch, char error_msg[E
 node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]);
 
 node_t *new_phase_node(node_t *left, bool is_positive, node_t *right, char error_msg[ERROR_MSG_LENGTH]);
+
+node_t *new_measure_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
 node_t *new_break_node(char error_msg[ERROR_MSG_LENGTH]);
 

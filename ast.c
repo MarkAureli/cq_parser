@@ -932,7 +932,7 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
 
 node_t *new_phase_node(node_t *left, bool is_positive, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
     if (left->node_type == CONST_NODE_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to change the phase of a classical variable");
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to change the phase of a classical value");
         return NULL;
     } else if (left->node_type != REFERENCE_NODE_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Left-hand side of assignment is not a variable");
@@ -942,7 +942,7 @@ node_t *new_phase_node(node_t *left, bool is_positive, node_t *right, char error
     type_info_t left_type_info;
     copy_type_info_of_node(&left_type_info, left);
     if (left_type_info.qualifier != QUANTUM_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to change the phase of a classical variable");
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to change the phase of a classical value");
         return NULL;
     }
 
@@ -973,6 +973,35 @@ node_t *new_phase_node(node_t *left, bool is_positive, node_t *right, char error
     new_node->is_positive = is_positive;
     new_node->left = left;
     new_node->right = right;
+    return (node_t *) new_node;
+}
+
+node_t *new_measure_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
+    if (node->node_type == CONST_NODE_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to measure a classical variable");
+        return NULL;
+    } else if (node->node_type != REFERENCE_NODE_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to measure a non-variable");
+        return NULL;
+    }
+
+    type_info_t type_info;
+    copy_type_info_of_node(&type_info, node);
+    if (type_info.qualifier != QUANTUM_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to measure a classical variable");
+        return NULL;
+    }
+
+    measure_node_t *new_node = malloc(sizeof (measure_node_t));
+    if (new_node == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for measure node failed");
+        return NULL;
+    }
+
+    new_node->node_type = MEASURE_NODE_T;
+    new_node->type_info = type_info;
+    new_node->type_info.qualifier = NONE_T;
+    new_node->node = node;
     return (node_t *) new_node;
 }
 
@@ -1015,6 +1044,7 @@ node_t *new_return_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
         new_node->type_info.type = VOID_T;
         new_node->type_info.depth = 0;
     }
+    new_node->node_type = RETURN_NODE_T;
     new_node->return_value = node;
     return (node_t *) new_node;
 }
@@ -1152,6 +1182,14 @@ bool copy_type_info_of_node(type_info_t *type_info, const node_t *node) {
             memcpy(type_info->sizes, ((invert_op_node_t *) node)->type_info.sizes,
                    ((invert_op_node_t *) node)->type_info.depth * sizeof (unsigned));
             type_info->depth = ((invert_op_node_t *) node)->type_info.depth;
+            return true;
+        }
+        case MEASURE_NODE_T: {
+            type_info->qualifier = ((measure_node_t *) node)->type_info.qualifier;
+            type_info->type = ((measure_node_t *) node)->type_info.type;
+            memcpy(type_info->sizes, ((measure_node_t *) node)->type_info.sizes,
+                   ((measure_node_t *) node)->type_info.depth * sizeof (unsigned));
+            type_info->depth = ((measure_node_t *) node)->type_info.depth;
             return true;
         }
         case FUNC_CALL_NODE_T: {
@@ -2055,6 +2093,15 @@ void print_node(const node_t *node) {
             printf(")\n");
             break;
         }
+        case MEASURE_NODE_T: {
+            printf("measure (");
+            copy_type_info_of_node(&type_info, ((measure_node_t *) node)->node);
+            print_type_info(&type_info);
+            printf(") -> (");
+            print_type_info(&(((measure_node_t *) node)->type_info));
+            printf(")\n");
+            break;
+        }
         case BREAK_NODE_T: {
             printf("Break\n");
             break;
@@ -2191,6 +2238,10 @@ void tree_traversal(const node_t *node) {
         case PHASE_NODE_T: {
             tree_traversal(((phase_node_t *) node)->left);
             tree_traversal(((phase_node_t *) node)->right);
+            break;
+        }
+        case MEASURE_NODE_T: {
+            tree_traversal(((measure_node_t *) node)->node);
             break;
         }
         case RETURN_NODE_T: {
