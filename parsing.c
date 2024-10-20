@@ -45,6 +45,18 @@
 
 /*
  * =====================================================================================================================
+ *                                                static variables
+ * =====================================================================================================================
+ */
+
+/**
+ * \brief                               Counter for loop depth (starts at `0`)
+ */
+static unsigned nested_loop_counter;
+
+
+/*
+ * =====================================================================================================================
  *                                                function definitions
  * =====================================================================================================================
  */
@@ -97,6 +109,12 @@ bool setup_stmt_list(stmt_list_t *stmt_list, node_t *node, char error_msg[ERROR_
     if (stmt_list == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for statement list failed");
         return false;
+    } else if (nested_loop_counter == 0 && node->node_type == BREAK_NODE_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "There is no loop to break from");
+        return false;
+    } else if (nested_loop_counter == 0 && node->node_type == CONTINUE_NODE_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "There is no loop to continue with");
+        return false;
     }
 
     stmt_list->stmt_nodes = malloc(sizeof (node_t *));
@@ -107,6 +125,7 @@ bool setup_stmt_list(stmt_list_t *stmt_list, node_t *node, char error_msg[ERROR_
 
     stmt_list->stmt_nodes[0] = node;
     stmt_list->is_unitary = is_unitary(node);
+    stmt_list->is_quantizable = is_quantizable(node);
     stmt_list->num_of_stmts = 1;
     return true;
 }
@@ -114,6 +133,12 @@ bool setup_stmt_list(stmt_list_t *stmt_list, node_t *node, char error_msg[ERROR_
 bool append_to_stmt_list(stmt_list_t *stmt_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
     if (stmt_list == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for statement list failed");
+        return false;
+    } else if (nested_loop_counter == 0 && node->node_type == BREAK_NODE_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "There is no loop to break from");
+        return false;
+    } else if (nested_loop_counter == 0 && node->node_type == CONTINUE_NODE_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "There is no loop to continue with");
         return false;
     }
 
@@ -128,6 +153,7 @@ bool append_to_stmt_list(stmt_list_t *stmt_list, node_t *node, char error_msg[ER
     stmt_list->stmt_nodes = temp;
     stmt_list->stmt_nodes[current_num_of_stmt] = node;
     stmt_list->is_unitary = stmt_list->is_unitary && is_unitary(node);
+    stmt_list->is_quantizable = stmt_list->is_quantizable && is_quantizable(node);
     return true;
 }
 
@@ -422,4 +448,14 @@ bool append_to_arg_list(arg_list_t *arg_list, node_t *node, char error_msg[ERROR
     arg_list->args = temp;
     arg_list->args[current_num_of_args] = node;
     return true;
+}
+
+void incr_nested_loop_counter() {
+    ++nested_loop_counter;
+}
+
+void decr_nested_loop_counter() {
+    if (nested_loop_counter > 0) {
+        --nested_loop_counter;
+    }
 }

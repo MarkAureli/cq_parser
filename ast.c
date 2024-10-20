@@ -315,7 +315,6 @@ unsigned get_length_of_array(const unsigned sizes[MAX_ARRAY_DEPTH], unsigned dep
 
 value_t *get_reduced_array(const value_t *values, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth,
                            const unsigned indices[MAX_ARRAY_DEPTH], unsigned index_depth) {
-    // Calculate the length of the output values
     unsigned out_length = 1;
     for (unsigned i = index_depth; i < depth; ++i) {
         out_length *= sizes[i];
@@ -330,13 +329,12 @@ value_t *get_reduced_array(const value_t *values, const unsigned sizes[MAX_ARRAY
         reduced_index += factor * indices[i];
     }
 
-    // Allocate memory for the output values
     value_t* output = malloc( out_length * sizeof (value_t));
     memcpy(output, values + reduced_index, out_length * sizeof (value_t));
     return output;
 }
 
-node_t *new_stmt_list_node(bool is_unitary, node_t **stmt_list, unsigned num_of_stmts,
+node_t *new_stmt_list_node(bool is_unitary, bool is_quantizable, node_t **stmt_list, unsigned num_of_stmts,
                            char error_msg[ERROR_MSG_LENGTH]) {
     stmt_list_node_t *new_node = malloc(sizeof (stmt_list_node_t));
     if (new_node == NULL) {
@@ -346,9 +344,10 @@ node_t *new_stmt_list_node(bool is_unitary, node_t **stmt_list, unsigned num_of_
 
     new_node->node_type = STMT_LIST_NODE_T;
     new_node->is_unitary = is_unitary;
+    new_node->is_quantizable = is_quantizable;
     for (unsigned i = 0; i < num_of_stmts; ++i) {
-        if ((stmt_list[i]->node_type == BREAK_NODE_T || stmt_list[i]->node_type == RETURN_NODE_T)
-            && i < num_of_stmts - 1) {
+        if ((stmt_list[i]->node_type == BREAK_NODE_T || stmt_list[i]->node_type == CONST_NODE_T
+            || stmt_list[i]->node_type == RETURN_NODE_T) && i < num_of_stmts - 1) {
             num_of_stmts = i + 1;
             node_t **temp = realloc(stmt_list, num_of_stmts * sizeof (node_t *));
             if (temp == NULL) {
@@ -638,7 +637,7 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
         copy_type_info_of_node(&else_if_condition_type_info, else_if_node_view->condition);
 
         if (else_if_condition_type_info.qualifier != if_condition_type_info.qualifier) {
-            snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if-condition %u is %s while if condition is %s",
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if-condition %u is %s while if-condition is %s",
                      i + 1, (else_if_condition_type_info.qualifier  == QUANTUM_T) ? "quantum" : "classical",
                      (if_condition_type_info.qualifier == QUANTUM_T) ? "quantum" : "classical");
             return NULL;
@@ -684,7 +683,7 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
                         char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t expression_type_info;
     if (!copy_type_info_of_node(&expression_type_info, expression)) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "No valid switch expression ");
+        snprintf(error_msg, ERROR_MSG_LENGTH, "No valid switch-expression ");
         return NULL;
     } else if (expression_type_info.depth != 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Switch-expression must be a scalar, but is an array of depth %u",
@@ -695,11 +694,10 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
     for (unsigned i = 0; i < num_of_cases; ++i) {
         case_node_t *case_node_view = (case_node_t *) case_branches[i];
         stmt_list_node_t *case_branch_view = (stmt_list_node_t *) case_node_view->case_branch;
-        const_node_t *case_const_view = (const_node_t *) case_node_view->case_const;
-        if (case_const_view != NULL
-            && !are_matching_types(expression_type_info.type, case_const_view->type_info.type)) {
-            snprintf(error_msg, ERROR_MSG_LENGTH, "Case %u is of type %s while switch expression is of type %s",
-                     i + 1, type_to_str(case_const_view->type_info.type), type_to_str(expression_type_info.type));
+        if (case_node_view->case_const_type != VOID_T
+            && !are_matching_types(expression_type_info.type, case_node_view->case_const_type)) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Case %u is of type %s while switch-expression is of type %s",
+                     i + 1, type_to_str(case_node_view->case_const_type), type_to_str(expression_type_info.type));
             return NULL;
         } else if (expression_type_info.qualifier == QUANTUM_T && !case_branch_view->is_unitary) {
             snprintf(error_msg, ERROR_MSG_LENGTH,
@@ -707,7 +705,7 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
             return NULL;
         }
 
-        if (case_const_view == NULL && i < num_of_cases - 1) { /* default statement reached, discard following cases */
+        if (case_node_view->case_const_type == VOID_T && i < num_of_cases - 1) { /* default statement reached */
             num_of_cases = i + 1;
             node_t **temp = realloc(case_branches, num_of_cases * sizeof (node_t *));
             if (temp == NULL) {
@@ -721,18 +719,22 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
 
         for (unsigned j = 0; j < i; ++j) {
             case_node_t *prior_case_node_view = (case_node_t *) case_branches[j];
-            const_node_t *prior_case_const_view = (const_node_t *) prior_case_node_view->case_const;
-            if ((case_const_view->type_info.type == BOOL_T
-                 && case_const_view->values[0].b_val == prior_case_const_view->values[0].b_val)
-                || (case_const_view->type_info.type == INT_T
-                    && case_const_view->values[0].i_val == prior_case_const_view->values[0].i_val)) {
+            if ((case_node_view->case_const_type == BOOL_T
+                 && case_node_view->case_const_value.b_val == prior_case_node_view->case_const_value.b_val)
+                || (case_node_view->case_const_type == INT_T
+                    && case_node_view->case_const_value.i_val == prior_case_node_view->case_const_value.i_val)) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Cases %u and %u have the same value", j + 1, i + 1);
                 return NULL;
             }
         }
     }
 
-    switch_node_t *new_node = calloc(1, sizeof (switch_node_t));
+    switch_node_t *new_node = malloc(sizeof (switch_node_t));
+    if (new_node == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for switch node failed");
+        return NULL;
+    }
+
     new_node->node_type = SWITCH_NODE_T;
     new_node->expression = expression;
     new_node->case_branches = case_branches;
@@ -740,10 +742,23 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
     return (node_t *) new_node;
 }
 
-node_t *new_case_node(node_t *case_const, node_t *case_branch) {
-    case_node_t *new_node = calloc(1, sizeof (case_node_t));
+node_t *new_case_node(node_t *case_const, node_t *case_branch, char error_msg[ERROR_MSG_LENGTH]) {
+    case_node_t *new_node = malloc(sizeof (case_node_t));
+    if (new_node == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for case node failed");
+        return NULL;
+    }
+
     new_node->node_type = CASE_NODE_T;
-    new_node->case_const = case_const;
+    new_node->is_unitary = is_unitary(case_branch);
+    new_node->is_quantizable = is_quantizable(case_branch);
+    if (case_const != NULL) {
+        new_node->case_const_type = ((const_node_t *) case_const)->type_info.type;
+        new_node->case_const_value = ((const_node_t *) case_const)->values[0];
+        free(case_const);
+    } else {
+        new_node->case_const_type = VOID_T;
+    }
     new_node->case_branch = case_branch;
     return (node_t *) new_node;
 }
@@ -846,6 +861,7 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
         snprintf(error_msg, ERROR_MSG_LENGTH, "Classical left-hand side of assignment, but quantum right-hand side");
         return NULL;
     }
+
     switch (op) {
         case ASSIGN_OP: {
             if (!are_matching_types(left_type_info.type, right_type_info.type)) {
@@ -911,7 +927,6 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
 
     if (right_type_info.qualifier == CONST_T) { /* right is of node_type CONST_NODE_T */
         const_node_t *const_node_view_right = (const_node_t *) right;
-
         if (op == ASSIGN_DIV_OP) {
             for (unsigned i = 0; i < length; ++i) {
                 if (const_node_view_right->values[i].i_val == 0) {
@@ -928,8 +943,16 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
             }
         }
     }
-    assign_node_t *new_node = calloc(1, sizeof (assign_node_t));
+
+    assign_node_t *new_node = malloc(sizeof (assign_node_t));
+    if (new_node == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for assignment node failed");
+        return NULL;
+    }
+
     new_node->node_type = ASSIGN_NODE_T;
+    new_node->is_unitary = left_type_info.qualifier == QUANTUM_T && is_unitary(right);
+    new_node->is_quantizable = left_type_info.qualifier == NONE_T && is_quantizable(right);
     new_node->op = op;
     new_node->left = left;
     new_node->right = right;
@@ -976,6 +999,7 @@ node_t *new_phase_node(node_t *left, bool is_positive, node_t *right, char error
     }
 
     new_node->node_type = PHASE_NODE_T;
+    new_node->is_unitary = is_unitary(right);
     new_node->is_positive = is_positive;
     new_node->left = left;
     new_node->right = right;
@@ -1960,6 +1984,30 @@ node_t *build_invert_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
     return result;
 }
 
+void print_const_value(type_t type, value_t value) {
+    switch (type) {
+        case VOID_T: {
+            return;
+        }
+        case BOOL_T: {
+            if (value.b_val) {
+                printf("true");
+            } else {
+                printf("false");
+            }
+            return;
+        }
+        case INT_T: {
+            printf("%d", value.i_val);
+            return;
+        }
+        case UNSIGNED_T: {
+            printf("%u", value.u_val);
+        }
+        return;
+    }
+}
+
 void print_type_info(const type_info_t *type_info) {
     switch (type_info->qualifier) {
         case NONE_T: {
@@ -2163,7 +2211,14 @@ void print_node(const node_t *node) {
             break;
         }
         case CASE_NODE_T: {
-            printf("Case\n");
+            if (((case_node_t *) node)->case_const_type == VOID_T) {
+                printf("default:\n");
+            } else {
+                printf("case ");
+                print_const_value(((case_node_t *) node)->case_const_type,
+                                  ((case_node_t *) node)->case_const_value);
+                printf(":\n");
+            }
             break;
         }
         case FOR_NODE_T: {
@@ -2317,7 +2372,6 @@ void tree_traversal(const node_t *node) {
             break;
         }
         case CASE_NODE_T: {
-            tree_traversal(((case_node_t *) node)->case_const);
             tree_traversal(((case_node_t *) node)->case_branch);
             break;
         }

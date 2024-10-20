@@ -72,6 +72,7 @@ extern "C" {
 
 typedef struct stmt_list {
     bool is_unitary;
+    bool is_quantizable;
     node_t **stmt_nodes;
     unsigned num_of_stmts;
 } stmt_list_t;
@@ -161,6 +162,10 @@ bool append_to_case_list(case_list_t *case_list, node_t *node, char error_msg[ER
 bool setup_arg_list(arg_list_t *arg_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
 bool append_to_arg_list(arg_list_t *arg_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
+
+void incr_nested_loop_counter();
+
+void decr_nested_loop_counter();
 
 
 /*

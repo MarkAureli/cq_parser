@@ -97,7 +97,7 @@ char error_msg[ERROR_MSG_LENGTH];
 
 program:
 	decl_l {
-	    $$ = new_stmt_list_node($1->is_unitary, $1->stmt_nodes, $1->num_of_stmts, error_msg);
+	    $$ = new_stmt_list_node($1->is_unitary, $1->is_quantizable, $1->stmt_nodes, $1->num_of_stmts, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
@@ -367,7 +367,7 @@ type_specifier:
 
 sub_program:
     stmt_l {
-	    $$ = new_stmt_list_node($1->is_unitary, $1->stmt_nodes, $1->num_of_stmts, error_msg);
+	    $$ = new_stmt_list_node($1->is_unitary, $1->is_quantizable, $1->stmt_nodes, $1->num_of_stmts, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
@@ -410,7 +410,7 @@ decl_stmt:
 
 res_sub_program:
     res_stmt_l {
-	    $$ = new_stmt_list_node($1->is_unitary, $1->stmt_nodes, $1->num_of_stmts, error_msg);
+	    $$ = new_stmt_list_node($1->is_unitary, $1->is_quantizable, $1->stmt_nodes, $1->num_of_stmts, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
@@ -599,15 +599,27 @@ case_stmt_l:
 
 case_stmt:
 	CASE const COLON res_sub_program {
-	    $$ = new_case_node($2, $4);
+	    $$ = new_case_node($2, $4, error_msg);
+	    if ($$ == NULL) {
+	        yyerror(error_msg);
+	    }
 	}
 	| DEFAULT COLON res_sub_program {
-	    $$ = new_case_node(NULL, $3);
+	    $$ = new_case_node(NULL, $3, error_msg);
+	    if ($$ == NULL) {
+	        yyerror(error_msg);
+	    }
 	}
 	;
 
 do_stmt:
-	DO { incr_scope(); } LBRACE sub_program RBRACE { hide_scope(); } WHILE LPAREN logical_or_expr RPAREN SEMICOLON {
+	DO {
+	    incr_scope();
+	    incr_nested_loop_counter();
+	} LBRACE sub_program RBRACE {
+	    decr_nested_loop_counter();
+	    hide_scope();
+	} WHILE LPAREN logical_or_expr RPAREN SEMICOLON {
 	    $$ = new_do_node($4, $9, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -616,7 +628,11 @@ do_stmt:
     ;
 
 while_stmt:
-    WHILE LPAREN logical_or_expr RPAREN { incr_scope(); } LBRACE sub_program RBRACE {
+    WHILE LPAREN logical_or_expr RPAREN {
+        incr_scope();
+        incr_nested_loop_counter();
+    } LBRACE sub_program RBRACE {
+        decr_nested_loop_counter();
         hide_scope();
         $$ = new_while_node($3, $7, error_msg);
         if ($$ == NULL) {
@@ -626,7 +642,11 @@ while_stmt:
     ;
 
 for_stmt:
-    FOR { incr_scope(); } LPAREN for_first logical_or_expr SEMICOLON assign_expr RPAREN LBRACE sub_program RBRACE {
+    FOR {
+        incr_scope();
+        incr_nested_loop_counter();
+    } LPAREN for_first logical_or_expr SEMICOLON assign_expr RPAREN LBRACE sub_program RBRACE {
+        decr_nested_loop_counter();
         hide_scope();
         $$ = new_for_node($4, $5, $7, $10, error_msg);
         if ($$ == NULL) {

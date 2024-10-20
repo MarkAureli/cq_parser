@@ -346,7 +346,8 @@ typedef struct case_node {
     node_type_t node_type;
     bool is_unitary;
     bool is_quantizable;
-    node_t *case_const;
+    type_t case_const_type;
+    value_t case_const_value;
     node_t *case_branch;
 } case_node_t;
 
@@ -382,7 +383,6 @@ typedef struct assign_node {
 typedef struct phase_node {
     node_type_t node_type;
     bool is_unitary;
-    bool is_quantizable;
     bool is_positive;
     node_t *left;
     node_t *right;
@@ -440,7 +440,7 @@ unsigned get_length_of_array(const unsigned sizes[MAX_ARRAY_DEPTH], unsigned dep
 value_t *get_reduced_array(const value_t *values, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth,
                            const unsigned indices[MAX_ARRAY_DEPTH], unsigned index_depth);
 
-node_t *new_stmt_list_node(bool is_unitary, node_t **stmt_list, unsigned num_of_stmts,
+node_t *new_stmt_list_node(bool is_unitary, bool is_quantizable, node_t **stmt_list, unsigned num_of_stmts,
                            char error_msg[ERROR_MSG_LENGTH]);
 
 node_t *new_func_decl_node(entry_t *entry, node_t *func_tail, char error_msg[ERROR_MSG_LENGTH]);
@@ -485,7 +485,7 @@ node_t *new_else_if_node(node_t *condition, node_t *else_if_branch, char error_m
 node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num_of_cases,
                         char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_case_node(node_t *case_const, node_t *case_branch);
+node_t *new_case_node(node_t *case_const, node_t *case_branch, char error_msg[ERROR_MSG_LENGTH]);
 
 node_t *new_for_node(node_t *initialize, node_t *condition, node_t *increment, node_t *for_branch,
                      char error_msg[ERROR_MSG_LENGTH]);
@@ -505,6 +505,8 @@ node_t *new_break_node(char error_msg[ERROR_MSG_LENGTH]);
 node_t *new_continue_node(char error_msg[ERROR_MSG_LENGTH]);
 
 node_t *new_return_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]);
+
+bool is_quantizable(const node_t *node);
 
 bool is_unitary(const node_t *node);
 
