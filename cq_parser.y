@@ -25,6 +25,7 @@ char error_msg[ERROR_MSG_LENGTH];
     entry_t *entry;
     node_t *node;
     type_info_t *type_info;
+    stmt_list_t *stmt_list;
     func_info_t *func_info;
     init_info_t *init_info;
     access_info_t *access_info;
@@ -72,13 +73,15 @@ char error_msg[ERROR_MSG_LENGTH];
 
 %type <entry> declarator
 %type <type_info> type_specifier par
+%type <stmt_list> decl_l stmt_l res_stmt_l
 %type <func_info> par_l func_head
-%type <node> program decl_l decl
+%type <node> program func_tail sub_program res_sub_program
+%type <node> decl stmt decl_stmt res_stmt
 %type <node> variable_decl variable_def func_def const primary_expr postfix_expr unary_expr mul_expr add_expr
 %type <node> logical_or_expr logical_xor_expr logical_and_expr comparison_expr equality_expr or_expr xor_expr and_expr
 %type <node> array_access_expr func_call assign_expr
-%type <node> stmt_l stmt decl_stmt res_stmt_l res_stmt
-%type <node> assign_stmt phase_stmt func_call_stmt if_stmt switch_stmt do_stmt while_stmt for_stmt for_first jump_stmt
+%type <node> assign_stmt phase_stmt func_call_stmt if_stmt switch_stmt do_stmt while_stmt for_stmt for_first
+%type <node> break_stmt continue_stmt return_stmt
 %type <node> optional_else case_stmt
 %type <else_if_list> else_if
 %type <case_list> case_stmt_l
@@ -93,18 +96,28 @@ char error_msg[ERROR_MSG_LENGTH];
 
 program:
 	decl_l {
-	    $$ = $1;
+	    $$ = new_stmt_list_node($1->is_unitary, $1->stmt_nodes, $1->num_of_stmts, error_msg);
+	    if ($$ == NULL) {
+	        yyerror(error_msg);
+	    }
+
 	    tree_traversal($$);
 	}
 	;
 
 decl_l:
     decl {
-        $$ = new_stmt_list_node($1);
+        stmt_list_t stmt_list;
+        $$ = &stmt_list;
+        if (!setup_stmt_list($$, $1, error_msg)) {
+            yyerror(error_msg);
+        }
     }
 	| decl_l decl {
-	   $$ = $1;
-	   append_to_stmt_list($$, $2);
+	    $$ = $1;
+	    if (!append_to_stmt_list($$, $2, error_msg)) {
+	        yyerror(error_msg);
+	    }
 	}
 	;
 
@@ -121,29 +134,29 @@ decl:
 	;
 
 func_def:
-	QUANTUM type_specifier declarator { incr_scope(); /* global info for return check and to avoid recursion */ } func_head func_tail {
+	QUANTUM type_specifier declarator { incr_scope(); } func_head func_tail {
 	    hide_scope();
 	    set_type_info($3, QUANTUM_T, $2->type, $2->sizes, $2->depth);
 	    set_func_info($3, $5->is_unitary, $5->is_sp, $5->pars_type_info, $5->num_of_pars);
-	    $$ = new_func_decl_node($3, error_msg);
+	    $$ = new_func_decl_node($3, $6, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
 	}
-	| type_specifier declarator { incr_scope(); /* global info for return check and to avoid recursion */ } func_head func_tail {
+	| type_specifier declarator { incr_scope(); } func_head func_tail {
 	    hide_scope();
 	    set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth);
 	    set_func_info($2, $4->is_unitary, $4->is_sp, $4->pars_type_info, $4->num_of_pars);
-	    $$ = new_func_decl_node($2, error_msg);
+	    $$ = new_func_decl_node($2, $5, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
-	| VOID declarator { incr_scope(); /* global info for return check and to avoid recursion */ } func_head func_tail {
+	| VOID declarator { incr_scope(); } func_head func_tail {
 	    hide_scope();
 	    set_type_info($2, NONE_T, VOID_T, NULL, 0);
 	    set_func_info($2, $4->is_unitary, $4->is_sp, $4->pars_type_info, $4->num_of_pars);
-	    $$ = new_func_decl_node($2, error_msg);
+	    $$ = new_func_decl_node($2, $5, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -195,7 +208,9 @@ par:
 	;
 
 func_tail:
-    LBRACE stmt_l RBRACE
+    LBRACE sub_program RBRACE {
+        $$ = $2;
+    }
     ;
 
 variable_decl:
@@ -349,13 +364,28 @@ type_specifier:
 	}
 	;
 
+sub_program:
+    stmt_l {
+	    $$ = new_stmt_list_node($1->is_unitary, $1->stmt_nodes, $1->num_of_stmts, error_msg);
+	    if ($$ == NULL) {
+	        yyerror(error_msg);
+	    }
+    }
+    ;
+
 stmt_l:
 	stmt {
-	    $$ = new_stmt_list_node($1);
+	    stmt_list_t stmt_list;
+	    $$ = &stmt_list;
+	    if (!setup_stmt_list($$, $1, error_msg)) {
+	        yyerror(error_msg);
+	    }
 	}
 	| stmt_l stmt {
 	    $$ = $1;
-	    append_to_stmt_list($$, $2);
+	    if (!append_to_stmt_list($$, $2, error_msg)) {
+	        yyerror(error_msg);
+	    }
 	}
 	;
 
@@ -377,13 +407,28 @@ decl_stmt:
     }
     ;
 
+res_sub_program:
+    res_stmt_l {
+	    $$ = new_stmt_list_node($1->is_unitary, $1->stmt_nodes, $1->num_of_stmts, error_msg);
+	    if ($$ == NULL) {
+	        yyerror(error_msg);
+	    }
+    }
+    ;
+
 res_stmt_l:
 	res_stmt {
-	    $$ = new_stmt_list_node($1);
+	    stmt_list_t stmt_list;
+	    $$ = &stmt_list;
+	    if (!setup_stmt_list($$, $1, error_msg)) {
+	        yyerror(error_msg);
+	    }
 	}
 	| res_stmt_l res_stmt {
 	    $$ = $1;
-	    append_to_stmt_list($$, $2);
+	    if (!append_to_stmt_list($$, $2, error_msg)) {
+	        yyerror(error_msg);
+	    }
 	}
 	;
 
@@ -412,7 +457,13 @@ res_stmt:
 	| for_stmt {
 	    $$ = $1;
 	}
-	| jump_stmt {
+	| break_stmt {
+	    $$ = $1;
+	}
+	| continue_stmt {
+	    $$ = $1;
+	}
+	| return_stmt {
 	    $$ = $1;
 	}
 	;
@@ -446,7 +497,7 @@ func_call_stmt:
             snprintf(error_msg, sizeof (error_msg), "Trying to invert non-unitary function %s",
                      func_call_node_view->entry->name);
             yyerror(error_msg);
-        } else if (!func_call_node_view->sp && func_call_node_view->type_info.type != VOID_T) {
+        } else if (!func_call_node_view->sp && func_call_node_view->entry->type != VOID_T) {
             snprintf(error_msg, sizeof (error_msg), "Trying to invert function %s with non-void return",
                      func_call_node_view->entry->name);
             yyerror(error_msg);
@@ -459,13 +510,13 @@ func_call_stmt:
     ;
 
 if_stmt:
-	IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE optional_else {
+	IF LPAREN logical_or_expr RPAREN LBRACE res_sub_program RBRACE optional_else {
 	    $$ = new_if_node($3, $6, NULL, 0, $8, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
 	}
-	| IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE else_if optional_else {
+	| IF LPAREN logical_or_expr RPAREN LBRACE res_sub_program RBRACE else_if optional_else {
 	    $$ = new_if_node($3, $6, $8->else_if_nodes, $8->num_of_else_ifs, $9, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
@@ -474,7 +525,7 @@ if_stmt:
 	;
 
 else_if:
-    ELSE IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE {
+    ELSE IF LPAREN logical_or_expr RPAREN LBRACE res_sub_program RBRACE {
         node_t *else_if_node = new_else_if_node($4, $7, error_msg);
         if (else_if_node == NULL) {
             yyerror(error_msg);
@@ -486,7 +537,7 @@ else_if:
             yyerror(error_msg);
         }
     }
-    | else_if ELSE IF LPAREN logical_or_expr RPAREN LBRACE res_stmt_l RBRACE {
+    | else_if ELSE IF LPAREN logical_or_expr RPAREN LBRACE res_sub_program RBRACE {
         node_t *else_if_node = new_else_if_node($5, $8, error_msg);
         if (else_if_node == NULL) {
             yyerror(error_msg);
@@ -500,7 +551,7 @@ else_if:
     ;
 
 optional_else:
-    ELSE LBRACE res_stmt_l RBRACE {
+    ELSE LBRACE res_sub_program RBRACE {
         $$ = $3;
     }
     | /* empty */ {
@@ -534,16 +585,16 @@ case_stmt_l:
     ;
 
 case_stmt:
-	CASE const COLON res_stmt_l {
+	CASE const COLON res_sub_program {
 	    $$ = new_case_node($2, $4);
 	}
-	| DEFAULT COLON res_stmt_l {
+	| DEFAULT COLON res_sub_program {
 	    $$ = new_case_node(NULL, $3);
 	}
 	;
 
 do_stmt:
-	DO { incr_scope(); } LBRACE stmt_l RBRACE { hide_scope(); } WHILE LPAREN logical_or_expr RPAREN SEMICOLON {
+	DO { incr_scope(); } LBRACE sub_program RBRACE { hide_scope(); } WHILE LPAREN logical_or_expr RPAREN SEMICOLON {
 	    $$ = new_do_node($4, $9, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -552,7 +603,7 @@ do_stmt:
     ;
 
 while_stmt:
-    WHILE LPAREN logical_or_expr RPAREN { incr_scope(); } LBRACE stmt_l RBRACE {
+    WHILE LPAREN logical_or_expr RPAREN { incr_scope(); } LBRACE sub_program RBRACE {
         hide_scope();
         $$ = new_while_node($3, $7, error_msg);
         if ($$ == NULL) {
@@ -562,7 +613,7 @@ while_stmt:
     ;
 
 for_stmt:
-    FOR { incr_scope(); } LPAREN for_first logical_or_expr SEMICOLON assign_expr RPAREN LBRACE stmt_l RBRACE {
+    FOR { incr_scope(); } LPAREN for_first logical_or_expr SEMICOLON assign_expr RPAREN LBRACE sub_program RBRACE {
         hide_scope();
         $$ = new_for_node($4, $5, $7, $10, error_msg);
         if ($$ == NULL) {
@@ -580,12 +631,38 @@ for_first:
     }
     ;
 
-jump_stmt:
-	CONTINUE SEMICOLON { /* dummy */ $$ = NULL; }
-	| BREAK SEMICOLON { /* dummy */ $$ = NULL; }
-	| RETURN logical_or_expr SEMICOLON { /* dummy */ $$ = NULL; }
-	| RETURN SEMICOLON { /* dummy */ $$ = NULL; }
-	;
+break_stmt:
+    BREAK SEMICOLON {
+        $$ = new_break_node(error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+    }
+    ;
+
+continue_stmt:
+    CONTINUE SEMICOLON {
+        $$ = new_continue_node(error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+    }
+    ;
+
+return_stmt:
+    RETURN SEMICOLON {
+        $$ = new_return_node(NULL, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+    }
+    | RETURN logical_or_expr SEMICOLON {
+        $$ = new_return_node($2, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+    }
+    ;
 
 assign_expr:
 	array_access_expr ASSIGN logical_or_expr {

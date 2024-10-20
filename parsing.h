@@ -70,6 +70,12 @@ extern "C" {
  * =====================================================================================================================
  */
 
+typedef struct stmt_list {
+    bool is_unitary;
+    node_t **stmt_nodes;
+    unsigned num_of_stmts;
+} stmt_list_t;
+
 /**
  * \brief                               Function info struct
  * \note                                This structure defines all characteristics (except return type) of a function
@@ -125,6 +131,10 @@ typedef struct arg_list {
 bool setup_atomic_type_info(type_info_t *type_info, type_t type, char error_msg[ERROR_MSG_LENGTH]);
 
 bool append_to_type_info(type_info_t *type_info, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
+
+bool setup_stmt_list(stmt_list_t *stmt_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
+
+bool append_to_stmt_list(stmt_list_t *stmt_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
 bool setup_empty_func_info(func_info_t *func_info, char error_msg[ERROR_MSG_LENGTH]);
 

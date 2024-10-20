@@ -165,7 +165,8 @@ typedef enum node_type {
     WHILE_NODE_T,
     ASSIGN_NODE_T,
     PHASE_NODE_T,
-    JUMP_NODE_T,
+    BREAK_NODE_T,
+    CONTINUE_NODE_T,
     RETURN_NODE_T,
 } node_type_t;
 
@@ -186,35 +187,36 @@ typedef union array_value {
 } array_value_t;
 
 typedef struct node {
-    node_type_t type;
+    node_type_t node_type;
     struct node *left;
     struct node *right;
 } node_t;
 
 typedef struct stmt_list_node {
-    node_type_t type;
+    node_type_t node_type;
     bool is_unitary;
     node_t **stmt_list;
-    unsigned num_of_stmt;
+    unsigned num_of_stmts;
 } stmt_list_node_t;
 
 typedef struct func_decl_node {
-    node_type_t type;
+    node_type_t node_type;
     entry_t *entry;
+    node_t *func_tail;
 } func_decl_node_t;
 
 typedef struct func_sp_node {
-    node_type_t type;
+    node_type_t node_type;
     entry_t *entry;
 } func_sp_node_t;
 
 typedef struct var_decl_node {
-    node_type_t type;
+    node_type_t node_type;
     entry_t *entry;
 } var_decl_node_t;
 
 typedef struct var_def_node {
-    node_type_t type;
+    node_type_t node_type;
     entry_t *entry;
     bool is_init_list;
     union {
@@ -228,13 +230,13 @@ typedef struct var_def_node {
 } var_def_node_t;
 
 typedef struct const_node {
-    node_type_t type;
+    node_type_t node_type;
     type_info_t type_info;
     value_t *values;
 } const_node_t;
 
 typedef struct reference_node {
-    node_type_t type;
+    node_type_t node_type;
     type_info_t type_info;
     bool index_is_const[MAX_ARRAY_DEPTH];
     index_t indices[MAX_ARRAY_DEPTH];
@@ -242,8 +244,7 @@ typedef struct reference_node {
 } reference_node_t;
 
 typedef struct func_call_node {
-    node_type_t type;
-    type_info_t type_info;
+    node_type_t node_type;
     entry_t *entry;
     bool inverse;
     bool sp;
@@ -252,7 +253,7 @@ typedef struct func_call_node {
 } func_call_node_t;
 
 typedef struct logical_op_node {
-    node_type_t type;
+    node_type_t node_type;
     type_info_t type_info;
     logical_op_t op;
     node_t *left;
@@ -260,7 +261,7 @@ typedef struct logical_op_node {
 } logical_op_node_t;
 
 typedef struct comparison_op_node {
-    node_type_t type;
+    node_type_t node_type;
     type_info_t type_info;
     comparison_op_t op;
     node_t *left;
@@ -268,7 +269,7 @@ typedef struct comparison_op_node {
 } comparison_op_node_t;
 
 typedef struct equality_op_node {
-    node_type_t type;
+    node_type_t node_type;
     type_info_t type_info;
     equality_op_t op;
     node_t *left;
@@ -276,13 +277,13 @@ typedef struct equality_op_node {
 } equality_op_node_t;
 
 typedef struct not_op_node {
-    node_type_t type;
+    node_type_t node_type;
     type_info_t type_info;
     node_t *child;
 } not_op_node_t;
 
 typedef struct integer_op_node {
-    node_type_t type;
+    node_type_t node_type;
     type_info_t type_info;
     integer_op_t op;
     node_t *left;
@@ -290,7 +291,7 @@ typedef struct integer_op_node {
 } integer_op_node_t;
 
 typedef struct invert_op_node {
-    node_type_t type;
+    node_type_t node_type;
     type_info_t type_info;
     node_t *child;
 } invert_op_node_t;
@@ -305,26 +306,26 @@ typedef struct if_node {
 } if_node_t;
 
 typedef struct else_if_node {
-    node_type_t type;
+    node_type_t node_type;
     node_t *condition;
     node_t *else_if_branch;
 } else_if_node_t;
 
 typedef struct switch_node {
-    node_type_t type;
+    node_type_t node_type;
     node_t *expression;
     node_t **case_branches;
     unsigned num_of_cases;
 } switch_node_t;
 
 typedef struct case_node {
-    node_type_t type;
+    node_type_t node_type;
     node_t *case_const;
     node_t *case_branch;
 } case_node_t;
 
 typedef struct for_node {
-    node_type_t type;
+    node_type_t node_type;
     node_t *initialize;
     node_t *condition;
     node_t *increment;
@@ -332,40 +333,43 @@ typedef struct for_node {
 } for_node_t;
 
 typedef struct do_node {
-    node_type_t type;
+    node_type_t node_type;
     node_t *do_branch;
     node_t *condition;
 } do_node_t;
 
 typedef struct while_node {
-    node_type_t type;
+    node_type_t node_type;
     node_t *condition;
     node_t *while_branch;
 } while_node_t;
 
 typedef struct assign_node {
-    node_type_t type;
+    node_type_t node_type;
     assign_op_t op;
     node_t *left;
     node_t *right;
 } assign_node_t;
 
 typedef struct phase_node {
-    node_type_t type;
+    node_type_t node_type;
     bool is_positive;
     node_t *left;
     node_t *right;
 } phase_node_t;
 
-typedef struct jump_node {
-    node_type_t type;
-    int statement_type;
-} jump_node_t;
+typedef struct break_node {
+    node_type_t node_type;
+} break_node_t;
+
+typedef struct continue_node {
+    node_type_t node_type;
+} continue_node_t;
 
 typedef struct return_node {
-    node_type_t type;
-    type_t ret_type;
-    node_t *ret_val;
+    node_type_t node_type;
+    type_info_t type_info;
+    node_t *return_value;
 } return_node_t;
 
 
@@ -400,13 +404,10 @@ unsigned get_length_of_array(const unsigned sizes[MAX_ARRAY_DEPTH], unsigned dep
 value_t *get_reduced_array(const value_t *values, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth,
                            const unsigned indices[MAX_ARRAY_DEPTH], unsigned index_depth);
 
-node_t *new_node(node_type_t type, node_t *left, node_t *right);
+node_t *new_stmt_list_node(bool is_unitary, node_t **stmt_list, unsigned num_of_stmts,
+                           char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_stmt_list_node(node_t *stmt);
-
-void append_to_stmt_list(node_t *stmt_list_node, node_t *stmt);
-
-node_t *new_func_decl_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]);
+node_t *new_func_decl_node(entry_t *entry, node_t *func_tail, char error_msg[ERROR_MSG_LENGTH]);
 
 node_t *new_func_sp_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]);
 
@@ -461,9 +462,11 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
 
 node_t *new_phase_node(node_t *left, bool is_positive, node_t *right, char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_jump_node(int statement_type);
+node_t *new_break_node(char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_return_node(type_t ret_type, node_t *ret_val);
+node_t *new_continue_node(char error_msg[ERROR_MSG_LENGTH]);
+
+node_t *new_return_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
 bool stmt_is_unitary(const node_t *node);
 

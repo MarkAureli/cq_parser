@@ -93,6 +93,44 @@ bool append_to_type_info(type_info_t *type_info, node_t *node, char error_msg[ER
     return true;
 }
 
+bool setup_stmt_list(stmt_list_t *stmt_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
+    if (stmt_list == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for statement list failed");
+        return false;
+    }
+
+    stmt_list->stmt_nodes = malloc(sizeof (node_t *));
+    if (stmt_list->stmt_nodes == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for statement list failed");
+        return false;
+    }
+
+    stmt_list->stmt_nodes[0] = node;
+    stmt_list->is_unitary = stmt_is_unitary(node);
+    stmt_list->num_of_stmts = 1;
+    return true;
+}
+
+bool append_to_stmt_list(stmt_list_t *stmt_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
+    if (stmt_list == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for statement list failed");
+        return false;
+    }
+
+    unsigned current_num_of_stmt = (stmt_list->num_of_stmts)++;
+    node_t **temp = realloc(stmt_list->stmt_nodes, (current_num_of_stmt + 1) * sizeof (node_t *));
+    if (temp == NULL) {
+        free(stmt_list->stmt_nodes);
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Reallocating memory for statement list failed");
+        return false;
+    }
+
+    stmt_list->stmt_nodes = temp;
+    stmt_list->stmt_nodes[current_num_of_stmt] = node;
+    stmt_list->is_unitary = stmt_list->is_unitary && stmt_is_unitary(node);
+    return true;
+}
+
 bool setup_empty_func_info(func_info_t *func_info, char error_msg[ERROR_MSG_LENGTH]) {
     if (func_info == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for function information failed");
