@@ -133,6 +133,12 @@ char *assign_op_to_str(assign_op_t assign_op) {
     }
 }
 
+bool is_sp(const entry_t *entry) {
+    return (entry->is_quantizable && entry->qualifier == NONE_T && entry->type == BOOL_T && entry->depth == 0
+            && entry->num_of_pars == 1 && entry->pars_type_info[0].qualifier == NONE_T
+            && entry->pars_type_info[0].depth == 0);
+}
+
 void logical_op_application(logical_op_t op, value_t *out, value_t in_1, value_t in_2) {
     switch (op) {
         case LOR_OP: {
@@ -381,7 +387,7 @@ node_t *new_func_sp_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
     if (!entry->is_function) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not a function", entry->name);
         return NULL;
-    } else if (!entry->is_quantizable || entry->type != BOOL_T || entry->depth != 0 || entry->num_of_pars != 1) {
+    } else if (!is_sp(entry)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s cannot be used to create a superposition", entry->name);
         return NULL;
     }
@@ -443,7 +449,7 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
     }
 
     if (sp) {
-        if (!entry->is_quantizable || entry->type != BOOL_T || entry->depth != 0 || entry->num_of_pars != 1) {
+        if (!is_sp(entry)) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s cannot be used to create a superposition", entry->name);
             return NULL;
         } else if (pars[0]->node_type != REFERENCE_NODE_T) {
@@ -1463,26 +1469,11 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, qualif
                 && values[i].node_value->node_type == FUNC_SP_NODE_T) {
                 entry_t *current_entry = ((func_sp_node_t *) values[i].node_value)->entry;
                 unsigned num_of_pars = current_entry->num_of_pars;
-                if (current_entry->num_of_pars != 1) {
-                    snprintf(error_msg, ERROR_MSG_LENGTH,
-                             "Element %u: Quantizable function %s must take exactly 1 parameter",
-                             i, current_entry->name);
-                    return NULL;
-                } else if (current_entry->pars_type_info[0].qualifier != NONE_T) {
-                    snprintf(error_msg, ERROR_MSG_LENGTH,
-                             "Element %u: Quantizable function %s must take a classical parameter",
-                             i, current_entry->name);
-                    return NULL;
-                } else if (current_entry->pars_type_info[0].type != entry->type) {
+                if (current_entry->pars_type_info[0].type != entry->type) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Element %u: Quantizable function %s takes %s instead of %s",
                              i, current_entry->name, type_to_str(current_entry->pars_type_info[0].type),
                              type_to_str(entry->type));
-                    return NULL;
-                } else if (current_entry->pars_type_info[0].depth != 0) {
-                    snprintf(error_msg, ERROR_MSG_LENGTH,
-                             "Element %u: Quantizable function %s takes an array of depth %u instead of a scalar",
-                             i, current_entry->name, current_entry->pars_type_info[0].depth);
                     return NULL;
                 }
             } else if (entry->qualifier != QUANTUM_T
