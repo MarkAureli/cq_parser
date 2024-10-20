@@ -82,7 +82,7 @@ typedef struct stmt_list {
  */
 typedef struct func_info {
     bool is_unitary;                        /*!< Whether function is unitary */
-    bool is_sp;                             /*!< Whether function can be used for creating a superposition */
+    bool is_quantizable;                    /*!< Whether function can be quantized */
     type_info_t *pars_type_info;            /*!< Type information of function parameters */
     unsigned num_of_pars;                   /*!< Number of function parameters */
 } func_info_t;

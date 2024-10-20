@@ -232,15 +232,13 @@ void set_type_info(entry_t *entry, qualifier_t qualifier, type_t type, const uns
 }
 
 /* See header for documentation */
-void set_func_info(entry_t *entry, bool is_unitary, bool is_sp, type_info_t *pars_type_info, unsigned num_of_pars) {
+void set_func_info(entry_t *entry, bool is_unitary, bool is_quantizable, type_info_t *pars_type_info,
+                   unsigned num_of_pars) {
     entry->is_function = true;
     entry->is_unitary = is_unitary;
-    entry->is_sp = is_sp;
+    entry->is_quantizable = is_quantizable;
     entry->pars_type_info = pars_type_info;
     entry->num_of_pars = num_of_pars;
-    if (entry->qualifier != NONE_T || entry->type != BOOL_T || entry->depth != 0) {
-        entry->is_sp = false;
-    }
 }
 
 /* See header for documentation */

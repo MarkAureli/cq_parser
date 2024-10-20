@@ -381,7 +381,7 @@ node_t *new_func_sp_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
     if (!entry->is_function) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not a function", entry->name);
         return NULL;
-    } else if (!entry->is_sp) {
+    } else if (!entry->is_quantizable || entry->type != BOOL_T || entry->depth != 0 || entry->num_of_pars != 1) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s cannot be used to create a superposition", entry->name);
         return NULL;
     }
@@ -443,7 +443,7 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
     }
 
     if (sp) {
-        if (!entry->is_sp) {
+        if (!entry->is_quantizable || entry->type != BOOL_T || entry->depth != 0 || entry->num_of_pars != 1) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s cannot be used to create a superposition", entry->name);
             return NULL;
         } else if (pars[0]->node_type != REFERENCE_NODE_T) {
@@ -1049,26 +1049,143 @@ node_t *new_return_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
     return (node_t *) new_node;
 }
 
-bool stmt_is_unitary(const node_t *node) {
+bool is_unitary(const node_t *node) {
     if (node == NULL) {
         return false;
     }
 
-    type_info_t type_info;
     switch (node->node_type) {
-        case VAR_DECL_NODE_T: case VAR_DEF_NODE_T: case ASSIGN_NODE_T: {
-            copy_type_info_of_node(&type_info, node);
-            return type_info.qualifier == QUANTUM_T;
+        case STMT_LIST_NODE_T: {
+            return ((stmt_list_node_t *) node)->is_unitary;
+        }
+        case FUNC_SP_NODE_T: {
+            return true;
+        }
+        case VAR_DECL_NODE_T: {
+            return ((var_decl_node_t *) node)->entry->qualifier == QUANTUM_T;
+        }
+        case VAR_DEF_NODE_T: {
+            return ((var_def_node_t *) node)->is_unitary;
+        }
+        case CONST_NODE_T: {
+            return true;
+        }
+        case REFERENCE_NODE_T: {
+            return ((reference_node_t *) node)->is_unitary;
         }
         case FUNC_CALL_NODE_T: {
             return ((func_call_node_t *) node)->entry->is_unitary;
         }
+        case LOGICAL_OP_NODE_T: {
+            return ((logical_op_node_t *) node)->is_unitary;
+        }
+        case COMPARISON_OP_NODE_T: {
+            return ((comparison_op_node_t *) node)->is_unitary;
+        }
+        case EQUALITY_OP_NODE_T: {
+            return ((equality_op_node_t *) node)->is_unitary;
+        }
+        case NOT_OP_NODE_T: {
+            return ((not_op_node_t *) node)->is_unitary;
+        }
+        case INTEGER_OP_NODE_T: {
+            return ((integer_op_node_t *) node)->is_unitary;
+        }
+        case INVERT_OP_NODE_T: {
+            return ((invert_op_node_t *) node)->is_unitary;
+        }
         case IF_NODE_T: {
-            copy_type_info_of_node(&type_info, ((if_node_t *) node)->condition);
-            return type_info.qualifier == QUANTUM_T;
+            return ((if_node_t *) node)->is_unitary;
+        }
+        case ELSE_IF_NODE_T: {
+            return ((else_if_node_t *) node)->is_unitary;
+        }
+        case SWITCH_NODE_T: {
+            return ((switch_node_t *) node)->is_unitary;
+        }
+        case CASE_NODE_T: {
+            return ((case_node_t *) node)->is_unitary;
+        }
+        case ASSIGN_NODE_T: {
+            return ((assign_node_t *) node)->is_unitary;
         }
         case PHASE_NODE_T: {
+            return ((phase_node_t *) node)->is_unitary;
+        }
+        case RETURN_NODE_T: {
+            return true; /* not sure about that*/
+        }
+        default: {
+            return false;
+        }
+    }
+}
+
+bool is_quantizable(const node_t *node) {
+    if (node == NULL) {
+        return false;
+    }
+
+    switch (node->node_type) {
+        case STMT_LIST_NODE_T: {
+            return ((stmt_list_node_t *) node)->is_quantizable;
+        }
+        case FUNC_SP_NODE_T: {
             return true;
+        }
+        case VAR_DECL_NODE_T: {
+            return ((var_decl_node_t *) node)->entry->qualifier != QUANTUM_T;
+        }
+        case VAR_DEF_NODE_T: {
+            return ((var_def_node_t *) node)->is_quantizable;
+        }
+        case CONST_NODE_T: {
+            return true;
+        }
+        case REFERENCE_NODE_T: {
+            return ((reference_node_t *) node)->is_quantizable;
+        }
+        case FUNC_CALL_NODE_T: {
+            return ((func_call_node_t *) node)->entry->is_quantizable;
+        }
+        case LOGICAL_OP_NODE_T: {
+            return ((logical_op_node_t *) node)->is_quantizable;
+        }
+        case COMPARISON_OP_NODE_T: {
+            return ((comparison_op_node_t *) node)->is_quantizable;
+        }
+        case EQUALITY_OP_NODE_T: {
+            return ((equality_op_node_t *) node)->is_quantizable;
+        }
+        case NOT_OP_NODE_T: {
+            return ((not_op_node_t *) node)->is_quantizable;
+        }
+        case INTEGER_OP_NODE_T: {
+            return ((integer_op_node_t *) node)->is_quantizable;
+        }
+        case INVERT_OP_NODE_T: {
+            return ((invert_op_node_t *) node)->is_quantizable;
+        }
+        case IF_NODE_T: {
+            return ((if_node_t *) node)->is_quantizable;
+        }
+        case ELSE_IF_NODE_T: {
+            return ((else_if_node_t *) node)->is_quantizable;
+        }
+        case SWITCH_NODE_T: {
+            return ((switch_node_t *) node)->is_quantizable;
+        }
+        case CASE_NODE_T: {
+            return ((case_node_t *) node)->is_quantizable;
+        }
+        case ASSIGN_NODE_T: {
+            return ((assign_node_t *) node)->is_quantizable;
+        }
+        case PHASE_NODE_T: {
+            return false;
+        }
+        case RETURN_NODE_T: {
+            return true; /* not sure about that*/
         }
         default: {
             return false;

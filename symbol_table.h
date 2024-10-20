@@ -145,7 +145,7 @@ typedef struct entry {
         value_t *values;                    /*!< Array of entry's values */
         struct {
             bool is_unitary;                /*!< Whether function is unitary */
-            bool is_sp;                     /*!< Whether function can be used for creating a superposition */
+            bool is_quantizable;            /*!< Whether function can be used for creating a superposition */
             type_info_t *pars_type_info;    /*!< Type information of function parameters */
             unsigned num_of_pars;           /*!< Number of function parameters */
         };
@@ -217,11 +217,12 @@ void set_type_info(entry_t *entry, qualifier_t qualifier, type_t type, const uns
  * \note                                Also sets \ref is_function of entry to true
  * \param[in]                           entry: Symbol table entry
  * \param[in]                           is_unitary: Whether function is unitary
- * \param[in]                           is_sp: Whether function can be used for creating a superposition
+ * \param[in]                           is_quantizable: Whether function can be used for creating a superposition
  * \param[in]                           pars_type_info: Type information of function parameters
  * \param[in]                           num_of_pars: Number of function parameters
  */
-void set_func_info(entry_t *entry, bool is_unitary, bool is_sp, type_info_t *pars_type_info, unsigned num_of_pars);
+void set_func_info(entry_t *entry, bool is_unitary, bool is_quantizable, type_info_t *pars_type_info,
+                   unsigned num_of_pars);
 
 /**
  * \brief                               Dump symbol table content to output file

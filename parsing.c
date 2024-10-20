@@ -106,7 +106,7 @@ bool setup_stmt_list(stmt_list_t *stmt_list, node_t *node, char error_msg[ERROR_
     }
 
     stmt_list->stmt_nodes[0] = node;
-    stmt_list->is_unitary = stmt_is_unitary(node);
+    stmt_list->is_unitary = is_unitary(node);
     stmt_list->num_of_stmts = 1;
     return true;
 }
@@ -127,7 +127,7 @@ bool append_to_stmt_list(stmt_list_t *stmt_list, node_t *node, char error_msg[ER
 
     stmt_list->stmt_nodes = temp;
     stmt_list->stmt_nodes[current_num_of_stmt] = node;
-    stmt_list->is_unitary = stmt_list->is_unitary && stmt_is_unitary(node);
+    stmt_list->is_unitary = stmt_list->is_unitary && is_unitary(node);
     return true;
 }
 
@@ -138,7 +138,7 @@ bool setup_empty_func_info(func_info_t *func_info, char error_msg[ERROR_MSG_LENG
     }
 
     func_info->is_unitary = true;
-    func_info->is_sp = false;
+    func_info->is_quantizable = true;
     func_info->pars_type_info = NULL;
     func_info->num_of_pars = 0;
     return true;
@@ -151,7 +151,7 @@ bool setup_func_info(func_info_t *func_info, type_info_t type_info, char error_m
     }
 
     func_info->is_unitary = true;
-    func_info->is_sp = type_info.depth == 0;
+    func_info->is_quantizable = true,
     func_info->pars_type_info = malloc(sizeof (type_info_t));
     if (func_info->pars_type_info == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for function information failed");
@@ -169,7 +169,6 @@ bool append_to_func_info(func_info_t *func_info, type_info_t type_info, char err
         return false;
     }
 
-    func_info->is_sp = false;
     unsigned current_num_of_pars = (func_info->num_of_pars)++;
     type_info_t *temp = realloc(func_info->pars_type_info, (current_num_of_pars + 1) * sizeof (type_info_t));
     if (temp == NULL) {
