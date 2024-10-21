@@ -759,7 +759,7 @@ logical_or_expr:
 	    $$ = $1;
 	}
 	| logical_or_expr LOR logical_xor_expr {
-	    $$ = build_logical_op_node($1, LOR_OP, $3, error_msg);
+	    $$ = new_logical_op_node($1, LOR_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -771,7 +771,7 @@ logical_xor_expr:
 	    $$ = $1;
 	}
 	| logical_xor_expr LXOR logical_and_expr {
-	    $$ = build_logical_op_node($1, LXOR_OP, $3, error_msg);
+	    $$ = new_logical_op_node($1, LXOR_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -783,7 +783,7 @@ logical_and_expr:
 	    $$ = $1;
 	}
 	| logical_and_expr LAND comparison_expr {
-	    $$ = build_logical_op_node($1, LAND_OP, $3, error_msg);
+	    $$ = new_logical_op_node($1, LAND_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -795,25 +795,25 @@ comparison_expr:
 	    $$ = $1;
 	}
 	| comparison_expr GE equality_expr {
-	    $$ = build_comparison_op_node($1, GE_OP, $3, error_msg);
+	    $$ = new_comparison_op_node($1, GE_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| comparison_expr GEQ equality_expr {
-	    $$ = build_comparison_op_node($1, GEQ_OP, $3, error_msg);
+	    $$ = new_comparison_op_node($1, GEQ_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| comparison_expr LE equality_expr {
-	    $$ = build_comparison_op_node($1, LE_OP, $3, error_msg);
+	    $$ = new_comparison_op_node($1, LE_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| comparison_expr LEQ equality_expr {
-	    $$ = build_comparison_op_node($1, LEQ_OP, $3, error_msg);
+	    $$ = new_comparison_op_node($1, LEQ_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -825,13 +825,13 @@ equality_expr:
 	    $$ = $1;
 	}
 	| equality_expr EQ or_expr {
-	    $$ = build_equality_op_node($1, EQ_OP, $3, error_msg);
+	    $$ = new_equality_op_node($1, EQ_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| equality_expr NEQ or_expr {
-	    $$ = build_equality_op_node($1, NEQ_OP, $3, error_msg);
+	    $$ = new_equality_op_node($1, NEQ_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -843,7 +843,7 @@ or_expr:
         $$ = $1;
     }
 	| or_expr OR xor_expr {
-        $$ = build_integer_op_node($1, OR_OP, $3, error_msg);
+        $$ = new_integer_op_node($1, OR_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -855,7 +855,7 @@ xor_expr:
 	    $$ = $1;
 	}
 	| xor_expr XOR and_expr {
-        $$ = build_integer_op_node($1, XOR_OP, $3, error_msg);
+        $$ = new_integer_op_node($1, XOR_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -867,7 +867,7 @@ and_expr:
         $$ = $1;
     }
 	| and_expr AND add_expr {
-        $$ = build_integer_op_node($1, AND_OP, $3, error_msg);
+        $$ = new_integer_op_node($1, AND_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -879,13 +879,13 @@ add_expr:
 	    $$ = $1;
 	}
 	| add_expr ADD mul_expr {
-        $$ = build_integer_op_node($1, ADD_OP, $3, error_msg);
+        $$ = new_integer_op_node($1, ADD_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| add_expr SUB mul_expr {
-        $$ = build_integer_op_node($1, SUB_OP, $3, error_msg);
+        $$ = new_integer_op_node($1, SUB_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -897,19 +897,19 @@ mul_expr:
 	    $$ = $1;
 	}
 	| mul_expr MUL unary_expr {
-        $$ = build_integer_op_node($1, MUL_OP, $3, error_msg);
+        $$ = new_integer_op_node($1, MUL_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| mul_expr DIV unary_expr {
-        $$ = build_integer_op_node($1, DIV_OP, $3, error_msg);
+        $$ = new_integer_op_node($1, DIV_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| mul_expr MOD unary_expr {
-        $$ = build_integer_op_node($1, MOD_OP, $3, error_msg);
+        $$ = new_integer_op_node($1, MOD_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -921,13 +921,13 @@ unary_expr:
 	    $$ = $1;
 	}
 	| INV unary_expr {
-        $$ = build_invert_op_node($2, error_msg);
+        $$ = new_invert_op_node($2, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| NOT unary_expr {
-	    $$ = build_not_op_node($2, error_msg);
+	    $$ = new_not_op_node($2, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -954,32 +954,9 @@ postfix_expr:
 
 array_access_expr:
 	array_access {
-	    entry_t *entry = $1->entry;
-        bool all_indices_const = true;
-        unsigned new_depth = entry->depth - $1->depth;
-        unsigned new_sizes[entry->depth];
-        memcpy(new_sizes, entry->sizes, entry->depth * sizeof (unsigned));
-        for (unsigned i = 0; i < $1->depth; ++i) {
-            all_indices_const &= $1->index_is_const[i];
-            if ($1->index_is_const[i] && $1->indices[i].const_index >= entry->sizes[i]) {
-                snprintf(error_msg, sizeof (error_msg), "%u-th index (%u) of array %s%s out of bounds (%u)",
-                         i, $1->indices[i].const_index, ($1->entry->is_function) ? "returned by " : "", entry->name,
-                         entry->sizes[i]);
-                yyerror(error_msg);
-            }
-            for (unsigned j = i; j < entry->depth; ++j) {
-                new_sizes[j] = new_sizes[j + 1];
-            }
-        }
-        if (entry->qualifier == CONST_T && all_indices_const) {
-            unsigned const_indices[MAX_ARRAY_DEPTH];
-            for (unsigned i = 0; i < $1->depth; ++i) {
-                const_indices[i] = $1->indices[i].const_index;
-            }
-            value_t *new_values = get_reduced_array(entry->values, entry->sizes, entry->depth, const_indices, $1->depth);
-            $$ = new_const_node(entry->type, new_sizes, new_depth, new_values);
-        } else {
-            $$ = new_reference_node(new_sizes, new_depth, $1->index_is_const, $1->indices, entry);
+        $$ = new_reference_node($1->entry, $1->index_is_const, $1->indices, $1->index_depth, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
         }
 	}
 	;
@@ -1011,14 +988,16 @@ primary_expr:
 
 const:
     BCONST {
-        value_t *value = calloc(1, sizeof (value_t));
-        value[0] = $1;
-        $$ = new_const_node(BOOL_T, NULL, 0, value);
+        $$ = new_const_node(BOOL_T, $1, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
     }
     | ICONST {
-        value_t *value = calloc(1, sizeof (value_t));
-        value[0] = $1;
-        $$ = new_const_node(INT_T, NULL, 0, value);
+        $$ = new_const_node(INT_T, $1, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
     }
 	;
 

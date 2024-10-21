@@ -427,18 +427,7 @@ char *integer_op_to_str(integer_op_t integer_op);
 
 char *assign_op_to_str(assign_op_t assign_op);
 
-void apply_logical_op(logical_op_t op, value_t *out, value_t in_1, value_t in_2);
-
-void apply_comparison_op(comparison_op_t op, value_t *out, type_t in_type_1, value_t in_value_1, type_t in_type_2,
-                         value_t in_value_2);
-
-int apply_integer_op(integer_op_t op, value_t *out, type_t in_type_1, value_t in_value_1, type_t in_type_2,
-                     value_t in_value_2);
-
 unsigned get_length_of_array(const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth);
-
-value_t *get_reduced_array(const value_t *values, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth,
-                           const unsigned indices[MAX_ARRAY_DEPTH], unsigned index_depth);
 
 node_t *new_stmt_list_node(bool is_unitary, bool is_quantizable, node_t **stmt_list, unsigned num_of_stmts,
                            char error_msg[ERROR_MSG_LENGTH]);
@@ -452,30 +441,26 @@ node_t *new_var_decl_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]);
 node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, qualified_type_t *qualified_types,
                          array_value_t *values, unsigned length, char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_const_node(type_t type, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth, value_t *values);
+node_t *new_const_node(type_t type, value_t value, char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_reference_node(const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth, bool index_is_const[MAX_ARRAY_DEPTH],
-                           const index_t indices[MAX_ARRAY_DEPTH], entry_t *entry);
+node_t *new_reference_node(entry_t *entry, const bool index_is_const[MAX_ARRAY_DEPTH],
+                           const index_t indices[MAX_ARRAY_DEPTH], unsigned index_depth,
+                           char error_msg[ERROR_MSG_LENGTH]);
 
 node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_of_pars,
                            char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_logical_op_node(qualifier_t qualifier, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth,
-                            logical_op_t op, node_t *left, node_t *right);
+node_t *new_logical_op_node(node_t *left, logical_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_comparison_op_node(qualifier_t qualifier, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth,
-                               comparison_op_t op, node_t *left, node_t *right);
+node_t *new_comparison_op_node(node_t *left, comparison_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_equality_op_node(qualifier_t qualifier, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth,
-                             equality_op_t op, node_t *left, node_t *right);
+node_t *new_equality_op_node(node_t *left, equality_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_not_op_node(qualifier_t qualifier, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth, node_t *child);
+node_t *new_not_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_integer_op_node(qualifier_t qualifier, type_t type, const unsigned sizes[MAX_ARRAY_DEPTH],
-                            unsigned depth, integer_op_t op, node_t *left, node_t *right);
+node_t *new_integer_op_node(node_t *left, integer_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_invert_op_node(qualifier_t qualifier, type_t type, const unsigned sizes[MAX_ARRAY_DEPTH],
-                           unsigned depth, node_t *child);
+node_t *new_invert_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]);
 
 node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branches, unsigned num_of_else_ifs,
                     node_t *else_branch, char error_msg[ERROR_MSG_LENGTH]);
@@ -515,18 +500,6 @@ void copy_type_info_of_entry(type_info_t *type_info, const entry_t *entry);
 bool copy_type_info_of_node(type_info_t *type_info, const node_t *node);
 
 bool are_matching_types(type_t type_1, type_t type_2);
-
-node_t *build_logical_op_node(node_t *left, logical_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]);
-
-node_t *build_comparison_op_node(node_t *left, comparison_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]);
-
-node_t *build_equality_op_node(node_t *left, equality_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]);
-
-node_t *build_not_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]);
-
-node_t *build_integer_op_node(node_t *left, integer_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]);
-
-node_t *build_invert_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]);
 
 void print_node(const node_t *node);
 

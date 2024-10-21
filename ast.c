@@ -334,31 +334,47 @@ value_t *get_reduced_array(const value_t *values, const unsigned sizes[MAX_ARRAY
     return output;
 }
 
+void free_node(node_t *node) {
+
+}
+
 node_t *new_stmt_list_node(bool is_unitary, bool is_quantizable, node_t **stmt_list, unsigned num_of_stmts,
                            char error_msg[ERROR_MSG_LENGTH]) {
-    stmt_list_node_t *new_node = malloc(sizeof (stmt_list_node_t));
-    if (new_node == NULL) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for statement list node failed");
-        return NULL;
-    }
-
-    new_node->node_type = STMT_LIST_NODE_T;
-    new_node->is_unitary = is_unitary;
-    new_node->is_quantizable = is_quantizable;
     for (unsigned i = 0; i < num_of_stmts; ++i) {
-        if ((stmt_list[i]->node_type == BREAK_NODE_T || stmt_list[i]->node_type == CONST_NODE_T
+        if ((stmt_list[i]->node_type == BREAK_NODE_T || stmt_list[i]->node_type == CONTINUE_NODE_T
             || stmt_list[i]->node_type == RETURN_NODE_T) && i < num_of_stmts - 1) {
+            for (unsigned j = i + 1; j < num_of_stmts; ++j) {
+                free_node(stmt_list[j]);
+            }
             num_of_stmts = i + 1;
             node_t **temp = realloc(stmt_list, num_of_stmts * sizeof (node_t *));
             if (temp == NULL) {
-                free(stmt_list);
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Reallocating memory for statement list node failed");
+                for (unsigned j = 0; j < num_of_stmts; ++j) {
+                    free_node(stmt_list[j]);
+                }
+                free(stmt_list);
+                free_symbol_table();
                 return NULL;
             }
 
             stmt_list = temp;
         }
     }
+    stmt_list_node_t *new_node = malloc(sizeof (stmt_list_node_t));
+    if (new_node == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for statement list node failed");
+        for (unsigned j = 0; j < num_of_stmts; ++j) {
+            free_node(stmt_list[j]);
+        }
+        free(stmt_list);
+        free_symbol_table();
+        return NULL;
+    }
+
+    new_node->node_type = STMT_LIST_NODE_T;
+    new_node->is_unitary = is_unitary;
+    new_node->is_quantizable = is_quantizable;
     new_node->stmt_list = stmt_list;
     new_node->num_of_stmts = num_of_stmts;
     return (node_t *) new_node;
@@ -367,12 +383,16 @@ node_t *new_stmt_list_node(bool is_unitary, bool is_quantizable, node_t **stmt_l
 node_t *new_func_decl_node(entry_t *entry, node_t *func_tail, char error_msg[ERROR_MSG_LENGTH]) {
     if (!entry->is_function) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not a function", entry->name);
+        free_node(func_tail);
+        free_symbol_table();
         return NULL;
     }
 
     func_decl_node_t *new_node = malloc(sizeof (func_decl_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for function declaration node failed");
+        free_node(func_tail);
+        free_symbol_table();
         return NULL;
     }
 
@@ -385,12 +405,21 @@ node_t *new_func_decl_node(entry_t *entry, node_t *func_tail, char error_msg[ERR
 node_t *new_func_sp_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
     if (!entry->is_function) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not a function", entry->name);
+        free_symbol_table();
         return NULL;
     } else if (!is_sp(entry)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s cannot be used to create a superposition", entry->name);
+        free_symbol_table();
         return NULL;
     }
-    func_decl_node_t *new_node = calloc(1, sizeof (func_sp_node_t));
+
+    func_decl_node_t *new_node = malloc(sizeof (func_sp_node_t));
+    if (new_node == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for function superposition node failed");
+        free_symbol_table();
+        return NULL;
+    }
+
     new_node->node_type = FUNC_SP_NODE_T;
     new_node->entry = entry;
     return (node_t *) new_node;
@@ -399,61 +428,147 @@ node_t *new_func_sp_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
 node_t *new_var_decl_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
     if (entry->is_function) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "%s is a function", entry->name);
+        free_symbol_table();
         return NULL;
     }
 
-    var_decl_node_t *new_node = calloc(1, sizeof (var_decl_node_t));
+    var_decl_node_t *new_node = malloc(sizeof (var_decl_node_t));
+    if (new_node == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for variable declaration node failed");
+        free_symbol_table();
+        return NULL;
+    }
+
     new_node->node_type = VAR_DECL_NODE_T;
     new_node->entry = entry;
     return (node_t *) new_node;
 }
 
-node_t *new_const_node(type_t type, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth, value_t *values) {
-    const_node_t *new_node = calloc(1, sizeof (const_node_t));
+node_t *new_const_node(type_t type, value_t value, char error_msg[ERROR_MSG_LENGTH]) {
+    const_node_t *new_node = malloc(sizeof (const_node_t));
+    if (new_node == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for constant node failed");
+        free_symbol_table();
+        return NULL;
+    }
+
     new_node->node_type = CONST_NODE_T;
     new_node->type_info.qualifier = CONST_T;
     new_node->type_info.type = type;
-    if (sizes != NULL) {
-        memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+    memset(new_node->type_info.sizes, 0, sizeof (new_node->type_info.sizes));
+    new_node->type_info.depth = 0;
+    new_node->values = malloc(sizeof (value_t));
+    if (new_node->values == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for value array of constant node failed");
+        free_symbol_table();
+        return NULL;
     }
-    new_node->type_info.depth = depth;
-    new_node->values = values;
+
+    new_node->values[0] = value;
     return (node_t *) new_node;
 }
 
-node_t *new_reference_node(const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth, bool index_is_const[MAX_ARRAY_DEPTH],
-                           const index_t indices[MAX_ARRAY_DEPTH], entry_t *entry) {
-    reference_node_t *new_node = calloc(1, sizeof (reference_node_t));
-    new_node->node_type = REFERENCE_NODE_T;
-    new_node->type_info.qualifier = entry->qualifier;
-    new_node->type_info.type = entry->type;
-    memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
-    new_node->type_info.depth = depth;
-    memcpy(new_node->index_is_const, index_is_const, entry->depth * sizeof(bool));
-    memcpy(new_node->indices, indices, entry->depth * sizeof(index_t));
-    new_node->entry = entry;
-    return (node_t *) new_node;
+node_t *new_reference_node(entry_t *entry, const bool index_is_const[MAX_ARRAY_DEPTH],
+                           const index_t indices[MAX_ARRAY_DEPTH], unsigned index_depth,
+                           char error_msg[ERROR_MSG_LENGTH]) {
+    bool all_indices_const = true;
+    for (unsigned i = 0; i < index_depth; ++i) {
+        all_indices_const &= index_is_const[i];
+        if (index_is_const[i] && indices[i].const_index >= entry->sizes[i]) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "%u-th index (%u) of array %s%s out of bounds (%u)",
+                     i, indices[i].const_index, (entry->is_function) ? "returned by " : "", entry->name,
+                     entry->sizes[i]);
+            free_symbol_table();
+            return NULL;
+        }
+    }
+
+    if (entry->qualifier == CONST_T && all_indices_const) {
+        unsigned const_indices[MAX_ARRAY_DEPTH];
+        for (unsigned i = 0; i < index_depth; ++i) {
+            const_indices[i] = indices[i].const_index;
+        }
+        value_t *values = get_reduced_array(entry->values, entry->sizes, entry->depth, const_indices,
+                                                index_depth);
+        if (values == NULL) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for value extraction of %s failed", entry->name);
+            free_symbol_table();
+            return NULL;
+        }
+
+        const_node_t *new_node = malloc(sizeof (const_node_t));
+        if (new_node == NULL) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for constant reference node failed");
+            free_symbol_table();
+            return NULL;
+        }
+
+        new_node->node_type = CONST_NODE_T;
+        new_node->type_info.qualifier = CONST_T;
+        new_node->type_info.type = entry->type;
+        memcpy(new_node->type_info.sizes, entry->sizes + index_depth, (entry->depth - index_depth) * sizeof (unsigned));
+        new_node->type_info.depth = entry->depth - index_depth;
+        new_node->values = values;
+        return (node_t *) new_node;
+    } else {
+        reference_node_t *new_node = malloc(sizeof (reference_node_t));
+        if (new_node == NULL) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for reference node failed");
+            free_symbol_table();
+            return NULL;
+        }
+
+        new_node->node_type = REFERENCE_NODE_T;
+        new_node->type_info.qualifier = entry->qualifier;
+        new_node->type_info.type = entry->type;
+        memcpy(new_node->type_info.sizes, entry->sizes + index_depth, (entry->depth - index_depth) * sizeof (unsigned));
+        new_node->type_info.depth = entry->depth - index_depth;
+        memcpy(new_node->index_is_const, index_is_const, index_depth * sizeof (bool));
+        memcpy(new_node->indices, indices, index_depth * sizeof (index_t));
+        new_node->entry = entry;
+        return (node_t *) new_node;
+    }
 }
 
 node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_of_pars,
                            char error_msg[ERROR_MSG_LENGTH]) {
     if (!entry->is_function) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to call non-function %s", entry->name);
+        for (unsigned i = 0; i < num_of_pars; ++i) {
+            free_node(pars[i]);
+        }
+        free(pars);
+        free_symbol_table();
         return NULL;
     } else if (entry->num_of_pars != num_of_pars) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s requires %u parameter%s, but is called with %u parameter%s",
                  entry->name, entry->num_of_pars, (entry->num_of_pars == 1) ? "" : "s",
                  num_of_pars, (num_of_pars == 1) ? "" : "s");
+        for (unsigned i = 0; i < num_of_pars; ++i) {
+            free_node(pars[i]);
+        }
+        free(pars);
+        free_symbol_table();
         return NULL;
     }
 
     if (sp) {
         if (!is_sp(entry)) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s cannot be used to create a superposition", entry->name);
+            for (unsigned i = 0; i < num_of_pars; ++i) {
+                free_node(pars[i]);
+            }
+            free(pars);
+            free_symbol_table();
             return NULL;
         } else if (pars[0]->node_type != REFERENCE_NODE_T) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Parameter in call to function %s is not a quantum variable",
                      entry->name);
+            for (unsigned i = 0; i < num_of_pars; ++i) {
+                free_node(pars[i]);
+            }
+            free(pars);
+            free_symbol_table();
             return NULL;
         }
 
@@ -461,11 +576,21 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
         if (reference_node_view->type_info.qualifier != QUANTUM_T) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Parameter in call to function %s is not a quantum variable",
                      entry->name);
+            for (unsigned i = 0; i < num_of_pars; ++i) {
+                free_node(pars[i]);
+            }
+            free(pars);
+            free_symbol_table();
             return NULL;
         } else if (reference_node_view->type_info.type != entry->pars_type_info[0].type) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Parameter in call to function %s is of type %s instead of %s",
                      entry->name, type_to_str(reference_node_view->type_info.type),
                      type_to_str(entry->pars_type_info[0].type));
+            for (unsigned i = 0; i < num_of_pars; ++i) {
+                free_node(pars[i]);
+            }
+            free(pars);
+            free_symbol_table();
             return NULL;
         }
     } else {
@@ -474,34 +599,64 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
             if (!copy_type_info_of_node(&type_info_of_par, pars[i])) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Parameter %u in call to function %s is not an expression",
                          i + 1, entry->name);
+                for (unsigned j = 0; j < num_of_pars; ++j) {
+                    free_node(pars[j]);
+                }
+                free(pars);
+                free_symbol_table();
                 return NULL;
             }
             if (entry->pars_type_info[i].qualifier != QUANTUM_T && type_info_of_par.qualifier == QUANTUM_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Parameter %u in call to function %s is required to be classical, but is quantum",
                          i + 1, entry->name);
+                for (unsigned j = 0; j < num_of_pars; ++j) {
+                    free_node(pars[j]);
+                }
+                free(pars);
+                free_symbol_table();
                 return NULL;
             } else if (!are_matching_types(entry->pars_type_info[i].type, type_info_of_par.type)) {
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Parameter %u in call to function %s is required to be of type %s, but is of type %s",
                          i + 1, entry->name, type_to_str(entry->pars_type_info[i].type),
                          type_to_str(type_info_of_par.type));
+                for (unsigned j = 0; j < num_of_pars; ++j) {
+                    free_node(pars[j]);
+                }
+                free(pars);
+                free_symbol_table();
                 return NULL;
             } else if (entry->pars_type_info[i].depth != type_info_of_par.depth) {
                 if (entry->pars_type_info[i].depth == 0) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Parameter %u in call to function %s is required to be a scalar, but is a depth-%u array",
                              i + 1, entry->name, type_info_of_par.depth);
+                    for (unsigned j = 0; j < num_of_pars; ++j) {
+                        free_node(pars[j]);
+                    }
+                    free(pars);
+                    free_symbol_table();
                     return NULL;
                 } else if (type_info_of_par.depth == 0) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Parameter %u in call to function %s is required to be a depth-%u array, but is a scalar",
                              i + 1, entry->name, entry->pars_type_info[i].depth);
+                    for (unsigned j = 0; j < num_of_pars; ++j) {
+                        free_node(pars[j]);
+                    }
+                    free(pars);
+                    free_symbol_table();
                     return NULL;
                 } else {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Parameter %u in call to function %s is required to be a depth-%u array, but has depth %u",
                              i + 1, entry->name, entry->pars_type_info[i].depth, type_info_of_par.depth);
+                    for (unsigned j = 0; j < num_of_pars; ++j) {
+                        free_node(pars[j]);
+                    }
+                    free(pars);
+                    free_symbol_table();
                     return NULL;
                 }
             }
@@ -510,13 +665,28 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Parameter %u in call to function %s has size %u instead of %u in dimension %u",
                              i + 1, entry->name, entry->pars_type_info[i].sizes[j], type_info_of_par.sizes[j], j + 1);
+                    for (unsigned k = 0; k < num_of_pars; ++k) {
+                        free_node(pars[k]);
+                    }
+                    free(pars);
+                    free_symbol_table();
                     return NULL;
                 }
             }
         }
     }
 
-    func_call_node_t *new_node = calloc(1, sizeof (func_call_node_t));
+    func_call_node_t *new_node = malloc(sizeof (func_call_node_t));
+    if (new_node == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for reference node failed");
+        for (unsigned i = 0; i < num_of_pars; ++i) {
+            free_node(pars[i]);
+        }
+        free(pars);
+        free_symbol_table();
+        return NULL;
+    }
+
     new_node->node_type = FUNC_CALL_NODE_T;
     new_node->entry = entry;
     new_node->inverse = false;
@@ -526,107 +696,68 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
     return (node_t *) new_node;
 }
 
-node_t *new_logical_op_node(qualifier_t qualifier, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth,
-                            logical_op_t op, node_t *left, node_t *right) {
-    logical_op_node_t *new_node = calloc(1, sizeof (logical_op_node_t));
-    new_node->node_type = LOGICAL_OP_NODE_T;
-    new_node->type_info.qualifier = qualifier;
-    new_node->type_info.type = BOOL_T;
-    memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
-    new_node->type_info.depth = depth;
-    new_node->op = op;
-    new_node->left = left;
-    new_node->right = right;
-    return (node_t *) new_node;
-}
-
-node_t *new_comparison_op_node(qualifier_t qualifier, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth,
-                               comparison_op_t op, node_t *left, node_t *right) {
-    comparison_op_node_t *new_node = calloc(1, sizeof (comparison_op_node_t));
-    new_node->node_type = COMPARISON_OP_NODE_T;
-    new_node->type_info.qualifier = qualifier;
-    new_node->type_info.type = BOOL_T;
-    memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
-    new_node->type_info.depth = depth;
-    new_node->op = op;
-    new_node->left = left;
-    new_node->right = right;
-    return (node_t *) new_node;
-}
-
-node_t *new_equality_op_node(qualifier_t qualifier, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth,
-                             equality_op_t op, node_t *left, node_t *right) {
-    equality_op_node_t *new_node = calloc(1, sizeof (equality_op_node_t));
-    new_node->node_type = EQUALITY_OP_NODE_T;
-    new_node->type_info.qualifier = qualifier;
-    new_node->type_info.type = BOOL_T;
-    memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
-    new_node->type_info.depth = depth;
-    new_node->op = op;
-    new_node->left = left;
-    new_node->right = right;
-    return (node_t *) new_node;
-}
-
-node_t *new_not_op_node(qualifier_t qualifier, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth, node_t *child) {
-    not_op_node_t *new_node = calloc(1, sizeof (not_op_node_t));
-    new_node->node_type = NOT_OP_NODE_T;
-    new_node->type_info.qualifier = qualifier;
-    new_node->type_info.type = BOOL_T;
-    memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
-    new_node->type_info.depth = depth;
-    new_node->child = child;
-    return (node_t *) new_node;
-}
-
-node_t *new_integer_op_node(qualifier_t qualifier, type_t type, const unsigned sizes[MAX_ARRAY_DEPTH],
-                            unsigned depth, integer_op_t op, node_t *left, node_t *right) {
-    integer_op_node_t *new_node = calloc(1, sizeof (integer_op_node_t));
-    new_node->node_type = INTEGER_OP_NODE_T;
-    new_node->type_info.qualifier = qualifier;
-    new_node->type_info.type = type;
-    memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
-    new_node->type_info.depth = depth;
-    new_node->op = op;
-    new_node->left = left;
-    new_node->right = right;
-    return (node_t *) new_node;
-}
-
-node_t *new_invert_op_node(qualifier_t qualifier, type_t type, const unsigned sizes[MAX_ARRAY_DEPTH],
-                           unsigned depth, node_t *child) {
-    invert_op_node_t *new_node = calloc(1, sizeof(invert_op_node_t));
-    new_node->node_type = INVERT_OP_NODE_T;
-    new_node->type_info.qualifier = qualifier;
-    new_node->type_info.type = type;
-    memcpy(new_node->type_info.sizes, sizes, depth * sizeof(unsigned));
-    new_node->type_info.depth = depth;
-    new_node->child = child;
-    return (node_t *) new_node;
-}
-
 node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branches, unsigned num_of_else_ifs,
                     node_t *else_branch, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t if_condition_type_info;
     if (!copy_type_info_of_node(&if_condition_type_info, condition)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "If-condition is not an expression");
+        free_node(condition);
+        free_node(if_branch);
+        for (unsigned i = 0; i < num_of_else_ifs; ++i) {
+            free_node(else_if_branches[i]);
+        }
+        free(else_if_branches);
+        free_node(else_branch);
+        free_symbol_table();
         return NULL;
     } else if (if_condition_type_info.type != BOOL_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "If-condition must be of type bool, but is of type %s",
                  type_to_str(if_condition_type_info.type));
+        free_node(condition);
+        free_node(if_branch);
+        for (unsigned i = 0; i < num_of_else_ifs; ++i) {
+            free_node(else_if_branches[i]);
+        }
+        free(else_if_branches);
+        free_node(else_branch);
+        free_symbol_table();
         return NULL;
     } else if (if_condition_type_info.depth != 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "If-condition must be a single bool, but is an array of depth %u",
                  if_condition_type_info.depth);
+        free_node(condition);
+        free_node(if_branch);
+        for (unsigned i = 0; i < num_of_else_ifs; ++i) {
+            free_node(else_if_branches[i]);
+        }
+        free(else_if_branches);
+        free_node(else_branch);
+        free_symbol_table();
         return NULL;
     } else if (if_condition_type_info.qualifier == QUANTUM_T) {
         if (!(((stmt_list_node_t *) if_branch)->is_unitary)) {
             snprintf(error_msg, ERROR_MSG_LENGTH,
                      "If-condition is quantum, but statements in if-branch are not unitary");
+            free_node(condition);
+            free_node(if_branch);
+            for (unsigned i = 0; i < num_of_else_ifs; ++i) {
+                free_node(else_if_branches[i]);
+            }
+            free(else_if_branches);
+            free_node(else_branch);
+            free_symbol_table();
             return NULL;
         } else if (else_branch != NULL && !(((stmt_list_node_t *) else_branch)->is_unitary)) {
             snprintf(error_msg, ERROR_MSG_LENGTH,
                      "If-condition is quantum, but statements in else-branch are not unitary");
+            free_node(condition);
+            free_node(if_branch);
+            for (unsigned i = 0; i < num_of_else_ifs; ++i) {
+                free_node(else_if_branches[i]);
+            }
+            free(else_if_branches);
+            free_node(else_branch);
+            free_symbol_table();
             return NULL;
         }
     }
@@ -640,11 +771,32 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
             snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if-condition %u is %s while if-condition is %s",
                      i + 1, (else_if_condition_type_info.qualifier  == QUANTUM_T) ? "quantum" : "classical",
                      (if_condition_type_info.qualifier == QUANTUM_T) ? "quantum" : "classical");
+            free_node(condition);
+            free_node(if_branch);
+            for (unsigned j = 0; j < num_of_else_ifs; ++j) {
+                free_node(else_if_branches[j]);
+            }
+            free(else_if_branches);
+            free_node(else_branch);
+            free_symbol_table();
             return NULL;
         }
     }
 
-    if_node_t *new_node = calloc(1, sizeof (if_node_t));
+    if_node_t *new_node = malloc(sizeof (if_node_t));
+    if (new_node == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for if node failed");
+        free_node(condition);
+        free_node(if_branch);
+        for (unsigned i = 0; i < num_of_else_ifs; ++i) {
+            free_node(else_if_branches[i]);
+        }
+        free(else_if_branches);
+        free_node(else_branch);
+        free_symbol_table();
+        return NULL;
+    }
+
     new_node->type = IF_NODE_T;
     new_node->condition = condition;
     new_node->if_branch = if_branch;
@@ -658,21 +810,41 @@ node_t *new_else_if_node(node_t *condition, node_t *else_if_branch, char error_m
     type_info_t condition_type_info;
     if (!copy_type_info_of_node(&condition_type_info, condition)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if-condition is not an expression");
+        free_node(condition);
+        free_node(else_if_branch);
+        free_symbol_table();
         return NULL;
     } else if (condition_type_info.type != BOOL_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if-condition must be of type bool, but is of type %s",
                  type_to_str(condition_type_info.type));
+        free_node(condition);
+        free_node(else_if_branch);
+        free_symbol_table();
         return NULL;
     } else if (condition_type_info.depth != 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if-condition must be a single bool, but is an array of depth %u",
                  condition_type_info.depth);
+        free_node(condition);
+        free_node(else_if_branch);
+        free_symbol_table();
         return NULL;
     } else if (condition_type_info.qualifier == QUANTUM_T && !(((stmt_list_node_t *) else_if_branch)->is_unitary)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if-condition is quantum, but statements are not unitary");
+        free_node(condition);
+        free_node(else_if_branch);
+        free_symbol_table();
         return NULL;
     }
 
-    else_if_node_t *new_node = calloc(1, sizeof (else_if_node_t));
+    else_if_node_t *new_node = malloc(sizeof (else_if_node_t));
+    if (new_node == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for else-if node failed");
+        free_node(condition);
+        free_node(else_if_branch);
+        free_symbol_table();
+        return NULL;
+    }
+
     new_node->node_type = ELSE_IF_NODE_T;
     new_node->condition = condition;
     new_node->else_if_branch = else_if_branch;
@@ -684,10 +856,22 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
     type_info_t expression_type_info;
     if (!copy_type_info_of_node(&expression_type_info, expression)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "No valid switch-expression ");
+        free_node(expression);
+        for (unsigned i = 0; i < num_of_cases; ++i) {
+            free_node(case_branches[i]);
+        }
+        free(case_branches);
+        free_symbol_table();
         return NULL;
     } else if (expression_type_info.depth != 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Switch-expression must be a scalar, but is an array of depth %u",
                  expression_type_info.depth);
+        free_node(expression);
+        for (unsigned i = 0; i < num_of_cases; ++i) {
+            free_node(case_branches[i]);
+        }
+        free(case_branches);
+        free_symbol_table();
         return NULL;
     }
 
@@ -698,19 +882,39 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
             && !are_matching_types(expression_type_info.type, case_node_view->case_const_type)) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Case %u is of type %s while switch-expression is of type %s",
                      i + 1, type_to_str(case_node_view->case_const_type), type_to_str(expression_type_info.type));
+            free_node(expression);
+            for (unsigned j = 0; j < num_of_cases; ++j) {
+                free_node(case_branches[j]);
+            }
+            free(case_branches);
+            free_symbol_table();
             return NULL;
         } else if (expression_type_info.qualifier == QUANTUM_T && !case_branch_view->is_unitary) {
             snprintf(error_msg, ERROR_MSG_LENGTH,
                      "Switch-expression is quantum, but statements in case %u are not unitary", i + 1);
+            free_node(expression);
+            for (unsigned j = 0; j < num_of_cases; ++j) {
+                free_node(case_branches[j]);
+            }
+            free(case_branches);
+            free_symbol_table();
             return NULL;
         }
 
         if (case_node_view->case_const_type == VOID_T && i < num_of_cases - 1) { /* default statement reached */
+            for (unsigned j = i + 1; j < num_of_cases; ++j) {
+                free_node(case_branches[j]);
+            }
             num_of_cases = i + 1;
             node_t **temp = realloc(case_branches, num_of_cases * sizeof (node_t *));
             if (temp == NULL) {
-                free(case_branches);
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Reallocating case list in switch node failed");
+                free_node(expression);
+                for (unsigned j = 0; j < num_of_cases; ++j) {
+                    free_node(case_branches[j]);
+                }
+                free(case_branches);
+                free_symbol_table();
                 return NULL;
             }
             case_branches = temp;
@@ -724,6 +928,12 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
                 || (case_node_view->case_const_type == INT_T
                     && case_node_view->case_const_value.i_val == prior_case_node_view->case_const_value.i_val)) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Cases %u and %u have the same value", j + 1, i + 1);
+                free_node(expression);
+                for (unsigned k = 0; k < num_of_cases; ++k) {
+                    free_node(case_branches[k]);
+                }
+                free(case_branches);
+                free_symbol_table();
                 return NULL;
             }
         }
@@ -732,6 +942,12 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
     switch_node_t *new_node = malloc(sizeof (switch_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for switch node failed");
+        free_node(expression);
+        for (unsigned i = 0; i < num_of_cases; ++i) {
+            free_node(case_branches[i]);
+        }
+        free(case_branches);
+        free_symbol_table();
         return NULL;
     }
 
@@ -746,6 +962,9 @@ node_t *new_case_node(node_t *case_const, node_t *case_branch, char error_msg[ER
     case_node_t *new_node = malloc(sizeof (case_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for case node failed");
+        free_node(case_const);
+        free_node(case_branch);
+        free_symbol_table();
         return NULL;
     }
 
@@ -768,21 +987,51 @@ node_t *new_for_node(node_t *initialize, node_t *condition, node_t *increment, n
     type_info_t condition_type_info;
     if (!copy_type_info_of_node(&condition_type_info, condition)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "For-loop-condition is not an expression");
+        free_node(initialize);
+        free_node(condition);
+        free_node(increment);
+        free_node(for_branch);
+        free_symbol_table();
         return NULL;
     } else if (condition_type_info.qualifier == QUANTUM_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "For-loop condition cannot be quantum");
+        free_node(initialize);
+        free_node(condition);
+        free_node(increment);
+        free_node(for_branch);
+        free_symbol_table();
         return NULL;
     } else if (condition_type_info.type != BOOL_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "For-loop-condition must be of type bool, but is of type %s",
                  type_to_str(condition_type_info.type));
+        free_node(initialize);
+        free_node(condition);
+        free_node(increment);
+        free_node(for_branch);
+        free_symbol_table();
         return NULL;
     } else if (condition_type_info.depth != 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "For-loop-condition must be a single bool, but is an array of depth %u",
                  condition_type_info.depth);
+        free_node(initialize);
+        free_node(condition);
+        free_node(increment);
+        free_node(for_branch);
+        free_symbol_table();
         return NULL;
     }
 
-    for_node_t *new_node = calloc(1, sizeof (for_node_t));
+    for_node_t *new_node = malloc(sizeof (for_node_t));
+    if (new_node == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for for-loop node failed");
+        free_node(initialize);
+        free_node(condition);
+        free_node(increment);
+        free_node(for_branch);
+        free_symbol_table();
+        return NULL;
+    }
+
     new_node->node_type = FOR_NODE_T;
     new_node->initialize = initialize;
     new_node->condition = condition;
@@ -795,22 +1044,42 @@ node_t *new_do_node(node_t *do_branch, node_t *condition, char error_msg[ERROR_M
     type_info_t condition_type_info;
     if (!copy_type_info_of_node(&condition_type_info, condition)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Do-while-loop-condition is not an expression");
+        free_node(do_branch);
+        free_node(condition);
+        free_symbol_table();
         return NULL;
     } else if (condition_type_info.qualifier == QUANTUM_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Do-while-loop-condition cannot be quantum");
+        free_node(do_branch);
+        free_node(condition);
+        free_symbol_table();
         return NULL;
     } else if (condition_type_info.type != BOOL_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Do-while-loop-condition must be of type bool, but is of type %s",
                  type_to_str(condition_type_info.type));
+        free_node(do_branch);
+        free_node(condition);
+        free_symbol_table();
         return NULL;
     } else if (condition_type_info.depth != 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH,
                  "Do-while-loop-condition must be a single bool, but is an array of depth %u",
                  condition_type_info.depth);
+        free_node(do_branch);
+        free_node(condition);
+        free_symbol_table();
         return NULL;
     }
 
-    do_node_t *new_node = calloc(1, sizeof (do_node_t));
+    do_node_t *new_node = malloc(sizeof (do_node_t));
+    if (new_node == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for do-while-loop node failed");
+        free_node(do_branch);
+        free_node(condition);
+        free_symbol_table();
+        return NULL;
+    }
+
     new_node->node_type = DO_NODE_T;
     new_node->do_branch = do_branch;
     new_node->condition = condition;
@@ -821,21 +1090,41 @@ node_t *new_while_node(node_t *condition, node_t *while_branch, char error_msg[E
     type_info_t condition_type_info;
     if (!copy_type_info_of_node(&condition_type_info, condition)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "While-loop-condition is not an expression");
+        free_node(condition);
+        free_node(while_branch);
+        free_symbol_table();
         return NULL;
     } else if (condition_type_info.qualifier == QUANTUM_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "While-loop-condition cannot be quantum");
+        free_node(condition);
+        free_node(while_branch);
+        free_symbol_table();
         return NULL;
     } else if (condition_type_info.type != BOOL_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "While-loop-condition must be of type bool, but is of type %s",
                  type_to_str(condition_type_info.type));
+        free_node(condition);
+        free_node(while_branch);
+        free_symbol_table();
         return NULL;
     } else if (condition_type_info.depth != 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "While-loop-condition must be a single bool, but is an array of depth %u",
                  condition_type_info.depth);
+        free_node(condition);
+        free_node(while_branch);
+        free_symbol_table();
         return NULL;
     }
 
-    while_node_t *new_node = calloc(1, sizeof (while_node_t));
+    while_node_t *new_node = malloc(sizeof (while_node_t));
+    if (new_node == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for while-loop node failed");
+        free_node(condition);
+        free_node(while_branch);
+        free_symbol_table();
+        return NULL;
+    }
+
     new_node->node_type = WHILE_NODE_T;
     new_node->condition = condition;
     new_node->while_branch = while_branch;
@@ -845,9 +1134,15 @@ node_t *new_while_node(node_t *condition, node_t *while_branch, char error_msg[E
 node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
     if (left->node_type == CONST_NODE_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to reassign constant value");
+        free_node(left);
+        free_node(right);
+        free_symbol_table();
         return NULL;
     } else if (left->node_type != REFERENCE_NODE_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Left-hand side of assignment is not a variable");
+        free_node(left);
+        free_node(right);
+        free_symbol_table();
         return NULL;
     }
 
@@ -856,9 +1151,15 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
     type_info_t right_type_info;
     if (!copy_type_info_of_node(&right_type_info, right)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Right-hand side of assignment is not an expression");
+        free_node(left);
+        free_node(right);
+        free_symbol_table();
         return NULL;
     } else if (left_type_info.qualifier != QUANTUM_T && right_type_info.qualifier == QUANTUM_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Classical left-hand side of assignment, but quantum right-hand side");
+        free_node(left);
+        free_node(right);
+        free_symbol_table();
         return NULL;
     }
 
@@ -867,6 +1168,9 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
             if (!are_matching_types(left_type_info.type, right_type_info.type)) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Assigning %s to %s",
                          type_to_str(right_type_info.type), type_to_str(left_type_info.type));
+                free_node(left);
+                free_node(right);
+                free_symbol_table();
                 return NULL;
             }
             break;
@@ -876,6 +1180,9 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
                 snprintf(error_msg, ERROR_MSG_LENGTH, "%s Assigning %s to %s",
                          (left_type_info.type == BOOL_T) ? "Logically" : "Bitwisely", type_to_str(right_type_info.type),
                          type_to_str(left_type_info.type));
+                free_node(left);
+                free_node(right);
+                free_symbol_table();
                 return NULL;
             }
             break;
@@ -883,13 +1190,22 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
         case ASSIGN_ADD_OP: case ASSIGN_SUB_OP: case ASSIGN_MUL_OP: case ASSIGN_DIV_OP: case ASSIGN_MOD_OP: {
             if (left_type_info.type == BOOL_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Arithmetically assigning to bool");
+                free_node(left);
+                free_node(right);
+                free_symbol_table();
                 return NULL;
             } else if (right_type_info.type == BOOL_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Arithmetically assigning bool to %s",
                          type_to_str(left_type_info.type));
+                free_node(left);
+                free_node(right);
+                free_symbol_table();
                 return NULL;
             } else if (left_type_info.type == INT_T && right_type_info.type == UNSIGNED_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Arithmetically assigning unsigned to int");
+                free_node(left);
+                free_node(right);
+                free_symbol_table();
                 return NULL;
             }
             break;
@@ -900,16 +1216,25 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
         snprintf(error_msg, ERROR_MSG_LENGTH,
                  "Left-hand side of \"%s\" is a scalar, right-hand side is an array of depth %u)",
                  assign_op_to_str(op), right_type_info.depth);
+        free_node(left);
+        free_node(right);
+        free_symbol_table();
         return NULL;
     } else if (left_type_info.depth != 0 && right_type_info.depth == 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH,
                  "Left-hand side of \"%s\" is an array of depth %u, right-hand side is a scalar)",
                  assign_op_to_str(op), left_type_info.depth);
+        free_node(left);
+        free_node(right);
+        free_symbol_table();
         return NULL;
     } else if (left_type_info.depth != right_type_info.depth) {
         snprintf(error_msg, ERROR_MSG_LENGTH,
                  "Left-hand and right-hand side of \"%s\" are arrays of different depth (%u != %u)",
                  assign_op_to_str(op), left_type_info.depth, right_type_info.depth);
+        free_node(left);
+        free_node(right);
+        free_symbol_table();
         return NULL;
     }
     unsigned depth = left_type_info.depth;
@@ -919,6 +1244,9 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
             snprintf(error_msg, ERROR_MSG_LENGTH,
                      "Left-hand and right-hand side of \"%s\" are arrays of different sizes in dimension %u (%u != %u)",
                      assign_op_to_str(op), depth, left_type_info.sizes[i], right_type_info.sizes[i]);
+            free_node(left);
+            free_node(right);
+            free_symbol_table();
             return NULL;
         }
     }
@@ -931,6 +1259,9 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
             for (unsigned i = 0; i < length; ++i) {
                 if (const_node_view_right->values[i].i_val == 0) {
                     snprintf(error_msg, ERROR_MSG_LENGTH, "Division by zero");
+                    free_node(left);
+                    free_node(right);
+                    free_symbol_table();
                     return NULL;
                 }
             }
@@ -938,6 +1269,9 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
             for (unsigned i = 0; i < length; ++i) {
                 if (const_node_view_right->values[i].i_val == 0) {
                     snprintf(error_msg, ERROR_MSG_LENGTH, "Modulo by zero");
+                    free_node(left);
+                    free_node(right);
+                    free_symbol_table();
                     return NULL;
                 }
             }
@@ -947,6 +1281,9 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
     assign_node_t *new_node = malloc(sizeof (assign_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for assignment node failed");
+        free_node(left);
+        free_node(right);
+        free_symbol_table();
         return NULL;
     }
 
@@ -962,9 +1299,15 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
 node_t *new_phase_node(node_t *left, bool is_positive, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
     if (left->node_type == CONST_NODE_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to change the phase of a classical value");
+        free_node(left);
+        free_node(right);
+        free_symbol_table();
         return NULL;
     } else if (left->node_type != REFERENCE_NODE_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Left-hand side of assignment is not a variable");
+        free_node(left);
+        free_node(right);
+        free_symbol_table();
         return NULL;
     }
 
@@ -972,29 +1315,47 @@ node_t *new_phase_node(node_t *left, bool is_positive, node_t *right, char error
     copy_type_info_of_node(&left_type_info, left);
     if (left_type_info.qualifier != QUANTUM_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to change the phase of a classical value");
+        free_node(left);
+        free_node(right);
+        free_symbol_table();
         return NULL;
     }
 
     type_info_t right_type_info;
     if (!copy_type_info_of_node(&right_type_info, right)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Right-hand side of phase change is not an expression");
+        free_node(left);
+        free_node(right);
+        free_symbol_table();
         return NULL;
     } else if (right_type_info.qualifier == QUANTUM_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Cannot change the phase by a quantum value");
+        free_node(left);
+        free_node(right);
+        free_symbol_table();
         return NULL;
     } else if (right_type_info.type == BOOL_T || right_type_info.type == VOID_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Cannot change the phase by a value of type %s",
                  type_to_str(right_type_info.type));
+        free_node(left);
+        free_node(right);
+        free_symbol_table();
         return NULL;
     } else if (right_type_info.depth != 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Right-hand side of phase change is an array of depth %u",
                  right_type_info.depth);
+        free_node(left);
+        free_node(right);
+        free_symbol_table();
         return NULL;
     }
 
     phase_node_t *new_node = malloc(sizeof (phase_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for phase node failed");
+        free_node(left);
+        free_node(right);
+        free_symbol_table();
         return NULL;
     }
 
@@ -1009,9 +1370,13 @@ node_t *new_phase_node(node_t *left, bool is_positive, node_t *right, char error
 node_t *new_measure_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
     if (node->node_type == CONST_NODE_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to measure a classical variable");
+        free_node(node);
+        free_symbol_table();
         return NULL;
     } else if (node->node_type != REFERENCE_NODE_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to measure a non-variable");
+        free_node(node);
+        free_symbol_table();
         return NULL;
     }
 
@@ -1019,12 +1384,16 @@ node_t *new_measure_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
     copy_type_info_of_node(&type_info, node);
     if (type_info.qualifier != QUANTUM_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to measure a classical variable");
+        free_node(node);
+        free_symbol_table();
         return NULL;
     }
 
     measure_node_t *new_node = malloc(sizeof (measure_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for measure node failed");
+        free_node(node);
+        free_symbol_table();
         return NULL;
     }
 
@@ -1039,6 +1408,7 @@ node_t *new_break_node(char error_msg[ERROR_MSG_LENGTH]) {
     break_node_t *new_node = malloc(sizeof (break_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for break node failed");
+        free_symbol_table();
         return NULL;
     }
 
@@ -1050,6 +1420,7 @@ node_t *new_continue_node(char error_msg[ERROR_MSG_LENGTH]) {
     continue_node_t *new_node = malloc(sizeof (continue_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for continue node failed");
+        free_symbol_table();
         return NULL;
     }
 
@@ -1061,12 +1432,16 @@ node_t *new_return_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
     return_node_t *new_node = malloc(sizeof (return_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for return node failed");
+        free_node(node);
+        free_symbol_table();
         return NULL;
     }
 
     if (node != NULL) {
         if (!copy_type_info_of_node(&(new_node->type_info), node)) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Return value is not an expression");
+            free_node(node);
+            free_symbol_table();
             return NULL;
         }
     } else {
@@ -1621,7 +1996,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, qualif
     return (node_t *) new_node;
 }
 
-node_t *build_logical_op_node(node_t *left, logical_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
+node_t *new_logical_op_node(node_t *left, logical_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t left_type_info;
     type_info_t right_type_info;
     if (!copy_type_info_of_node(&left_type_info, left)) {
@@ -1656,8 +2031,8 @@ node_t *build_logical_op_node(node_t *left, logical_op_t op, node_t *right, char
                  logical_op_to_str(op), left_type_info.depth, right_type_info.depth);
         return NULL;
     }
-    unsigned depth = left_type_info.depth;
 
+    unsigned depth = left_type_info.depth;
     for (unsigned i = 0; i < depth; ++i) {
         if (left_type_info.sizes[i] != right_type_info.sizes[i]) {
             snprintf(error_msg, ERROR_MSG_LENGTH,
@@ -1666,32 +2041,41 @@ node_t *build_logical_op_node(node_t *left, logical_op_t op, node_t *right, char
             return NULL;
         }
     }
+
     unsigned *sizes = left_type_info.sizes;
     unsigned length = get_length_of_array(sizes, depth);
-
-    node_t *result;
     if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
-        result = left;
         const_node_t *const_node_view_left = (const_node_t *) left;
         const_node_t *const_node_view_right = (const_node_t *) right;
-        const_node_t *const_node_view_result = (const_node_t *) result;
-        const_node_view_result->type_info.type = BOOL_T;
+        const_node_view_left->type_info.type = BOOL_T;
 
         for (unsigned i = 0; i < length; ++i) {
-            logical_op_application(op,
-                                   const_node_view_result->values + i,
-                                   const_node_view_left->values[i],
+            logical_op_application(op, const_node_view_left->values + i, const_node_view_left->values[i],
                                    const_node_view_right->values[i]);
         }
         free(const_node_view_right->values);
         free(const_node_view_right);
+        return left;
     } else {
-        result = new_logical_op_node(result_qualifier, sizes, depth, op, left, right);
+        logical_op_node_t *new_node = malloc(sizeof (logical_op_node_t));
+        if (new_node == NULL) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for logical operator node failed");
+            return NULL;
+        }
+
+        new_node->node_type = LOGICAL_OP_NODE_T;
+        new_node->type_info.qualifier = result_qualifier;
+        new_node->type_info.type = BOOL_T;
+        memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+        new_node->type_info.depth = depth;
+        new_node->op = op;
+        new_node->left = left;
+        new_node->right = right;
+        return (node_t *) new_node;
     }
-    return result;
 }
 
-node_t *build_comparison_op_node(node_t *left, comparison_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
+node_t *new_comparison_op_node(node_t *left, comparison_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t left_type_info;
     type_info_t right_type_info;
     if (!copy_type_info_of_node(&left_type_info, left)) {
@@ -1725,8 +2109,8 @@ node_t *build_comparison_op_node(node_t *left, comparison_op_t op, node_t *right
                  comparison_op_to_str(op), left_type_info.depth, right_type_info.depth);
         return NULL;
     }
-    unsigned depth = left_type_info.depth;
 
+    unsigned depth = left_type_info.depth;
     for (unsigned i = 0; i < depth; ++i) {
         if (left_type_info.sizes[i] != right_type_info.sizes[i]) {
             snprintf(error_msg, ERROR_MSG_LENGTH,
@@ -1735,31 +2119,42 @@ node_t *build_comparison_op_node(node_t *left, comparison_op_t op, node_t *right
             return NULL;
         }
     }
+
     unsigned *sizes = left_type_info.sizes;
     unsigned length = get_length_of_array(sizes, depth);
-
-    node_t *result;
     if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
-        result = left;
         const_node_t *const_node_view_left = (const_node_t *) left;
         const_node_t *const_node_view_right = (const_node_t *) right;
-        const_node_t *const_node_view_result = (const_node_t *) result;
-        const_node_view_result->type_info.type = BOOL_T;
+        const_node_view_left->type_info.type = BOOL_T;
 
         for (unsigned i = 0; i < length; ++i) {
-            comparison_op_application(op, const_node_view_result->values + i, left_type_info.type,
+            comparison_op_application(op, const_node_view_left->values + i, left_type_info.type,
                                       const_node_view_left->values[i], right_type_info.type,
                                       const_node_view_right->values[i]);
         }
         free(const_node_view_right->values);
         free(const_node_view_right);
+        return left;
     } else {
-        result = new_comparison_op_node(result_qualifier, sizes, depth, op, left, right);
+        comparison_op_node_t *new_node = malloc(sizeof (comparison_op_node_t));
+        if (new_node == NULL) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for comparison operator node failed");
+            return NULL;
+        }
+
+        new_node->node_type = COMPARISON_OP_NODE_T;
+        new_node->type_info.qualifier = result_qualifier;
+        new_node->type_info.type = BOOL_T;
+        memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+        new_node->type_info.depth = depth;
+        new_node->op = op;
+        new_node->left = left;
+        new_node->right = right;
+        return (node_t *) new_node;
     }
-    return result;
 }
 
-node_t *build_equality_op_node(node_t *left, equality_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
+node_t *new_equality_op_node(node_t *left, equality_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t left_type_info;
     type_info_t right_type_info;
     if (!copy_type_info_of_node(&left_type_info, left)) {
@@ -1793,8 +2188,8 @@ node_t *build_equality_op_node(node_t *left, equality_op_t op, node_t *right, ch
                  (op == EQ_OP) ? "" : "in", left_type_info.depth, right_type_info.depth);
         return NULL;
     }
-    unsigned depth = left_type_info.depth;
 
+    unsigned depth = left_type_info.depth;
     for (unsigned i = 0; i < depth; ++i) {
         if (left_type_info.sizes[i] != right_type_info.sizes[i]) {
             snprintf(error_msg, ERROR_MSG_LENGTH,
@@ -1803,20 +2198,17 @@ node_t *build_equality_op_node(node_t *left, equality_op_t op, node_t *right, ch
             return NULL;
         }
     }
+
     unsigned *sizes = left_type_info.sizes;
     unsigned length = get_length_of_array(sizes, depth);
-
-    node_t *result;
     if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
-        result = left;
         const_node_t *const_node_view_left = (const_node_t *) left;
         const_node_t *const_node_view_right = (const_node_t *) right;
-        const_node_t *const_node_view_result = (const_node_t *) result;
-        const_node_view_result->type_info.type = BOOL_T;
+        const_node_view_left->type_info.type = BOOL_T;
 
         for (unsigned i = 0; i < length; ++i) {
             apply_equality_op(op,
-                              const_node_view_result->values + i,
+                              const_node_view_left->values + i,
                               left_type_info.type,
                               const_node_view_left->values[i],
                               right_type_info.type,
@@ -1824,13 +2216,26 @@ node_t *build_equality_op_node(node_t *left, equality_op_t op, node_t *right, ch
         }
         free(const_node_view_right->values);
         free(const_node_view_right);
+        return left;
     } else {
-        result = new_equality_op_node(result_qualifier, sizes, depth, op, left, right);
+        equality_op_node_t *new_node = malloc( sizeof (equality_op_node_t));
+        if (new_node == NULL) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for equality operator node failed");
+            return NULL;
+        }
+        new_node->node_type = EQUALITY_OP_NODE_T;
+        new_node->type_info.qualifier = result_qualifier;
+        new_node->type_info.type = BOOL_T;
+        memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+        new_node->type_info.depth = depth;
+        new_node->op = op;
+        new_node->left = left;
+        new_node->right = right;
+        return (node_t *) new_node;
     }
-    return result;
 }
 
-node_t *build_not_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
+node_t *new_not_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t child_type_info;
     if (!copy_type_info_of_node(&child_type_info, child)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"!\" to a non-expression");
@@ -1844,26 +2249,36 @@ node_t *build_not_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
         return NULL;
     }
 
-    node_t *result;
     if (result_qualifier == CONST_T) { /* child is of node_type CONST_NODE_T */
         unsigned length = get_length_of_array(child_type_info.sizes, child_type_info.depth);
-        result = child;
         const_node_t *const_node_view_child = (const_node_t *) child;
-        const_node_t *const_node_view_result = (const_node_t *) result;
         for (unsigned i = 0; i < length; ++i) {
-            const_node_view_result->values[i].b_val = !(const_node_view_child->values[i].b_val);
+            const_node_view_child->values[i].b_val = !(const_node_view_child->values[i].b_val);
         }
+        return child;
     } else if (child->node_type == NOT_OP_NODE_T) {
         not_op_node_t *not_op_node_view_child = (not_op_node_t *) child;
-        result = not_op_node_view_child->child;
+        node_t *result = not_op_node_view_child->child;
         free(not_op_node_view_child);
+        return result;
     } else {
-        result = new_not_op_node(result_qualifier, child_type_info.sizes, child_type_info.depth, child);
+        not_op_node_t *new_node = malloc(sizeof (not_op_node_t));
+        if (new_node == NULL) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for not-operator node failed");
+            return NULL;
+        }
+
+        new_node->node_type = NOT_OP_NODE_T;
+        new_node->type_info.qualifier = result_qualifier;
+        new_node->type_info.type = BOOL_T;
+        memcpy(new_node->type_info.sizes, child_type_info.sizes, child_type_info.depth * sizeof (unsigned));
+        new_node->type_info.depth = child_type_info.depth;
+        new_node->child = child;
+        return (node_t *) new_node;
     }
-    return result;
 }
 
-node_t *build_integer_op_node(node_t *left, integer_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
+node_t *new_integer_op_node(node_t *left, integer_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t left_type_info;
     type_info_t right_type_info;
     if (!copy_type_info_of_node(&left_type_info, left)) {
@@ -1912,38 +2327,57 @@ node_t *build_integer_op_node(node_t *left, integer_op_t op, node_t *right, char
     unsigned *sizes = left_type_info.sizes;
     unsigned length = get_length_of_array(sizes, depth);
 
-    node_t *result;
     if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
-        result = left;
         const_node_t *const_node_view_left = (const_node_t *) left;
         const_node_t *const_node_view_right = (const_node_t *) right;
-        const_node_t *const_node_view_result = (const_node_t *) result;
-        const_node_view_result->type_info.type = INT_T;
+        const_node_view_left->type_info.type = INT_T;
 
         for (unsigned i = 0; i < length; ++i) {
             int validity_check = integer_op_application(op,
-                                                        const_node_view_result->values + i,
+                                                        const_node_view_left->values + i,
                                                         left_type_info.type,
                                                         const_node_view_left->values[i],
                                                         right_type_info.type,
                                                         const_node_view_right->values[i]);
             if (validity_check == 1) {
+                free(const_node_view_left->values);
+                free(const_node_view_left);
+                free(const_node_view_right->values);
+                free(const_node_view_right);
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Division by zero");
                 return NULL;
             } else if (validity_check == 2) {
+                free(const_node_view_left->values);
+                free(const_node_view_left);
+                free(const_node_view_right->values);
+                free(const_node_view_right);
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Modulo by zero");
                 return NULL;
             }
         }
         free(const_node_view_right->values);
         free(const_node_view_right);
+        return left;
     } else {
-        result = new_integer_op_node(result_qualifier, result_type, sizes, depth, op, left, right);
+        integer_op_node_t *new_node = malloc(sizeof (integer_op_node_t));
+        if (new_node == NULL) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for integer operator node failed");
+            return NULL;
+        }
+
+        new_node->node_type = INTEGER_OP_NODE_T;
+        new_node->type_info.qualifier = result_qualifier;
+        new_node->type_info.type = result_type;
+        memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+        new_node->type_info.depth = depth;
+        new_node->op = op;
+        new_node->left = left;
+        new_node->right = right;
+        return (node_t *) new_node;
     }
-    return result;
 }
 
-node_t *build_invert_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
+node_t *new_invert_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t child_type_info;
     if (!copy_type_info_of_node(&child_type_info, child)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"~\" to a non-expression");
@@ -1957,31 +2391,39 @@ node_t *build_invert_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
         return NULL;
     }
 
-    node_t *result;
     if (result_qualifier == CONST_T) { /* child is of node_type CONST_NODE_T */
         unsigned length = get_length_of_array(child_type_info.sizes, child_type_info.depth);
-        result = child;
         const_node_t *const_node_view_child = (const_node_t *) child;
-        const_node_t *const_node_view_result = (const_node_t *) result;
         if (result_type == INT_T) {
             for (unsigned i = 0; i < length; ++i) {
-                const_node_view_result->values[i].i_val = ~(const_node_view_child->values[i].i_val);
+                const_node_view_child->values[i].i_val = ~(const_node_view_child->values[i].i_val);
             }
         } else {
             for (unsigned i = 0; i < length; ++i) {
-                const_node_view_result->values[i].u_val = ~(const_node_view_child->values[i].u_val);
+                const_node_view_child->values[i].u_val = ~(const_node_view_child->values[i].u_val);
             }
         }
-
+        return child;
     } else if (child->node_type == INVERT_OP_NODE_T) {
         invert_op_node_t *invert_op_node_view_child = (invert_op_node_t *) child;
-        result = invert_op_node_view_child->child;
+        node_t *result = invert_op_node_view_child->child;
         free(invert_op_node_view_child);
+        return result;
     } else {
-        result = new_invert_op_node(result_qualifier, result_type, child_type_info.sizes,
-                                    child_type_info.depth, child);
+        invert_op_node_t *new_node = malloc(sizeof(invert_op_node_t));
+        if (new_node == NULL) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for invert-operator node failed");
+            return NULL;
+        }
+
+        new_node->node_type = INVERT_OP_NODE_T;
+        new_node->type_info.qualifier = result_qualifier;
+        new_node->type_info.type = result_type;
+        memcpy(new_node->type_info.sizes, child_type_info.sizes, child_type_info.depth * sizeof (unsigned));
+        new_node->type_info.depth = child_type_info.depth;
+        new_node->child = child;
+        return (node_t *) new_node;
     }
-    return result;
 }
 
 void print_const_value(type_t type, value_t value) {

@@ -116,6 +116,11 @@ void init_symbol_table(bool dump_mode) {
     cur_scope = 0;
 }
 
+/* See header for documentation */
+void free_symbol_table() {
+    // TODO: free symbol table
+}
+
 /**
  * \brief                               Calculate hash value of key
  * \param[in]                           key: Key as string

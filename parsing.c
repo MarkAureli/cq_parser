@@ -308,9 +308,9 @@ bool append_to_access_info(access_info_t *access_info, node_t *node, char error_
     } else if (access_info->entry->depth == 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Array access of scalar %s", access_info->entry->name);
         return false;
-    } else if (access_info->depth == access_info->entry->depth) {
+    } else if (access_info->index_depth == access_info->entry->depth) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Depth-%u access of depth-%u array %s",
-                 access_info->depth + 1, access_info->entry->depth, access_info->entry->name);
+                 access_info->index_depth + 1, access_info->entry->depth, access_info->entry->name);
         return false;
     }
 
@@ -318,26 +318,26 @@ bool append_to_access_info(access_info_t *access_info, node_t *node, char error_
     copy_type_info_of_node(&index_type_info, node);
     if (index_type_info.qualifier == QUANTUM_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Index at position %u of access of depth-%u array %s is quantum",
-                 access_info->depth, access_info->entry->depth, access_info->entry->name);
+                 access_info->index_depth, access_info->entry->depth, access_info->entry->name);
         return false;
     } else if (index_type_info.type == BOOL_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH,
                  "Index at position %u of access of depth-%u array %s is of type bool",
-                 access_info->depth, access_info->entry->depth, access_info->entry->name);
+                 access_info->index_depth, access_info->entry->depth, access_info->entry->name);
         return false;
     } else if (index_type_info.depth != 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH,
                  "Index at position %u of access of depth-%u array %s is array-valued",
-                 access_info->depth, access_info->entry->depth, access_info->entry->name);
+                 access_info->index_depth, access_info->entry->depth, access_info->entry->name);
         return false;
     }
 
     if (index_type_info.qualifier == CONST_T) {
-        access_info->index_is_const[access_info->depth] = true;
-        access_info->indices[(access_info->depth)++].const_index = ((const_node_t *) node)->values[0].u_val;
+        access_info->index_is_const[access_info->index_depth] = true;
+        access_info->indices[(access_info->index_depth)++].const_index = ((const_node_t *) node)->values[0].u_val;
     } else {
-        access_info->index_is_const[access_info->depth] = false;
-        access_info->indices[(access_info->depth)++].node_index = node;
+        access_info->index_is_const[access_info->index_depth] = false;
+        access_info->indices[(access_info->index_depth)++].node_index = node;
     }
     return true;
 }

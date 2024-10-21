@@ -182,6 +182,11 @@ char *type_to_str(type_t type);
 void init_symbol_table(bool dump_mode);
 
 /**
+ * \brief                               Free symbol table
+ */
+void free_symbol_table();
+
+/**
  * \brief                               Insert entry in symbol table and produce pointer to that entry
  * \param[in]                           name: Name of entry
  * \param[in]                           length: Length of name string

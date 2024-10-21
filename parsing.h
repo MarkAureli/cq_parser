@@ -92,7 +92,7 @@ typedef struct access_info {
     entry_t *entry;
     bool index_is_const[MAX_ARRAY_DEPTH];
     index_t indices[MAX_ARRAY_DEPTH];
-    unsigned depth;
+    unsigned index_depth;
 } access_info_t;
 
 typedef struct init_info {
