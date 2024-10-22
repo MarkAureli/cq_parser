@@ -144,12 +144,12 @@ typedef enum node_type {
     BASIC_NODE_T,
     STMT_LIST_NODE_T,
     FUNC_DECL_NODE_T,
-    FUNC_SP_NODE_T,
     VAR_DECL_NODE_T,
     VAR_DEF_NODE_T,
     CONST_NODE_T,
     REFERENCE_NODE_T,
     FUNC_CALL_NODE_T,
+    FUNC_SP_NODE_T,
     LOGICAL_OP_NODE_T,
     COMPARISON_OP_NODE_T,
     EQUALITY_OP_NODE_T,
@@ -207,11 +207,6 @@ typedef struct func_decl_node {
     node_t *func_tail;
 } func_decl_node_t;
 
-typedef struct func_sp_node {
-    node_type_t node_type;
-    entry_t *entry;
-} func_sp_node_t;
-
 typedef struct var_decl_node {
     node_type_t node_type;
     entry_t *entry;
@@ -257,6 +252,11 @@ typedef struct func_call_node {
     node_t **pars;
     unsigned num_of_pars;
 } func_call_node_t;
+
+typedef struct func_sp_node {
+    node_type_t node_type;
+    entry_t *entry;
+} func_sp_node_t;
 
 typedef struct logical_op_node {
     node_type_t node_type;
@@ -434,8 +434,6 @@ node_t *new_stmt_list_node(bool is_unitary, bool is_quantizable, node_t **stmt_l
 
 node_t *new_func_decl_node(entry_t *entry, node_t *func_tail, char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_func_sp_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]);
-
 node_t *new_var_decl_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]);
 
 node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, qualified_type_t *qualified_types,
@@ -449,6 +447,8 @@ node_t *new_reference_node(entry_t *entry, const bool index_is_const[MAX_ARRAY_D
 
 node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_of_pars,
                            char error_msg[ERROR_MSG_LENGTH]);
+
+node_t *new_func_sp_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]);
 
 node_t *new_logical_op_node(node_t *left, logical_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]);
 
