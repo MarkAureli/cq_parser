@@ -269,7 +269,10 @@ variable_def:
 
 declarator:
 	ID {
-	    $$ = insert($1, strlen($1), yylineno, true);
+	    $$ = insert($1, strlen($1), yylineno, true, error_msg);
+	    if ($$ == NULL) {
+	        yyerror(error_msg);
+	    }
 	}
 	;
 
@@ -282,7 +285,11 @@ init:
         }
     }
     | LBRACKET ID RBRACKET {
-        node_t *func_sp_node = new_func_sp_node(insert($2, strlen($2), yylineno, false), error_msg);
+        entry_t *entry = insert($2, strlen($2), yylineno, false, error_msg);
+        if (entry == NULL) {
+            yyerror(error_msg);
+        }
+        node_t *func_sp_node = new_func_sp_node(entry, error_msg);
         if (func_sp_node == NULL) {
             yyerror(error_msg);
         }
@@ -306,7 +313,11 @@ init_elem_l:
         }
     }
     | LBRACKET ID RBRACKET {
-        node_t *func_sp_node = new_func_sp_node(insert($2, strlen($2), yylineno, false), error_msg);
+        entry_t *entry = insert($2, strlen($2), yylineno, false, error_msg);
+        if (entry == NULL) {
+            yyerror(error_msg);
+        }
+        node_t *func_sp_node = new_func_sp_node(entry, error_msg);
         if (func_sp_node == NULL) {
             yyerror(error_msg);
         }
@@ -318,7 +329,11 @@ init_elem_l:
         }
     }
     | init_elem_l COMMA LBRACKET ID RBRACKET {
-        node_t *func_sp_node = new_func_sp_node(insert($4, strlen($4), yylineno, false), error_msg);
+        entry_t *entry = insert($4, strlen($4), yylineno, false, error_msg);
+        node_t *func_sp_node = new_func_sp_node(entry, error_msg);
+        if (entry == NULL) {
+            yyerror(error_msg);
+        }
         if (func_sp_node == NULL) {
             yyerror(error_msg);
         }
@@ -963,9 +978,13 @@ array_access_expr:
 
 array_access:
     ID {
+        entry_t *entry = insert($1, strlen($1), yylineno, false, error_msg);
+        if (entry == NULL) {
+            yyerror(error_msg);
+        }
         access_info_t access_info;
         $$ = &access_info;
-        if (!setup_access_info($$, insert($1, strlen($1), yylineno, false), error_msg)) {
+        if (!setup_access_info($$, entry, error_msg)) {
             yyerror(error_msg);
         }
     }
@@ -1003,19 +1022,31 @@ const:
 
 func_call:
 	ID LPAREN argument_expr_l RPAREN {
-        $$ = new_func_call_node(false, insert($1, strlen($1), yylineno, false), $3->args, $3->num_of_args, error_msg);
+        entry_t *entry = insert($1, strlen($1), yylineno, false, error_msg);
+        if (entry == NULL) {
+            yyerror(error_msg);
+        }
+        $$ = new_func_call_node(false, entry, $3->args, $3->num_of_args, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| ID LPAREN RPAREN {
-	    $$ = new_func_call_node(false, insert($1, strlen($1), yylineno, false), NULL, 0, error_msg);
+        entry_t *entry = insert($1, strlen($1), yylineno, false, error_msg);
+        if (entry == NULL) {
+            yyerror(error_msg);
+        }
+	    $$ = new_func_call_node(false, entry, NULL, 0, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
 	| LBRACKET ID RBRACKET LPAREN argument_expr_l RPAREN {
-	    $$ = new_func_call_node(true, insert($2, strlen($2), yylineno, false), $5->args, $5->num_of_args, error_msg);
+        entry_t *entry = insert($2, strlen($2), yylineno, false, error_msg);
+        if (entry == NULL) {
+            yyerror(error_msg);
+        }
+	    $$ = new_func_call_node(true, entry, $5->args, $5->num_of_args, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }

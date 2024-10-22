@@ -94,6 +94,9 @@ char *qualifier_to_str(qualifier_t qualifier) {
 /* See header for documentation */
 char *type_to_str(type_t type) {
     switch (type) {
+        case VOID_T: {
+            return "void";
+        }
         case BOOL_T: {
             return "bool";
         }
@@ -102,9 +105,6 @@ char *type_to_str(type_t type) {
         }
         case UNSIGNED_T: {
             return "unsigned";
-        }
-        case VOID_T: {
-            return "void";
         }
     }
 }
@@ -116,9 +116,45 @@ void init_symbol_table(bool dump_mode) {
     cur_scope = 0;
 }
 
+/**
+ * \brief                               Free content of symbol table entry
+ * \note                                The pointers to the symbol table entry and to the next entry are not freed
+ * \param[in]                           entry: Pointer to symbol table entry
+ */
+void free_entry_content(entry_t *entry) {
+    if (entry == NULL) {
+        return;
+    }
+
+    ref_list_t *current_ref = entry->lines;
+    ref_list_t *next_ref;
+    while (current_ref != NULL) {
+        next_ref = current_ref->next;
+        free(current_ref);
+        current_ref = next_ref;
+    }
+
+    if (entry->is_function) {
+        free(entry->pars_type_info);
+    } else if (entry->qualifier == CONST_T) {
+        free(entry->values);
+    }
+}
+
 /* See header for documentation */
 void free_symbol_table() {
-    // TODO: free symbol table
+    for (unsigned i = 0; i < SYMBOL_TABLE_SIZE; ++i) {
+        if (symbol_table[i] != NULL) {
+            entry_t *current_entry = symbol_table[i];
+            entry_t *next_entry;
+            while (current_entry != NULL) {
+                free_entry_content(current_entry);
+                next_entry = current_entry->next;
+                free(current_entry);
+                current_entry = next_entry;
+            }
+        }
+    }
 }
 
 /**
@@ -141,58 +177,91 @@ unsigned hash(const char *key) {
 }
 
 /* See header for documentation */
-entry_t *insert(const char *name, unsigned length, unsigned line_num, bool declaration) {
+entry_t *insert(const char *name, unsigned length, unsigned line_num, bool declaration,
+                char error_msg[ERROR_MSG_LENGTH]) {
     unsigned hash_value = hash(name);
-    entry_t *l = symbol_table[hash_value];
-	
-    while ((l != NULL) && (strcmp(name,l->name) != 0)) {
-        l = l->next;
+    entry_t *entry = symbol_table[hash_value];
+    while ((entry != NULL) && (strcmp(name, entry->name) != 0)) {
+        entry = entry->next;
     }
-
-    if (l == NULL) {
+    if (entry == NULL) {
         if (declaration == false) {
-            fprintf(stderr, "Undeclared identifier %s at line %u\n", name, line_num);
-            exit(1);
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Undeclared identifier %s at line %u\n", name, line_num);
+            free_symbol_table();
+            return NULL;
         }
-        l = (entry_t*) calloc(1, sizeof (entry_t));
-        strncpy(l->name, name, length);
-        l->scope = cur_scope;
-        l->lines = calloc(1, sizeof (ref_list_t));
-        l->lines->line_num = line_num;
-        l->lines->next = NULL;
-        l->qualifier = NONE_T;
-        l->type = VOID_T;
-        l->next = symbol_table[hash_value];
-        symbol_table[hash_value] = l;
+        entry = malloc(sizeof (entry_t));
+        if (entry == NULL) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for symbol table entry for %s failed", name);
+            free_symbol_table();
+            return NULL;
+        }
+
+        strncpy(entry->name, name, length);
+        entry->scope = cur_scope;
+        entry->lines = malloc(sizeof (ref_list_t));
+        if (entry->lines == NULL) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for reference list for %s failed", name);
+            free_symbol_table();
+            return NULL;
+        }
+
+        entry->lines->line_num = line_num;
+        entry->lines->next = NULL;
+        entry->qualifier = NONE_T;
+        entry->type = VOID_T;
+        entry->next = symbol_table[hash_value];
+        symbol_table[hash_value] = entry;
     } else {
         if (declaration == true) {
-            if (l->scope == cur_scope) {
-                fprintf(stderr, "Multiple declaration of identifier %s at line %u (previous declaration in line %u)\n",
-                        name, line_num, l->lines->line_num);
-                exit(1);
+            if (entry->scope == cur_scope) {
+                snprintf(error_msg, ERROR_MSG_LENGTH,
+                         "Multiple declaration of identifier %s at line %u (previous declaration in line %u)\n",
+                         name, line_num, entry->lines->line_num);
+                free_symbol_table();
+                return NULL;
             } else {
-                l = calloc(1, sizeof (entry_t));
-                strncpy(l->name, name, length);
-                l->scope = cur_scope;
-                l->lines = calloc(1, sizeof (ref_list_t));
-                l->lines->line_num = line_num;
-                l->lines->next = NULL;
-                l->qualifier = NONE_T;
-                l->type = VOID_T;
-                l->next = symbol_table[hash_value];
-                symbol_table[hash_value] = l;
+                entry = malloc(sizeof (entry_t));
+                if (entry == NULL) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for symbol table entry for %s failed",
+                             name);
+                    free_symbol_table();
+                    return NULL;
+                }
+
+                strncpy(entry->name, name, length);
+                entry->scope = cur_scope;
+                entry->lines = malloc(sizeof (ref_list_t));
+                if (entry->lines == NULL) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for reference list for %s failed", name);
+                    free_symbol_table();
+                    return NULL;
+                }
+
+                entry->lines->line_num = line_num;
+                entry->lines->next = NULL;
+                entry->qualifier = NONE_T;
+                entry->type = VOID_T;
+                entry->next = symbol_table[hash_value];
+                symbol_table[hash_value] = entry;
             }
         } else {
-            ref_list_t *t = l->lines;
-            while (t->next != NULL) {
-                t = t->next;
+            ref_list_t *references = entry->lines;
+            while (references->next != NULL) {
+                references = references->next;
             }
-            t->next = calloc(1, sizeof (ref_list_t));
-            t->next->line_num = line_num;
-            t->next->next = NULL;
+            references->next = malloc(sizeof (ref_list_t));
+            if (references->next == NULL) {
+                snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for reference list for %s failed", name);
+                free_symbol_table();
+                return NULL;
+            }
+
+            references->next->line_num = line_num;
+            references->next->next = NULL;
         }
     }
-    return l;
+    return entry;
 }
 
 /* See header for documentation */
@@ -200,11 +269,15 @@ void hide_scope() {
     if (hide) {
         for (unsigned i = 0; i < SYMBOL_TABLE_SIZE; ++i) {
             if (symbol_table[i] != NULL) {
-                entry_t *l = symbol_table[i];
-                while (l != NULL && l->scope == cur_scope) {
-                    l = l->next;
+                entry_t *current_entry = symbol_table[i];
+                entry_t *next_entry;
+                while (current_entry != NULL && current_entry->scope == cur_scope) {
+                    free_entry_content(current_entry);
+                    next_entry = current_entry->next;
+                    free(current_entry);
+                    current_entry = next_entry;
                 }
-                symbol_table[i] = l;
+                symbol_table[i] = current_entry;
             }
         }
     }

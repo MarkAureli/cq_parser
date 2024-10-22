@@ -192,9 +192,11 @@ void free_symbol_table();
  * \param[in]                           length: Length of name string
  * \param[in]                           line_num: Line number of appearance
  * \param[in]                           declaration: Whether appearance is declaration
+ * \param[out]                          error_msg: Message to be written in case of an error
  * \return                              Pointer to new symbol table entry
  */
-entry_t *insert(const char *name, unsigned length, unsigned line_num, bool declaration);
+entry_t *insert(const char *name, unsigned length, unsigned line_num, bool declaration,
+                char error_msg[ERROR_MSG_LENGTH]);
 
 /**
  * \brief                               Hide all symbol table entries of current scope and decrease scope counter
