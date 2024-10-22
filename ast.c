@@ -338,6 +338,104 @@ void free_node(node_t *node) {
 
 }
 
+qualifier_t propagate_qualifier(qualifier_t qualifier_1, qualifier_t qualifier_2) {
+    if (qualifier_1 == CONST_T && qualifier_2 == CONST_T) {
+        return CONST_T;
+    } else if (qualifier_1 == QUANTUM_T || qualifier_2 == QUANTUM_T) {
+        return QUANTUM_T;
+    } else {
+        return NONE_T;
+    }
+}
+
+type_t propagate_type(op_type_t op_type, type_t type_1, type_t type_2) {
+    switch (op_type) {
+        case LOGICAL_OP: {
+            if (type_1 == BOOL_T && type_2 == BOOL_T) {
+                return BOOL_T;
+            } else {
+                return VOID_T;
+            }
+        }
+        case COMPARISON_OP: {
+            if ((type_1 == INT_T || type_1 == UNSIGNED_T) && (type_2 == INT_T || type_2 == UNSIGNED_T)) {
+                return BOOL_T;
+            } else {
+                return VOID_T;
+            }
+        }
+        case EQUALITY_OP: {
+            switch (type_1) {
+                case BOOL_T: {
+                    if (type_2 == BOOL_T) {
+                        return BOOL_T;
+                    } else {
+                        return VOID_T;
+                    }
+                }
+                case INT_T: case UNSIGNED_T: {
+                    if (type_2 == INT_T || type_2 == UNSIGNED_T) {
+                        return BOOL_T;
+                    } else {
+                        return VOID_T;
+                    }
+                }
+                default: {
+                    return VOID_T;
+                }
+            }
+        }
+        case NOT_OP: {
+            if (type_1 == BOOL_T) {
+                return BOOL_T;
+            } else {
+                return VOID_T;
+            }
+        }
+        case INTEGER_OP: {
+            switch (type_1) {
+                case INT_T: {
+                    switch (type_2) {
+                        case INT_T: {
+                            return INT_T;
+                        }
+                        case UNSIGNED_T: {
+                            return UNSIGNED_T;
+                        }
+                        default:
+                            return VOID_T;
+                    }
+                }
+                case UNSIGNED_T: {
+                    switch (type_2) {
+                        case INT_T: case UNSIGNED_T: {
+                            return UNSIGNED_T;
+                        }
+                        default:
+                            return VOID_T;
+                    }
+                }
+                default: {
+                    return VOID_T;
+                }
+            }
+        }
+        case INVERT_OP: {
+            switch (type_1) {
+                case INT_T: {
+                    return INT_T;
+                }
+                case UNSIGNED_T: {
+                    return UNSIGNED_T;
+                }
+                default: {
+                    return VOID_T;
+                }
+            }
+        }
+    }
+}
+
 node_t *new_stmt_list_node(bool is_unitary, bool is_quantizable, node_t **stmt_list, unsigned num_of_stmts,
                            char error_msg[ERROR_MSG_LENGTH]) {
     for (unsigned i = 0; i < num_of_stmts; ++i) {
@@ -423,6 +521,8 @@ node_t *new_var_decl_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
 
 node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, qualified_type_t *qualified_types,
                          array_value_t *values, unsigned length, char error_msg[ERROR_MSG_LENGTH]) {
+    bool result_is_quantizable = true;
+    bool result_is_unitary = true;
     if (is_init_list) {
         if (entry->depth == 0) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not an array, but is initialized as such", entry->name);
@@ -498,6 +598,11 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, qualif
                 free(values);
                 free_symbol_table();
                 return NULL;
+            }
+
+            if (qualified_types[i].qualifier != CONST_T) {
+                result_is_quantizable = result_is_quantizable && is_quantizable(values[i].node_value);
+                result_is_unitary = result_is_unitary && is_unitary(values[i].node_value);
             }
         }
     } else { /* no initializer list */
@@ -641,6 +746,9 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, qualif
                 return NULL;
             }
         }
+
+        result_is_quantizable = is_quantizable(node);
+        result_is_unitary = is_unitary(node);
     }
 
     var_def_node_t *new_node = malloc(sizeof (var_def_node_t));
@@ -654,6 +762,8 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, qualif
     }
 
     new_node->node_type = VAR_DEF_NODE_T;
+    new_node->is_quantizable = entry->qualifier != QUANTUM_T && result_is_quantizable;
+    new_node->is_unitary = entry->qualifier == QUANTUM_T && result_is_unitary;
     new_node->entry = entry;
     new_node->is_init_list = is_init_list;
     if (is_init_list) {
@@ -677,7 +787,6 @@ node_t *new_const_node(type_t type, value_t value, char error_msg[ERROR_MSG_LENG
     new_node->node_type = CONST_NODE_T;
     new_node->type_info.qualifier = CONST_T;
     new_node->type_info.type = type;
-    memset(new_node->type_info.sizes, 0, sizeof (new_node->type_info.sizes));
     new_node->type_info.depth = 0;
     new_node->values = malloc(sizeof (value_t));
     if (new_node->values == NULL) {
@@ -741,7 +850,9 @@ node_t *new_reference_node(entry_t *entry, const bool index_is_const[MAX_ARRAY_D
         }
 
         new_node->node_type = REFERENCE_NODE_T;
-        new_node->type_info.qualifier = entry->qualifier;
+        new_node->is_quantizable = entry->qualifier != QUANTUM_T && all_indices_const;
+        new_node->is_unitary = entry->qualifier == QUANTUM_T && all_indices_const;
+        new_node->type_info.qualifier = (entry->qualifier == CONST_T) ? NONE_T : QUANTUM_T;
         new_node->type_info.type = entry->type;
         memcpy(new_node->type_info.sizes, entry->sizes + index_depth, (entry->depth - index_depth) * sizeof (unsigned));
         new_node->type_info.depth = entry->depth - index_depth;
@@ -941,9 +1052,455 @@ node_t *new_func_sp_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
     return (node_t *) new_node;
 }
 
+
+node_t *new_logical_op_node(node_t *left, logical_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
+    type_info_t left_type_info;
+    type_info_t right_type_info;
+    if (!copy_type_info_of_node(&left_type_info, left)) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Left operand of \"%s\" is not an expression",
+                 logical_op_to_str(op));
+        return NULL;
+    } else if (!copy_type_info_of_node(&right_type_info, right)) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Right operand of \"%s\" is not an expression",
+                 logical_op_to_str(op));
+        return NULL;
+    }
+
+    qualifier_t result_qualifier = propagate_qualifier(left_type_info.qualifier,
+                                                       right_type_info.qualifier);
+    type_t result_type = propagate_type(LOGICAL_OP, left_type_info.type, right_type_info.type);
+    if (result_type == VOID_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"%s\" to %s and %s", logical_op_to_str(op),
+                 type_to_str(left_type_info.type), type_to_str(right_type_info.type));
+        return NULL;
+    }
+
+    if (left_type_info.depth == 0 && right_type_info.depth != 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"%s\" to scalar and array of depth %u)",
+                 logical_op_to_str(op), right_type_info.depth);
+        return NULL;
+    } else if (left_type_info.depth != 0 && right_type_info.depth == 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"%s\" to array of depth %u and scalar)",
+                 logical_op_to_str(op), left_type_info.depth);
+        return NULL;
+    } else if (left_type_info.depth != right_type_info.depth) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"%s\" to arrays of different depth (%u != %u)",
+                 logical_op_to_str(op), left_type_info.depth, right_type_info.depth);
+        return NULL;
+    }
+
+    unsigned depth = left_type_info.depth;
+    for (unsigned i = 0; i < depth; ++i) {
+        if (left_type_info.sizes[i] != right_type_info.sizes[i]) {
+            snprintf(error_msg, ERROR_MSG_LENGTH,
+                     "Applying \"%s\" to arrays of different sizes in dimension %u (%u != %u)",
+                     logical_op_to_str(op), depth, left_type_info.sizes[i], right_type_info.sizes[i]);
+            return NULL;
+        }
+    }
+
+    unsigned *sizes = left_type_info.sizes;
+    unsigned length = get_length_of_array(sizes, depth);
+    if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
+        const_node_t *const_node_view_left = (const_node_t *) left;
+        const_node_t *const_node_view_right = (const_node_t *) right;
+        const_node_view_left->type_info.type = BOOL_T;
+
+        for (unsigned i = 0; i < length; ++i) {
+            logical_op_application(op, const_node_view_left->values + i, const_node_view_left->values[i],
+                                   const_node_view_right->values[i]);
+        }
+        free(const_node_view_right->values);
+        free(const_node_view_right);
+        return left;
+    } else {
+        logical_op_node_t *new_node = malloc(sizeof (logical_op_node_t));
+        if (new_node == NULL) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for logical operator node failed");
+            return NULL;
+        }
+
+        new_node->node_type = LOGICAL_OP_NODE_T;
+        new_node->is_quantizable = is_quantizable(left) && is_quantizable(right);
+        new_node->is_unitary = is_unitary(left) && is_unitary(right);
+        new_node->type_info.qualifier = result_qualifier;
+        new_node->type_info.type = BOOL_T;
+        memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+        new_node->type_info.depth = depth;
+        new_node->op = op;
+        new_node->left = left;
+        new_node->right = right;
+        return (node_t *) new_node;
+    }
+}
+
+node_t *new_comparison_op_node(node_t *left, comparison_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
+    type_info_t left_type_info;
+    type_info_t right_type_info;
+    if (!copy_type_info_of_node(&left_type_info, left)) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Left operand of \"%s\" is not an expression",
+                 comparison_op_to_str(op));
+        return NULL;
+    } else if (!copy_type_info_of_node(&right_type_info, right)) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Right operand of \"%s\" is not an expression",
+                 comparison_op_to_str(op));
+        return NULL;
+    }
+    qualifier_t result_qualifier = propagate_qualifier(left_type_info.qualifier,
+                                                       right_type_info.qualifier);
+    type_t result_type = propagate_type(COMPARISON_OP, left_type_info.type, right_type_info.type);
+    if (result_type == VOID_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "\"%s\"-comparison of %s and %s", comparison_op_to_str(op),
+                 type_to_str(left_type_info.type), type_to_str(right_type_info.type));
+        return NULL;
+    }
+
+    if (left_type_info.depth == 0 && right_type_info.depth != 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "\"%s\"-comparison of scalar and array of depth %u)",
+                 comparison_op_to_str(op), right_type_info.depth);
+        return NULL;
+    } else if (left_type_info.depth != 0 && right_type_info.depth == 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "\"%s\"-comparison of array of depth %u and scalar)",
+                 comparison_op_to_str(op), left_type_info.depth);
+        return NULL;
+    } else if (left_type_info.depth != right_type_info.depth) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "\"%s\"-comparison of arrays of different depths (%u != %u)",
+                 comparison_op_to_str(op), left_type_info.depth, right_type_info.depth);
+        return NULL;
+    }
+
+    unsigned depth = left_type_info.depth;
+    for (unsigned i = 0; i < depth; ++i) {
+        if (left_type_info.sizes[i] != right_type_info.sizes[i]) {
+            snprintf(error_msg, ERROR_MSG_LENGTH,
+                     "\"%s\"-comparison of arrays of different sizes in dimension %u (%u != %u)",
+                     comparison_op_to_str(op), depth, left_type_info.sizes[i], right_type_info.sizes[i]);
+            return NULL;
+        }
+    }
+
+    unsigned *sizes = left_type_info.sizes;
+    unsigned length = get_length_of_array(sizes, depth);
+    if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
+        const_node_t *const_node_view_left = (const_node_t *) left;
+        const_node_t *const_node_view_right = (const_node_t *) right;
+        const_node_view_left->type_info.type = BOOL_T;
+
+        for (unsigned i = 0; i < length; ++i) {
+            comparison_op_application(op, const_node_view_left->values + i, left_type_info.type,
+                                      const_node_view_left->values[i], right_type_info.type,
+                                      const_node_view_right->values[i]);
+        }
+        free(const_node_view_right->values);
+        free(const_node_view_right);
+        return left;
+    } else {
+        comparison_op_node_t *new_node = malloc(sizeof (comparison_op_node_t));
+        if (new_node == NULL) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for comparison operator node failed");
+            return NULL;
+        }
+
+        new_node->node_type = COMPARISON_OP_NODE_T;
+        new_node->is_quantizable = is_quantizable(left) && is_quantizable(right);
+        new_node->is_unitary = is_unitary(left) && is_unitary(right);
+        new_node->type_info.qualifier = result_qualifier;
+        new_node->type_info.type = BOOL_T;
+        memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+        new_node->type_info.depth = depth;
+        new_node->op = op;
+        new_node->left = left;
+        new_node->right = right;
+        return (node_t *) new_node;
+    }
+}
+
+node_t *new_equality_op_node(node_t *left, equality_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
+    type_info_t left_type_info;
+    type_info_t right_type_info;
+    if (!copy_type_info_of_node(&left_type_info, left)) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Left-hand side of %sequality is not an expression",
+                 (op == EQ_OP) ? "" : "in");
+        return NULL;
+    } else if (!copy_type_info_of_node(&right_type_info, right)) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Right-hand side of %sequality is not an expression",
+                 (op == EQ_OP) ? "" : "in");
+        return NULL;
+    }
+    qualifier_t result_qualifier = propagate_qualifier(left_type_info.qualifier,
+                                                       right_type_info.qualifier);
+    type_t result_type = propagate_type(EQUALITY_OP, left_type_info.type, right_type_info.type);
+    if (result_type == VOID_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Checking %sequality of %s and %s", (op == EQ_OP) ? "" : "in",
+                 type_to_str(left_type_info.type), type_to_str(right_type_info.type));
+        return NULL;
+    }
+
+    if (left_type_info.depth == 0 && right_type_info.depth != 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Checking %sequality of scalar and array of depth %u)",
+                 (op == EQ_OP) ? "" : "in", right_type_info.depth);
+        return NULL;
+    } else if (left_type_info.depth != 0 && right_type_info.depth == 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Checking %sequality of array of depth %u and scalar)",
+                 (op == EQ_OP) ? "" : "in", left_type_info.depth);
+        return NULL;
+    } else if (left_type_info.depth != right_type_info.depth) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Checking %sequality of arrays of different depths (%u != %u)",
+                 (op == EQ_OP) ? "" : "in", left_type_info.depth, right_type_info.depth);
+        return NULL;
+    }
+
+    unsigned depth = left_type_info.depth;
+    for (unsigned i = 0; i < depth; ++i) {
+        if (left_type_info.sizes[i] != right_type_info.sizes[i]) {
+            snprintf(error_msg, ERROR_MSG_LENGTH,
+                     "Checking %sequality of arrays of different sizes in dimension %u (%u != %u)",
+                     (op == EQ_OP) ? "" : "in", depth, left_type_info.sizes[i], right_type_info.sizes[i]);
+            return NULL;
+        }
+    }
+
+    unsigned *sizes = left_type_info.sizes;
+    unsigned length = get_length_of_array(sizes, depth);
+    if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
+        const_node_t *const_node_view_left = (const_node_t *) left;
+        const_node_t *const_node_view_right = (const_node_t *) right;
+        const_node_view_left->type_info.type = BOOL_T;
+
+        for (unsigned i = 0; i < length; ++i) {
+            apply_equality_op(op,
+                              const_node_view_left->values + i,
+                              left_type_info.type,
+                              const_node_view_left->values[i],
+                              right_type_info.type,
+                              const_node_view_right->values[i]);
+        }
+        free(const_node_view_right->values);
+        free(const_node_view_right);
+        return left;
+    } else {
+        equality_op_node_t *new_node = malloc( sizeof (equality_op_node_t));
+        if (new_node == NULL) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for equality operator node failed");
+            return NULL;
+        }
+
+        new_node->node_type = EQUALITY_OP_NODE_T;
+        new_node->is_quantizable = is_quantizable(left) && is_quantizable(right);
+        new_node->is_unitary = is_unitary(left) && is_unitary(right);
+        new_node->type_info.qualifier = result_qualifier;
+        new_node->type_info.type = BOOL_T;
+        memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+        new_node->type_info.depth = depth;
+        new_node->op = op;
+        new_node->left = left;
+        new_node->right = right;
+        return (node_t *) new_node;
+    }
+}
+
+node_t *new_not_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
+    type_info_t child_type_info;
+    if (!copy_type_info_of_node(&child_type_info, child)) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"!\" to a non-expression");
+        return NULL;
+    }
+    qualifier_t result_qualifier = child_type_info.qualifier;
+    type_t result_type = propagate_type(NOT_OP, child_type_info.type, VOID_T);
+    if (result_type == VOID_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"!\" to expression of type %s",
+                 type_to_str(child_type_info.type));
+        return NULL;
+    }
+
+    if (result_qualifier == CONST_T) { /* child is of node_type CONST_NODE_T */
+        unsigned length = get_length_of_array(child_type_info.sizes, child_type_info.depth);
+        const_node_t *const_node_view_child = (const_node_t *) child;
+        for (unsigned i = 0; i < length; ++i) {
+            const_node_view_child->values[i].b_val = !(const_node_view_child->values[i].b_val);
+        }
+        return child;
+    } else if (child->node_type == NOT_OP_NODE_T) {
+        not_op_node_t *not_op_node_view_child = (not_op_node_t *) child;
+        node_t *result = not_op_node_view_child->child;
+        free(not_op_node_view_child);
+        return result;
+    } else {
+        not_op_node_t *new_node = malloc(sizeof (not_op_node_t));
+        if (new_node == NULL) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for not-operator node failed");
+            return NULL;
+        }
+
+        new_node->node_type = NOT_OP_NODE_T;
+        new_node->is_quantizable = is_quantizable(child);
+        new_node->is_unitary = is_unitary(child);
+        new_node->type_info.qualifier = result_qualifier;
+        new_node->type_info.type = BOOL_T;
+        memcpy(new_node->type_info.sizes, child_type_info.sizes, child_type_info.depth * sizeof (unsigned));
+        new_node->type_info.depth = child_type_info.depth;
+        new_node->child = child;
+        return (node_t *) new_node;
+    }
+}
+
+node_t *new_integer_op_node(node_t *left, integer_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
+    type_info_t left_type_info;
+    type_info_t right_type_info;
+    if (!copy_type_info_of_node(&left_type_info, left)) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Left operand of \"%s\" is not an expression",
+                 integer_op_to_str(op));
+        return NULL;
+    } else if (!copy_type_info_of_node(&right_type_info, right)) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Right operand of \"%s\" is not an expression",
+                 integer_op_to_str(op));
+        return NULL;
+    }
+    qualifier_t result_qualifier = propagate_qualifier(left_type_info.qualifier,
+                                                       right_type_info.qualifier);
+    type_t result_type = propagate_type(INTEGER_OP,
+                                        left_type_info.type,
+                                        right_type_info.type);
+    if (result_type == VOID_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"%s\" to %s and %s", integer_op_to_str(op),
+                 type_to_str(left_type_info.type), type_to_str(right_type_info.type));
+        return NULL;
+    }
+
+    if (left_type_info.depth == 0 && right_type_info.depth != 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"%s\" to scalar and array of depth %u)",
+                 integer_op_to_str(op), right_type_info.depth);
+        return NULL;
+    } else if (left_type_info.depth != 0 && right_type_info.depth == 0) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"%s\" to array of depth %u and scalar)",
+                 integer_op_to_str(op), left_type_info.depth);
+        return NULL;
+    } else if (left_type_info.depth != right_type_info.depth) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"%s\" to arrays of different depths (%u != %u)",
+                 integer_op_to_str(op), left_type_info.depth, right_type_info.depth);
+        return NULL;
+    }
+    unsigned depth = left_type_info.depth;
+
+    for (unsigned i = 0; i < depth; ++i) {
+        if (left_type_info.sizes[i] != right_type_info.sizes[i]) {
+            snprintf(error_msg, ERROR_MSG_LENGTH,
+                     "Applying \"%s\" to arrays of different sizes in dimension %u (%u != %u)",
+                     integer_op_to_str(op), depth, left_type_info.sizes[i], right_type_info.sizes[i]);
+            return NULL;
+        }
+    }
+    unsigned *sizes = left_type_info.sizes;
+    unsigned length = get_length_of_array(sizes, depth);
+
+    if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
+        const_node_t *const_node_view_left = (const_node_t *) left;
+        const_node_t *const_node_view_right = (const_node_t *) right;
+        const_node_view_left->type_info.type = INT_T;
+
+        for (unsigned i = 0; i < length; ++i) {
+            int validity_check = integer_op_application(op,
+                                                        const_node_view_left->values + i,
+                                                        left_type_info.type,
+                                                        const_node_view_left->values[i],
+                                                        right_type_info.type,
+                                                        const_node_view_right->values[i]);
+            if (validity_check == 1) {
+                free(const_node_view_left->values);
+                free(const_node_view_left);
+                free(const_node_view_right->values);
+                free(const_node_view_right);
+                snprintf(error_msg, ERROR_MSG_LENGTH, "Division by zero");
+                return NULL;
+            } else if (validity_check == 2) {
+                free(const_node_view_left->values);
+                free(const_node_view_left);
+                free(const_node_view_right->values);
+                free(const_node_view_right);
+                snprintf(error_msg, ERROR_MSG_LENGTH, "Modulo by zero");
+                return NULL;
+            }
+        }
+        free(const_node_view_right->values);
+        free(const_node_view_right);
+        return left;
+    } else {
+        integer_op_node_t *new_node = malloc(sizeof (integer_op_node_t));
+        if (new_node == NULL) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for integer operator node failed");
+            return NULL;
+        }
+
+        new_node->node_type = INTEGER_OP_NODE_T;
+        new_node->is_quantizable = is_quantizable(left) && is_quantizable(right);
+        new_node->is_unitary = is_unitary(left) && is_unitary(right);
+        new_node->type_info.qualifier = result_qualifier;
+        new_node->type_info.type = result_type;
+        memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+        new_node->type_info.depth = depth;
+        new_node->op = op;
+        new_node->left = left;
+        new_node->right = right;
+        return (node_t *) new_node;
+    }
+}
+
+node_t *new_invert_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
+    type_info_t child_type_info;
+    if (!copy_type_info_of_node(&child_type_info, child)) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"~\" to a non-expression");
+        return NULL;
+    }
+    qualifier_t result_qualifier = child_type_info.qualifier;
+    type_t result_type = propagate_type(INVERT_OP, child_type_info.type, VOID_T);
+    if (result_type == VOID_T) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"~\" to expression of type %s",
+                 type_to_str(child_type_info.type));
+        return NULL;
+    }
+
+    if (result_qualifier == CONST_T) { /* child is of node_type CONST_NODE_T */
+        unsigned length = get_length_of_array(child_type_info.sizes, child_type_info.depth);
+        const_node_t *const_node_view_child = (const_node_t *) child;
+        if (result_type == INT_T) {
+            for (unsigned i = 0; i < length; ++i) {
+                const_node_view_child->values[i].i_val = ~(const_node_view_child->values[i].i_val);
+            }
+        } else {
+            for (unsigned i = 0; i < length; ++i) {
+                const_node_view_child->values[i].u_val = ~(const_node_view_child->values[i].u_val);
+            }
+        }
+        return child;
+    } else if (child->node_type == INVERT_OP_NODE_T) {
+        invert_op_node_t *invert_op_node_view_child = (invert_op_node_t *) child;
+        node_t *result = invert_op_node_view_child->child;
+        free(invert_op_node_view_child);
+        return result;
+    } else {
+        invert_op_node_t *new_node = malloc(sizeof(invert_op_node_t));
+        if (new_node == NULL) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for invert-operator node failed");
+            return NULL;
+        }
+
+        new_node->node_type = INVERT_OP_NODE_T;
+        new_node->is_quantizable = is_quantizable(child);
+        new_node->is_unitary = is_unitary(child);
+        new_node->type_info.qualifier = result_qualifier;
+        new_node->type_info.type = result_type;
+        memcpy(new_node->type_info.sizes, child_type_info.sizes, child_type_info.depth * sizeof (unsigned));
+        new_node->type_info.depth = child_type_info.depth;
+        new_node->child = child;
+        return (node_t *) new_node;
+    }
+}
+
 node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branches, unsigned num_of_else_ifs,
                     node_t *else_branch, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t if_condition_type_info;
+    bool result_is_quantizable = is_quantizable(condition) && is_quantizable(if_branch) && is_quantizable(else_branch);
+    bool result_is_unitary = is_unitary(condition);
     if (!copy_type_info_of_node(&if_condition_type_info, condition)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "If-condition is not an expression");
         free_node(condition);
@@ -980,7 +1537,7 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
         free_symbol_table();
         return NULL;
     } else if (if_condition_type_info.qualifier == QUANTUM_T) {
-        if (!(((stmt_list_node_t *) if_branch)->is_unitary)) {
+        if (!is_unitary(if_branch)) {
             snprintf(error_msg, ERROR_MSG_LENGTH,
                      "If-condition is quantum, but statements in if-branch are not unitary");
             free_node(condition);
@@ -992,7 +1549,7 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
             free_node(else_branch);
             free_symbol_table();
             return NULL;
-        } else if (else_branch != NULL && !(((stmt_list_node_t *) else_branch)->is_unitary)) {
+        } else if (else_branch != NULL && !is_unitary(else_branch)) {
             snprintf(error_msg, ERROR_MSG_LENGTH,
                      "If-condition is quantum, but statements in else-branch are not unitary");
             free_node(condition);
@@ -1026,6 +1583,9 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
             free_symbol_table();
             return NULL;
         }
+
+        result_is_quantizable = result_is_quantizable && is_quantizable(else_if_branches[i]);
+        result_is_unitary = result_is_unitary && is_unitary(else_if_branches[i]);
     }
 
     if_node_t *new_node = malloc(sizeof (if_node_t));
@@ -1042,7 +1602,9 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
         return NULL;
     }
 
-    new_node->type = IF_NODE_T;
+    new_node->node_type = IF_NODE_T;
+    new_node->is_quantizable = result_is_quantizable;
+    new_node->is_unitary = result_is_unitary;
     new_node->condition = condition;
     new_node->if_branch = if_branch;
     new_node->else_if_branches = else_if_branches;
@@ -1091,6 +1653,8 @@ node_t *new_else_if_node(node_t *condition, node_t *else_if_branch, char error_m
     }
 
     new_node->node_type = ELSE_IF_NODE_T;
+    new_node->is_quantizable = is_quantizable(condition) && is_quantizable(else_if_branch);
+    new_node->is_unitary = is_unitary(condition);
     new_node->condition = condition;
     new_node->else_if_branch = else_if_branch;
     return (node_t *) new_node;
@@ -1100,7 +1664,7 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
                         char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t expression_type_info;
     if (!copy_type_info_of_node(&expression_type_info, expression)) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "No valid switch-expression ");
+        snprintf(error_msg, ERROR_MSG_LENGTH, "No valid switch-expression");
         free_node(expression);
         for (unsigned i = 0; i < num_of_cases; ++i) {
             free_node(case_branches[i]);
@@ -1184,6 +1748,9 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
         }
     }
 
+    for (unsigned i = 0; i < num_of_cases; ++i) {
+
+    }
     switch_node_t *new_node = malloc(sizeof (switch_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for switch node failed");
@@ -1533,8 +2100,8 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
     }
 
     new_node->node_type = ASSIGN_NODE_T;
+    new_node->is_quantizable = left_type_info.qualifier != QUANTUM_T && is_quantizable(right);
     new_node->is_unitary = left_type_info.qualifier == QUANTUM_T && is_unitary(right);
-    new_node->is_quantizable = left_type_info.qualifier == NONE_T && is_quantizable(right);
     new_node->op = op;
     new_node->left = left;
     new_node->right = right;
@@ -1699,78 +2266,6 @@ node_t *new_return_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
     return (node_t *) new_node;
 }
 
-bool is_unitary(const node_t *node) {
-    if (node == NULL) {
-        return false;
-    }
-
-    switch (node->node_type) {
-        case STMT_LIST_NODE_T: {
-            return ((stmt_list_node_t *) node)->is_unitary;
-        }
-        case FUNC_SP_NODE_T: {
-            return true;
-        }
-        case VAR_DECL_NODE_T: {
-            return ((var_decl_node_t *) node)->entry->qualifier == QUANTUM_T;
-        }
-        case VAR_DEF_NODE_T: {
-            return ((var_def_node_t *) node)->is_unitary;
-        }
-        case CONST_NODE_T: {
-            return true;
-        }
-        case REFERENCE_NODE_T: {
-            return ((reference_node_t *) node)->is_unitary;
-        }
-        case FUNC_CALL_NODE_T: {
-            return ((func_call_node_t *) node)->entry->is_unitary;
-        }
-        case LOGICAL_OP_NODE_T: {
-            return ((logical_op_node_t *) node)->is_unitary;
-        }
-        case COMPARISON_OP_NODE_T: {
-            return ((comparison_op_node_t *) node)->is_unitary;
-        }
-        case EQUALITY_OP_NODE_T: {
-            return ((equality_op_node_t *) node)->is_unitary;
-        }
-        case NOT_OP_NODE_T: {
-            return ((not_op_node_t *) node)->is_unitary;
-        }
-        case INTEGER_OP_NODE_T: {
-            return ((integer_op_node_t *) node)->is_unitary;
-        }
-        case INVERT_OP_NODE_T: {
-            return ((invert_op_node_t *) node)->is_unitary;
-        }
-        case IF_NODE_T: {
-            return ((if_node_t *) node)->is_unitary;
-        }
-        case ELSE_IF_NODE_T: {
-            return ((else_if_node_t *) node)->is_unitary;
-        }
-        case SWITCH_NODE_T: {
-            return ((switch_node_t *) node)->is_unitary;
-        }
-        case CASE_NODE_T: {
-            return ((case_node_t *) node)->is_unitary;
-        }
-        case ASSIGN_NODE_T: {
-            return ((assign_node_t *) node)->is_unitary;
-        }
-        case PHASE_NODE_T: {
-            return ((phase_node_t *) node)->is_unitary;
-        }
-        case RETURN_NODE_T: {
-            return true; /* not sure about that*/
-        }
-        default: {
-            return false;
-        }
-    }
-}
-
 bool is_quantizable(const node_t *node) {
     if (node == NULL) {
         return false;
@@ -1796,7 +2291,7 @@ bool is_quantizable(const node_t *node) {
             return ((reference_node_t *) node)->is_quantizable;
         }
         case FUNC_CALL_NODE_T: {
-            return ((func_call_node_t *) node)->entry->is_quantizable;
+            return !(((func_call_node_t *) node)->sp) && ((func_call_node_t *) node)->entry->is_quantizable;
         }
         case LOGICAL_OP_NODE_T: {
             return ((logical_op_node_t *) node)->is_quantizable;
@@ -1833,6 +2328,78 @@ bool is_quantizable(const node_t *node) {
         }
         case PHASE_NODE_T: {
             return false;
+        }
+        case RETURN_NODE_T: {
+            return true; /* not sure about that*/
+        }
+        default: {
+            return false;
+        }
+    }
+}
+
+bool is_unitary(const node_t *node) {
+    if (node == NULL) {
+        return false;
+    }
+
+    switch (node->node_type) {
+        case STMT_LIST_NODE_T: {
+            return ((stmt_list_node_t *) node)->is_unitary;
+        }
+        case VAR_DECL_NODE_T: {
+            return ((var_decl_node_t *) node)->entry->qualifier == QUANTUM_T;
+        }
+        case VAR_DEF_NODE_T: {
+            return ((var_def_node_t *) node)->is_unitary;
+        }
+        case CONST_NODE_T: {
+            return true;
+        }
+        case REFERENCE_NODE_T: {
+            return ((reference_node_t *) node)->is_unitary;
+        }
+        case FUNC_CALL_NODE_T: {
+            return ((func_call_node_t *) node)->sp || ((func_call_node_t *) node)->entry->is_unitary;
+        }
+        case FUNC_SP_NODE_T: {
+            return true;
+        }
+        case LOGICAL_OP_NODE_T: {
+            return ((logical_op_node_t *) node)->is_unitary;
+        }
+        case COMPARISON_OP_NODE_T: {
+            return ((comparison_op_node_t *) node)->is_unitary;
+        }
+        case EQUALITY_OP_NODE_T: {
+            return ((equality_op_node_t *) node)->is_unitary;
+        }
+        case NOT_OP_NODE_T: {
+            return ((not_op_node_t *) node)->is_unitary;
+        }
+        case INTEGER_OP_NODE_T: {
+            return ((integer_op_node_t *) node)->is_unitary;
+        }
+        case INVERT_OP_NODE_T: {
+            return ((invert_op_node_t *) node)->is_unitary;
+        }
+        case IF_NODE_T: {
+            return ((if_node_t *) node)->is_unitary;
+        }
+        case ELSE_IF_NODE_T: {
+            return ((else_if_node_t *) node)->is_unitary;
+        }
+        case SWITCH_NODE_T: {
+            return ((switch_node_t *) node)->is_unitary;
+        }
+        case CASE_NODE_T: {
+            return ((case_node_t *) node)->is_unitary;
+        }
+        case ASSIGN_NODE_T: {
+            return ((assign_node_t *) node)->is_unitary;
+        }
+        case PHASE_NODE_T: {
+            return ((phase_node_t *) node)->is_unitary;
         }
         case RETURN_NODE_T: {
             return true; /* not sure about that*/
@@ -1969,104 +2536,6 @@ bool copy_type_info_of_node(type_info_t *type_info, const node_t *node) {
     }
 }
 
-qualifier_t propagate_qualifier(qualifier_t qualifier_1, qualifier_t qualifier_2) {
-    if (qualifier_1 == CONST_T && qualifier_2 == CONST_T) {
-        return CONST_T;
-    } else if (qualifier_1 == QUANTUM_T || qualifier_2 == QUANTUM_T) {
-        return QUANTUM_T;
-    } else {
-        return NONE_T;
-    }
-}
-
-type_t propagate_type(op_type_t op_type, type_t type_1, type_t type_2) {
-    switch (op_type) {
-        case LOGICAL_OP: {
-            if (type_1 == BOOL_T && type_2 == BOOL_T) {
-                return BOOL_T;
-            } else {
-                return VOID_T;
-            }
-        }
-        case COMPARISON_OP: {
-            if ((type_1 == INT_T || type_1 == UNSIGNED_T) && (type_2 == INT_T || type_2 == UNSIGNED_T)) {
-                return BOOL_T;
-            } else {
-                return VOID_T;
-            }
-        }
-        case EQUALITY_OP: {
-            switch (type_1) {
-                case BOOL_T: {
-                    if (type_2 == BOOL_T) {
-                        return BOOL_T;
-                    } else {
-                        return VOID_T;
-                    }
-                }
-                case INT_T: case UNSIGNED_T: {
-                    if (type_2 == INT_T || type_2 == UNSIGNED_T) {
-                        return BOOL_T;
-                    } else {
-                        return VOID_T;
-                    }
-                }
-                default: {
-                    return VOID_T;
-                }
-            }
-        }
-        case NOT_OP: {
-            if (type_1 == BOOL_T) {
-                return BOOL_T;
-            } else {
-                return VOID_T;
-            }
-        }
-        case INTEGER_OP: {
-            switch (type_1) {
-                case INT_T: {
-                    switch (type_2) {
-                        case INT_T: {
-                            return INT_T;
-                        }
-                        case UNSIGNED_T: {
-                            return UNSIGNED_T;
-                        }
-                        default:
-                            return VOID_T;
-                    }
-                }
-                case UNSIGNED_T: {
-                    switch (type_2) {
-                        case INT_T: case UNSIGNED_T: {
-                            return UNSIGNED_T;
-                        }
-                        default:
-                            return VOID_T;
-                    }
-                }
-                default: {
-                    return VOID_T;
-                }
-            }
-        }
-        case INVERT_OP: {
-            switch (type_1) {
-                case INT_T: {
-                    return INT_T;
-                }
-                case UNSIGNED_T: {
-                    return UNSIGNED_T;
-                }
-                default: {
-                    return VOID_T;
-                }
-            }
-        }
-    }
-}
-
 bool are_matching_types(type_t type_1, type_t type_2) {
     switch (type_1) {
         case VOID_T: {
@@ -2092,436 +2561,6 @@ bool are_matching_types(type_t type_1, type_t type_2) {
         }
     }
     return true;
-}
-
-node_t *new_logical_op_node(node_t *left, logical_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
-    type_info_t left_type_info;
-    type_info_t right_type_info;
-    if (!copy_type_info_of_node(&left_type_info, left)) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Left operand of \"%s\" is not an expression",
-                 logical_op_to_str(op));
-        return NULL;
-    } else if (!copy_type_info_of_node(&right_type_info, right)) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Right operand of \"%s\" is not an expression",
-                 logical_op_to_str(op));
-        return NULL;
-    }
-
-    qualifier_t result_qualifier = propagate_qualifier(left_type_info.qualifier,
-                                                       right_type_info.qualifier);
-    type_t result_type = propagate_type(LOGICAL_OP, left_type_info.type, right_type_info.type);
-    if (result_type == VOID_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"%s\" to %s and %s", logical_op_to_str(op),
-                 type_to_str(left_type_info.type), type_to_str(right_type_info.type));
-        return NULL;
-    }
-
-    if (left_type_info.depth == 0 && right_type_info.depth != 0) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"%s\" to scalar and array of depth %u)",
-                 logical_op_to_str(op), right_type_info.depth);
-        return NULL;
-    } else if (left_type_info.depth != 0 && right_type_info.depth == 0) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"%s\" to array of depth %u and scalar)",
-                 logical_op_to_str(op), left_type_info.depth);
-        return NULL;
-    } else if (left_type_info.depth != right_type_info.depth) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"%s\" to arrays of different depth (%u != %u)",
-                 logical_op_to_str(op), left_type_info.depth, right_type_info.depth);
-        return NULL;
-    }
-
-    unsigned depth = left_type_info.depth;
-    for (unsigned i = 0; i < depth; ++i) {
-        if (left_type_info.sizes[i] != right_type_info.sizes[i]) {
-            snprintf(error_msg, ERROR_MSG_LENGTH,
-                     "Applying \"%s\" to arrays of different sizes in dimension %u (%u != %u)",
-                     logical_op_to_str(op), depth, left_type_info.sizes[i], right_type_info.sizes[i]);
-            return NULL;
-        }
-    }
-
-    unsigned *sizes = left_type_info.sizes;
-    unsigned length = get_length_of_array(sizes, depth);
-    if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
-        const_node_t *const_node_view_left = (const_node_t *) left;
-        const_node_t *const_node_view_right = (const_node_t *) right;
-        const_node_view_left->type_info.type = BOOL_T;
-
-        for (unsigned i = 0; i < length; ++i) {
-            logical_op_application(op, const_node_view_left->values + i, const_node_view_left->values[i],
-                                   const_node_view_right->values[i]);
-        }
-        free(const_node_view_right->values);
-        free(const_node_view_right);
-        return left;
-    } else {
-        logical_op_node_t *new_node = malloc(sizeof (logical_op_node_t));
-        if (new_node == NULL) {
-            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for logical operator node failed");
-            return NULL;
-        }
-
-        new_node->node_type = LOGICAL_OP_NODE_T;
-        new_node->type_info.qualifier = result_qualifier;
-        new_node->type_info.type = BOOL_T;
-        memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
-        new_node->type_info.depth = depth;
-        new_node->op = op;
-        new_node->left = left;
-        new_node->right = right;
-        return (node_t *) new_node;
-    }
-}
-
-node_t *new_comparison_op_node(node_t *left, comparison_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
-    type_info_t left_type_info;
-    type_info_t right_type_info;
-    if (!copy_type_info_of_node(&left_type_info, left)) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Left operand of \"%s\" is not an expression",
-                 comparison_op_to_str(op));
-        return NULL;
-    } else if (!copy_type_info_of_node(&right_type_info, right)) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Right operand of \"%s\" is not an expression",
-                 comparison_op_to_str(op));
-        return NULL;
-    }
-    qualifier_t result_qualifier = propagate_qualifier(left_type_info.qualifier,
-                                                       right_type_info.qualifier);
-    type_t result_type = propagate_type(COMPARISON_OP, left_type_info.type, right_type_info.type);
-    if (result_type == VOID_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "\"%s\"-comparison of %s and %s", comparison_op_to_str(op),
-                 type_to_str(left_type_info.type), type_to_str(right_type_info.type));
-        return NULL;
-    }
-
-    if (left_type_info.depth == 0 && right_type_info.depth != 0) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "\"%s\"-comparison of scalar and array of depth %u)",
-                 comparison_op_to_str(op), right_type_info.depth);
-        return NULL;
-    } else if (left_type_info.depth != 0 && right_type_info.depth == 0) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "\"%s\"-comparison of array of depth %u and scalar)",
-                 comparison_op_to_str(op), left_type_info.depth);
-        return NULL;
-    } else if (left_type_info.depth != right_type_info.depth) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "\"%s\"-comparison of arrays of different depths (%u != %u)",
-                 comparison_op_to_str(op), left_type_info.depth, right_type_info.depth);
-        return NULL;
-    }
-
-    unsigned depth = left_type_info.depth;
-    for (unsigned i = 0; i < depth; ++i) {
-        if (left_type_info.sizes[i] != right_type_info.sizes[i]) {
-            snprintf(error_msg, ERROR_MSG_LENGTH,
-                     "\"%s\"-comparison of arrays of different sizes in dimension %u (%u != %u)",
-                     comparison_op_to_str(op), depth, left_type_info.sizes[i], right_type_info.sizes[i]);
-            return NULL;
-        }
-    }
-
-    unsigned *sizes = left_type_info.sizes;
-    unsigned length = get_length_of_array(sizes, depth);
-    if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
-        const_node_t *const_node_view_left = (const_node_t *) left;
-        const_node_t *const_node_view_right = (const_node_t *) right;
-        const_node_view_left->type_info.type = BOOL_T;
-
-        for (unsigned i = 0; i < length; ++i) {
-            comparison_op_application(op, const_node_view_left->values + i, left_type_info.type,
-                                      const_node_view_left->values[i], right_type_info.type,
-                                      const_node_view_right->values[i]);
-        }
-        free(const_node_view_right->values);
-        free(const_node_view_right);
-        return left;
-    } else {
-        comparison_op_node_t *new_node = malloc(sizeof (comparison_op_node_t));
-        if (new_node == NULL) {
-            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for comparison operator node failed");
-            return NULL;
-        }
-
-        new_node->node_type = COMPARISON_OP_NODE_T;
-        new_node->type_info.qualifier = result_qualifier;
-        new_node->type_info.type = BOOL_T;
-        memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
-        new_node->type_info.depth = depth;
-        new_node->op = op;
-        new_node->left = left;
-        new_node->right = right;
-        return (node_t *) new_node;
-    }
-}
-
-node_t *new_equality_op_node(node_t *left, equality_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
-    type_info_t left_type_info;
-    type_info_t right_type_info;
-    if (!copy_type_info_of_node(&left_type_info, left)) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Left-hand side of %sequality is not an expression",
-                 (op == EQ_OP) ? "" : "in");
-        return NULL;
-    } else if (!copy_type_info_of_node(&right_type_info, right)) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Right-hand side of %sequality is not an expression",
-                 (op == EQ_OP) ? "" : "in");
-        return NULL;
-    }
-    qualifier_t result_qualifier = propagate_qualifier(left_type_info.qualifier,
-                                                       right_type_info.qualifier);
-    type_t result_type = propagate_type(EQUALITY_OP, left_type_info.type, right_type_info.type);
-    if (result_type == VOID_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Checking %sequality of %s and %s", (op == EQ_OP) ? "" : "in",
-                 type_to_str(left_type_info.type), type_to_str(right_type_info.type));
-        return NULL;
-    }
-
-    if (left_type_info.depth == 0 && right_type_info.depth != 0) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Checking %sequality of scalar and array of depth %u)",
-                 (op == EQ_OP) ? "" : "in", right_type_info.depth);
-        return NULL;
-    } else if (left_type_info.depth != 0 && right_type_info.depth == 0) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Checking %sequality of array of depth %u and scalar)",
-                 (op == EQ_OP) ? "" : "in", left_type_info.depth);
-        return NULL;
-    } else if (left_type_info.depth != right_type_info.depth) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Checking %sequality of arrays of different depths (%u != %u)",
-                 (op == EQ_OP) ? "" : "in", left_type_info.depth, right_type_info.depth);
-        return NULL;
-    }
-
-    unsigned depth = left_type_info.depth;
-    for (unsigned i = 0; i < depth; ++i) {
-        if (left_type_info.sizes[i] != right_type_info.sizes[i]) {
-            snprintf(error_msg, ERROR_MSG_LENGTH,
-                     "Checking %sequality of arrays of different sizes in dimension %u (%u != %u)",
-                     (op == EQ_OP) ? "" : "in", depth, left_type_info.sizes[i], right_type_info.sizes[i]);
-            return NULL;
-        }
-    }
-
-    unsigned *sizes = left_type_info.sizes;
-    unsigned length = get_length_of_array(sizes, depth);
-    if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
-        const_node_t *const_node_view_left = (const_node_t *) left;
-        const_node_t *const_node_view_right = (const_node_t *) right;
-        const_node_view_left->type_info.type = BOOL_T;
-
-        for (unsigned i = 0; i < length; ++i) {
-            apply_equality_op(op,
-                              const_node_view_left->values + i,
-                              left_type_info.type,
-                              const_node_view_left->values[i],
-                              right_type_info.type,
-                              const_node_view_right->values[i]);
-        }
-        free(const_node_view_right->values);
-        free(const_node_view_right);
-        return left;
-    } else {
-        equality_op_node_t *new_node = malloc( sizeof (equality_op_node_t));
-        if (new_node == NULL) {
-            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for equality operator node failed");
-            return NULL;
-        }
-        new_node->node_type = EQUALITY_OP_NODE_T;
-        new_node->type_info.qualifier = result_qualifier;
-        new_node->type_info.type = BOOL_T;
-        memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
-        new_node->type_info.depth = depth;
-        new_node->op = op;
-        new_node->left = left;
-        new_node->right = right;
-        return (node_t *) new_node;
-    }
-}
-
-node_t *new_not_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
-    type_info_t child_type_info;
-    if (!copy_type_info_of_node(&child_type_info, child)) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"!\" to a non-expression");
-        return NULL;
-    }
-    qualifier_t result_qualifier = child_type_info.qualifier;
-    type_t result_type = propagate_type(NOT_OP, child_type_info.type, VOID_T);
-    if (result_type == VOID_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"!\" to expression of type %s",
-                 type_to_str(child_type_info.type));
-        return NULL;
-    }
-
-    if (result_qualifier == CONST_T) { /* child is of node_type CONST_NODE_T */
-        unsigned length = get_length_of_array(child_type_info.sizes, child_type_info.depth);
-        const_node_t *const_node_view_child = (const_node_t *) child;
-        for (unsigned i = 0; i < length; ++i) {
-            const_node_view_child->values[i].b_val = !(const_node_view_child->values[i].b_val);
-        }
-        return child;
-    } else if (child->node_type == NOT_OP_NODE_T) {
-        not_op_node_t *not_op_node_view_child = (not_op_node_t *) child;
-        node_t *result = not_op_node_view_child->child;
-        free(not_op_node_view_child);
-        return result;
-    } else {
-        not_op_node_t *new_node = malloc(sizeof (not_op_node_t));
-        if (new_node == NULL) {
-            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for not-operator node failed");
-            return NULL;
-        }
-
-        new_node->node_type = NOT_OP_NODE_T;
-        new_node->type_info.qualifier = result_qualifier;
-        new_node->type_info.type = BOOL_T;
-        memcpy(new_node->type_info.sizes, child_type_info.sizes, child_type_info.depth * sizeof (unsigned));
-        new_node->type_info.depth = child_type_info.depth;
-        new_node->child = child;
-        return (node_t *) new_node;
-    }
-}
-
-node_t *new_integer_op_node(node_t *left, integer_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
-    type_info_t left_type_info;
-    type_info_t right_type_info;
-    if (!copy_type_info_of_node(&left_type_info, left)) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Left operand of \"%s\" is not an expression",
-                 integer_op_to_str(op));
-        return NULL;
-    } else if (!copy_type_info_of_node(&right_type_info, right)) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Right operand of \"%s\" is not an expression",
-                 integer_op_to_str(op));
-        return NULL;
-    }
-    qualifier_t result_qualifier = propagate_qualifier(left_type_info.qualifier,
-                                                       right_type_info.qualifier);
-    type_t result_type = propagate_type(INTEGER_OP,
-                                        left_type_info.type,
-                                        right_type_info.type);
-    if (result_type == VOID_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"%s\" to %s and %s", integer_op_to_str(op),
-                 type_to_str(left_type_info.type), type_to_str(right_type_info.type));
-        return NULL;
-    }
-
-    if (left_type_info.depth == 0 && right_type_info.depth != 0) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"%s\" to scalar and array of depth %u)",
-                 integer_op_to_str(op), right_type_info.depth);
-        return NULL;
-    } else if (left_type_info.depth != 0 && right_type_info.depth == 0) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"%s\" to array of depth %u and scalar)",
-                 integer_op_to_str(op), left_type_info.depth);
-        return NULL;
-    } else if (left_type_info.depth != right_type_info.depth) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"%s\" to arrays of different depths (%u != %u)",
-                 integer_op_to_str(op), left_type_info.depth, right_type_info.depth);
-        return NULL;
-    }
-    unsigned depth = left_type_info.depth;
-
-    for (unsigned i = 0; i < depth; ++i) {
-        if (left_type_info.sizes[i] != right_type_info.sizes[i]) {
-            snprintf(error_msg, ERROR_MSG_LENGTH,
-                     "Applying \"%s\" to arrays of different sizes in dimension %u (%u != %u)",
-                     integer_op_to_str(op), depth, left_type_info.sizes[i], right_type_info.sizes[i]);
-            return NULL;
-        }
-    }
-    unsigned *sizes = left_type_info.sizes;
-    unsigned length = get_length_of_array(sizes, depth);
-
-    if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
-        const_node_t *const_node_view_left = (const_node_t *) left;
-        const_node_t *const_node_view_right = (const_node_t *) right;
-        const_node_view_left->type_info.type = INT_T;
-
-        for (unsigned i = 0; i < length; ++i) {
-            int validity_check = integer_op_application(op,
-                                                        const_node_view_left->values + i,
-                                                        left_type_info.type,
-                                                        const_node_view_left->values[i],
-                                                        right_type_info.type,
-                                                        const_node_view_right->values[i]);
-            if (validity_check == 1) {
-                free(const_node_view_left->values);
-                free(const_node_view_left);
-                free(const_node_view_right->values);
-                free(const_node_view_right);
-                snprintf(error_msg, ERROR_MSG_LENGTH, "Division by zero");
-                return NULL;
-            } else if (validity_check == 2) {
-                free(const_node_view_left->values);
-                free(const_node_view_left);
-                free(const_node_view_right->values);
-                free(const_node_view_right);
-                snprintf(error_msg, ERROR_MSG_LENGTH, "Modulo by zero");
-                return NULL;
-            }
-        }
-        free(const_node_view_right->values);
-        free(const_node_view_right);
-        return left;
-    } else {
-        integer_op_node_t *new_node = malloc(sizeof (integer_op_node_t));
-        if (new_node == NULL) {
-            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for integer operator node failed");
-            return NULL;
-        }
-
-        new_node->node_type = INTEGER_OP_NODE_T;
-        new_node->type_info.qualifier = result_qualifier;
-        new_node->type_info.type = result_type;
-        memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
-        new_node->type_info.depth = depth;
-        new_node->op = op;
-        new_node->left = left;
-        new_node->right = right;
-        return (node_t *) new_node;
-    }
-}
-
-node_t *new_invert_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
-    type_info_t child_type_info;
-    if (!copy_type_info_of_node(&child_type_info, child)) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"~\" to a non-expression");
-        return NULL;
-    }
-    qualifier_t result_qualifier = child_type_info.qualifier;
-    type_t result_type = propagate_type(INVERT_OP, child_type_info.type, VOID_T);
-    if (result_type == VOID_T) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Applying \"~\" to expression of type %s",
-                 type_to_str(child_type_info.type));
-        return NULL;
-    }
-
-    if (result_qualifier == CONST_T) { /* child is of node_type CONST_NODE_T */
-        unsigned length = get_length_of_array(child_type_info.sizes, child_type_info.depth);
-        const_node_t *const_node_view_child = (const_node_t *) child;
-        if (result_type == INT_T) {
-            for (unsigned i = 0; i < length; ++i) {
-                const_node_view_child->values[i].i_val = ~(const_node_view_child->values[i].i_val);
-            }
-        } else {
-            for (unsigned i = 0; i < length; ++i) {
-                const_node_view_child->values[i].u_val = ~(const_node_view_child->values[i].u_val);
-            }
-        }
-        return child;
-    } else if (child->node_type == INVERT_OP_NODE_T) {
-        invert_op_node_t *invert_op_node_view_child = (invert_op_node_t *) child;
-        node_t *result = invert_op_node_view_child->child;
-        free(invert_op_node_view_child);
-        return result;
-    } else {
-        invert_op_node_t *new_node = malloc(sizeof(invert_op_node_t));
-        if (new_node == NULL) {
-            snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for invert-operator node failed");
-            return NULL;
-        }
-
-        new_node->node_type = INVERT_OP_NODE_T;
-        new_node->type_info.qualifier = result_qualifier;
-        new_node->type_info.type = result_type;
-        memcpy(new_node->type_info.sizes, child_type_info.sizes, child_type_info.depth * sizeof (unsigned));
-        new_node->type_info.depth = child_type_info.depth;
-        new_node->child = child;
-        return (node_t *) new_node;
-    }
 }
 
 void print_const_value(type_t type, value_t value) {

@@ -982,6 +982,7 @@ array_access:
         if (entry == NULL) {
             yyerror(error_msg);
         }
+
         access_info_t access_info;
         $$ = &access_info;
         if (!setup_access_info($$, entry, error_msg)) {

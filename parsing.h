@@ -102,9 +102,9 @@ typedef struct init_info {
         struct {
             qualified_type_t *qualified_types;
             array_value_t *values;
+            unsigned length;
         };
     };
-    unsigned length;
 } init_info_t;
 
 typedef struct else_if_list {

@@ -315,7 +315,7 @@ typedef struct invert_op_node {
 } invert_op_node_t;
 
 typedef struct if_node {
-    node_type_t type;
+    node_type_t node_type;
     bool is_unitary;
     bool is_quantizable;
     node_t *condition;

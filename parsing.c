@@ -240,6 +240,7 @@ bool setup_init_info(init_info_t *init_info, bool is_init_list, node_t *node, ch
         } else {
             init_info->values[0].node_value = node;
         }
+        init_info->length = 1;
     } else {
         init_info->is_init_list = false;
         init_info->node = node;
@@ -298,6 +299,7 @@ bool setup_access_info(access_info_t *access_info, entry_t *entry, char error_ms
     }
 
     access_info->entry = entry;
+    access_info->index_depth = 0;
     return true;
 }
 
