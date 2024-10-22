@@ -852,7 +852,7 @@ node_t *new_reference_node(entry_t *entry, const bool index_is_const[MAX_ARRAY_D
         new_node->node_type = REFERENCE_NODE_T;
         new_node->is_quantizable = entry->qualifier != QUANTUM_T && all_indices_const;
         new_node->is_unitary = entry->qualifier == QUANTUM_T && all_indices_const;
-        new_node->type_info.qualifier = (entry->qualifier == CONST_T) ? NONE_T : QUANTUM_T;
+        new_node->type_info.qualifier = (entry->qualifier == CONST_T) ? NONE_T : entry->qualifier;
         new_node->type_info.type = entry->type;
         memcpy(new_node->type_info.sizes, entry->sizes + index_depth, (entry->depth - index_depth) * sizeof (unsigned));
         new_node->type_info.depth = entry->depth - index_depth;
@@ -1499,7 +1499,8 @@ node_t *new_invert_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
 node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branches, unsigned num_of_else_ifs,
                     node_t *else_branch, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t if_condition_type_info;
-    bool result_is_quantizable = is_quantizable(condition) && is_quantizable(if_branch) && is_quantizable(else_branch);
+    bool result_is_quantizable = is_quantizable(condition) && is_quantizable(if_branch)
+                                 && is_quantizable(else_branch);
     bool result_is_unitary = is_unitary(condition);
     if (!copy_type_info_of_node(&if_condition_type_info, condition)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "If-condition is not an expression");
@@ -1663,6 +1664,8 @@ node_t *new_else_if_node(node_t *condition, node_t *else_if_branch, char error_m
 node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num_of_cases,
                         char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t expression_type_info;
+    bool result_is_quantizable = is_quantizable(expression);
+    bool result_is_unitary = is_unitary(expression);
     if (!copy_type_info_of_node(&expression_type_info, expression)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "No valid switch-expression");
         free_node(expression);
@@ -1749,7 +1752,8 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
     }
 
     for (unsigned i = 0; i < num_of_cases; ++i) {
-
+        result_is_quantizable = result_is_quantizable && is_quantizable(case_branches[i]);
+        result_is_unitary = result_is_unitary && is_unitary(case_branches[i]);
     }
     switch_node_t *new_node = malloc(sizeof (switch_node_t));
     if (new_node == NULL) {
@@ -1764,6 +1768,8 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
     }
 
     new_node->node_type = SWITCH_NODE_T;
+    new_node->is_quantizable = result_is_quantizable;
+    new_node->is_unitary = result_is_unitary;
     new_node->expression = expression;
     new_node->case_branches = case_branches;
     new_node->num_of_cases = num_of_cases;
@@ -2719,10 +2725,10 @@ void print_node(const node_t *node) {
         }
         case COMPARISON_OP_NODE_T: {
             putchar('(');
-            copy_type_info_of_node(&type_info, ((logical_op_node_t *) node)->left);
+            copy_type_info_of_node(&type_info, ((comparison_op_node_t *) node)->left);
             print_type_info(&type_info);
             printf(") %s (", comparison_op_to_str(((comparison_op_node_t *) node)->op));
-            copy_type_info_of_node(&type_info, ((logical_op_node_t *) node)->right);
+            copy_type_info_of_node(&type_info, ((comparison_op_node_t *) node)->right);
             print_type_info(&type_info);
             printf(") -> (");
             copy_type_info_of_node(&type_info, node);
@@ -2732,10 +2738,10 @@ void print_node(const node_t *node) {
         }
         case EQUALITY_OP_NODE_T: {
             putchar('(');
-            copy_type_info_of_node(&type_info, ((logical_op_node_t *) node)->left);
+            copy_type_info_of_node(&type_info, ((equality_op_node_t *) node)->left);
             print_type_info(&type_info);
             printf(") %s (", equality_op_to_str(((equality_op_node_t *) node)->op));
-            copy_type_info_of_node(&type_info, ((logical_op_node_t *) node)->right);
+            copy_type_info_of_node(&type_info, ((equality_op_node_t *) node)->right);
             print_type_info(&type_info);
             printf(") -> (");
             copy_type_info_of_node(&type_info, node);
@@ -2745,7 +2751,7 @@ void print_node(const node_t *node) {
         }
         case NOT_OP_NODE_T: {
             printf("!(");
-            copy_type_info_of_node(&type_info, ((invert_op_node_t *) node)->child);
+            copy_type_info_of_node(&type_info, ((not_op_node_t *) node)->child);
             print_type_info(&type_info);
             printf(") -> (");
             copy_type_info_of_node(&type_info, node);
@@ -2755,10 +2761,10 @@ void print_node(const node_t *node) {
         }
         case INTEGER_OP_NODE_T: {
             putchar('(');
-            copy_type_info_of_node(&type_info, ((logical_op_node_t *) node)->left);
+            copy_type_info_of_node(&type_info, ((integer_op_node_t *) node)->left);
             print_type_info(&type_info);
             printf(") %s (", integer_op_to_str(((integer_op_node_t *) node)->op));
-            copy_type_info_of_node(&type_info, ((logical_op_node_t *) node)->right);
+            copy_type_info_of_node(&type_info, ((integer_op_node_t *) node)->right);
             print_type_info(&type_info);
             printf(") -> (");
             copy_type_info_of_node(&type_info, node);
@@ -2814,12 +2820,12 @@ void print_node(const node_t *node) {
         }
         case ASSIGN_NODE_T: {
             putchar('(');
-            copy_type_info_of_node(&type_info, ((logical_op_node_t *) node)->left);
-            print_type_info(&type_info);
-            printf(") %s (", logical_op_to_str(((logical_op_node_t *) node)->op));
-            copy_type_info_of_node(&type_info, ((logical_op_node_t *) node)->right);
+            copy_type_info_of_node(&type_info, ((assign_node_t *) node)->left);
             print_type_info(&type_info);
             printf(") %s (", assign_op_to_str(((assign_node_t *) node)->op));
+            copy_type_info_of_node(&type_info, ((assign_node_t *) node)->right);
+            print_type_info(&type_info);
+            printf(") -> (");
             copy_type_info_of_node(&type_info, node);
             print_type_info(&type_info);
             printf(")\n");
@@ -2827,10 +2833,10 @@ void print_node(const node_t *node) {
         }
         case PHASE_NODE_T: {
             printf("phase (");
-            copy_type_info_of_node(&type_info, ((logical_op_node_t *) node)->left);
+            copy_type_info_of_node(&type_info, ((phase_node_t *) node)->left);
             print_type_info(&type_info);
             printf(") %s= (", (((phase_node_t *) node)->is_positive) ? "+" : "-");
-            copy_type_info_of_node(&type_info, ((logical_op_node_t *) node)->right);
+            copy_type_info_of_node(&type_info, ((phase_node_t *) node)->right);
             print_type_info(&type_info);
             printf(")\n");
             break;

@@ -57,12 +57,12 @@
 /**
  * \brief                               Pointer to symbol table
  */
-static struct entry **symbol_table;
+static struct entry *symbol_table[SYMBOL_TABLE_SIZE];
 
 /**
- * \brief                               Whether symbol table entries are hidden upon leaving the scope
+ * \brief                               Pointer to shadow symbol table
  */
-static bool hide;
+static struct entry *shadow_symbol_table[SYMBOL_TABLE_SIZE];
 
 /**
  * \brief                               Counter for the current scope (starts at `0`)
@@ -110,9 +110,9 @@ char *type_to_str(type_t type) {
 }
 
 /* See header for documentation */
-void init_symbol_table(bool dump_mode) {
-    symbol_table = calloc(SYMBOL_TABLE_SIZE, sizeof(entry_t*));
-    hide = !dump_mode;
+void init_symbol_table() {
+    memset(symbol_table, 0, sizeof (symbol_table));
+    memset(shadow_symbol_table, 0, sizeof (shadow_symbol_table));
     cur_scope = 0;
 }
 
@@ -144,8 +144,8 @@ void free_entry_content(entry_t *entry) {
 /* See header for documentation */
 void free_symbol_table() {
     for (unsigned i = 0; i < SYMBOL_TABLE_SIZE; ++i) {
-        if (symbol_table[i] != NULL) {
-            entry_t *current_entry = symbol_table[i];
+        if (shadow_symbol_table[i] != NULL) {
+            entry_t *current_entry = shadow_symbol_table[i];
             entry_t *next_entry;
             while (current_entry != NULL) {
                 free_entry_content(current_entry);
@@ -181,7 +181,9 @@ entry_t *insert(const char *name, unsigned length, unsigned line_num, bool decla
                 char error_msg[ERROR_MSG_LENGTH]) {
     unsigned hash_value = hash(name);
     entry_t *entry = symbol_table[hash_value];
+    bool first_value = true;
     while ((entry != NULL) && (strcmp(name, entry->name) != 0)) {
+        first_value = false;
         entry = entry->next;
     }
     if (entry == NULL) {
@@ -212,6 +214,9 @@ entry_t *insert(const char *name, unsigned length, unsigned line_num, bool decla
         entry->type = VOID_T;
         entry->next = symbol_table[hash_value];
         symbol_table[hash_value] = entry;
+        if (first_value) {
+            shadow_symbol_table[hash_value] = entry;
+        }
     } else {
         if (declaration == true) {
             if (entry->scope == cur_scope) {
@@ -266,19 +271,13 @@ entry_t *insert(const char *name, unsigned length, unsigned line_num, bool decla
 
 /* See header for documentation */
 void hide_scope() {
-    if (hide) {
-        for (unsigned i = 0; i < SYMBOL_TABLE_SIZE; ++i) {
-            if (symbol_table[i] != NULL) {
-                entry_t *current_entry = symbol_table[i];
-                entry_t *next_entry;
-                while (current_entry != NULL && current_entry->scope == cur_scope) {
-                    free_entry_content(current_entry);
-                    next_entry = current_entry->next;
-                    free(current_entry);
-                    current_entry = next_entry;
-                }
-                symbol_table[i] = current_entry;
+    for (unsigned i = 0; i < SYMBOL_TABLE_SIZE; ++i) {
+        if (symbol_table[i] != NULL) {
+            entry_t *entry = symbol_table[i];
+            while (entry != NULL && entry->scope == cur_scope) {
+                entry = entry->next;
             }
+            symbol_table[i] = entry;
         }
     }
     if (cur_scope > 0) {
@@ -355,8 +354,8 @@ void dump_symbol_table(FILE * output_file){
     fputc(' ', output_file);
     fprintf(output_file, "------ -------------\n");
     for (unsigned i = 0; i < SYMBOL_TABLE_SIZE; ++i) {
-        if (symbol_table[i] != NULL) {
-            entry_t *l = symbol_table[i];
+        if (shadow_symbol_table[i] != NULL) {
+            entry_t *l = shadow_symbol_table[i];
             while (l != NULL) { 
                 ref_list_t *t = l->lines;
                 fprintf(output_file, "%-*s", MAX_TOKEN_LENGTH + 1, l->name);

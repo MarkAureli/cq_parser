@@ -176,10 +176,8 @@ char *type_to_str(type_t type);
 
 /**
  * \brief                               Initialize symbol table
- * \note                                Activating the dump mode causes the compiler to behave incorrectly
- * \param[in]                           hide: Whether dump mode for visual debugging is active
  */
-void init_symbol_table(bool dump_mode);
+void init_symbol_table();
 
 /**
  * \brief                               Free symbol table

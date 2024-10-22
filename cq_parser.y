@@ -14,7 +14,21 @@ extern FILE *yyin;
 extern FILE *yyout;
 
 int yyerror(const char *s);
-char error_msg[ERROR_MSG_LENGTH];
+static char error_msg[ERROR_MSG_LENGTH];
+static unsigned stmt_list_counter;
+static stmt_list_t stmt_list_array[MAX_NUM_OF_STMT_LISTS];
+static unsigned type_info_counter;
+static type_info_t type_info_array[MAX_NUM_OF_TYPE_INFOS];
+static func_info_t func_info;
+static init_info_t init_info;
+static unsigned access_info_counter;
+static access_info_t access_info_array[MAX_NUM_OF_ARRAY_INFOS];
+static unsigned arg_list_counter;
+static arg_list_t arg_list_array[MAX_NUM_OF_ARG_LISTS];
+static unsigned else_if_list_counter;
+static else_if_list_t else_if_list_array[MAX_NUM_OF_ELSE_IF_LISTS];
+static unsigned case_list_counter;
+static case_list_t case_list_array[MAX_NUM_OF_CASE_LISTS];
 
 %}
 
@@ -22,21 +36,21 @@ char error_msg[ERROR_MSG_LENGTH];
 %union {
     char *name;
     value_t value;
-    entry_t *entry;
     node_t *node;
-    type_info_t *type_info;
     stmt_list_t *stmt_list;
+    type_info_t *type_info;
+    entry_t *entry;
     func_info_t *func_info;
     init_info_t *init_info;
     access_info_t *access_info;
-    assign_op_t assign_op;
-    integer_op_t integer_op;
-    logical_op_t logical_op;
-    comparison_op_t comparison_op;
-    equality_op_t equality_op;
+    arg_list_t *arg_list;
     else_if_list_t *else_if_list;
     case_list_t *case_list;
-    arg_list_t *arg_list;
+    logical_op_t logical_op;
+    integer_op_t integer_op;
+    comparison_op_t comparison_op;
+    equality_op_t equality_op;
+    assign_op_t assign_op;
 }
 
 %token <name> ID
@@ -71,10 +85,6 @@ char error_msg[ERROR_MSG_LENGTH];
 %right INV
 %right NOT
 
-%type <entry> declarator
-%type <type_info> type_specifier par
-%type <stmt_list> decl_l stmt_l res_stmt_l
-%type <func_info> par_l func_head
 %type <node> program func_tail sub_program res_sub_program
 %type <node> decl stmt decl_stmt res_stmt
 %type <node> variable_decl variable_def func_def const primary_expr postfix_expr unary_expr mul_expr add_expr
@@ -84,11 +94,16 @@ char error_msg[ERROR_MSG_LENGTH];
 %type <node> if_stmt switch_stmt do_stmt while_stmt for_stmt for_first
 %type <node> break_stmt continue_stmt return_stmt
 %type <node> optional_else case_stmt
-%type <else_if_list> else_if
-%type <case_list> case_stmt_l
+%type <stmt_list> decl_l stmt_l res_stmt_l
+%type <type_info> type_specifier par
+%type <entry> declarator
+%type <func_info> par_l func_head
 %type <init_info> init init_elem_l
 %type <access_info> array_access
 %type <arg_list> argument_expr_l
+%type <else_if_list> else_if
+%type <case_list> case_stmt_l
+
 %define parse.error verbose
 %start program
 
@@ -101,18 +116,18 @@ program:
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
-
+        --stmt_list_counter;
 	    tree_traversal($$);
 	}
 	;
 
 decl_l:
     decl {
-        stmt_list_t stmt_list;
-        $$ = &stmt_list;
+        $$ = stmt_list_array + stmt_list_counter;
         if (!setup_stmt_list($$, $1, error_msg)) {
             yyerror(error_msg);
         }
+        ++stmt_list_counter;
     }
 	| decl_l decl {
 	    $$ = $1;
@@ -135,7 +150,9 @@ decl:
 	;
 
 func_def:
-	QUANTUM type_specifier declarator { incr_scope(); } func_head func_tail {
+	QUANTUM type_specifier declarator {
+	        incr_scope();
+	    } func_head func_tail {
 	    hide_scope();
 	    set_type_info($3, QUANTUM_T, $2->type, $2->sizes, $2->depth);
 	    set_func_info($3, $5->is_unitary, false, $5->pars_type_info, $5->num_of_pars);
@@ -144,7 +161,9 @@ func_def:
 	        yyerror(error_msg);
 	    }
 	}
-	| type_specifier declarator { incr_scope(); } func_head func_tail {
+	| type_specifier declarator {
+	        incr_scope();
+	    } func_head func_tail {
 	    hide_scope();
 	    set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth);
 	    set_func_info($2, false, $4->is_quantizable, $4->pars_type_info, $4->num_of_pars);
@@ -152,8 +171,17 @@ func_def:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
+        printf("%s takes %u parameters:\n", $2->name, $2->num_of_pars);
+        for (unsigned i = 0; i < $2->num_of_pars; ++i) {
+            printf("Parameter %u: ", i + 1);
+            print_type_info($2->pars_type_info + i);
+            putchar('\n');
+        }
+        printf("It is %squantizable and returns %s\n", ($2->is_quantizable) ? "" : "not", type_to_str($2->type));
 	}
-	| VOID declarator { incr_scope(); } func_head func_tail {
+	| VOID declarator {
+	        incr_scope();
+	    } func_head func_tail {
 	    hide_scope();
 	    set_type_info($2, NONE_T, VOID_T, NULL, 0);
 	    set_func_info($2, $4->is_unitary, $4->is_quantizable, $4->pars_type_info, $4->num_of_pars);
@@ -169,7 +197,6 @@ func_head:
         $$ = $2;
     }
     | LPAREN RPAREN {
-        func_info_t func_info;
         $$ = &func_info;
         if (!setup_empty_func_info($$, error_msg)) {
             yyerror(error_msg);
@@ -179,32 +206,31 @@ func_head:
 
 par_l:
 	par {
-	    func_info_t func_info;
 	    $$ = &func_info;
         if (!setup_func_info($$, *$1, error_msg)) {
             yyerror(error_msg);
         }
+        --type_info_counter;
 	}
 	| par_l COMMA par {
 	    $$ = $1;
 	    if (!append_to_func_info($$, *$3, error_msg)) {
 	        yyerror(error_msg);
 	    }
+	    --type_info_counter;
 	}
 	;
 
 par:
 	QUANTUM type_specifier declarator {
 	    set_type_info($3, QUANTUM_T, $2->type, $2->sizes, $2->depth);
-	    type_info_t type_info;
-	    $$ = &type_info;
-        copy_type_info_of_entry($$, $3);
+	    $$ = $2;
+	    $$->qualifier = QUANTUM_T;
 	}
 	| type_specifier declarator {
         set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth);
-        type_info_t type_info;
-        $$ = &type_info;
-        copy_type_info_of_entry($$, $2);
+	    $$ = $1;
+	    $$->qualifier = NONE_T;
     }
 	;
 
@@ -221,6 +247,7 @@ variable_decl:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
+        --type_info_counter;
     }
     | type_specifier declarator SEMICOLON {
         set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth);
@@ -228,6 +255,7 @@ variable_decl:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
+        --type_info_counter;
     }
     ;
 
@@ -238,6 +266,7 @@ variable_def:
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
+	    --type_info_counter;
 	}
 	| CONST type_specifier declarator ASSIGN init SEMICOLON {
 	    set_type_info($3, CONST_T, $2->type, $2->sizes, $2->depth);
@@ -257,6 +286,7 @@ variable_def:
                    get_length_of_array(const_node_view->type_info.sizes,
                                        const_node_view->type_info.depth) * sizeof (value_t));
         }
+        --type_info_counter;
     }
 	| type_specifier declarator ASSIGN init SEMICOLON {
 	    set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth);
@@ -264,6 +294,7 @@ variable_def:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
+        --type_info_counter;
     }
 	;
 
@@ -278,7 +309,6 @@ declarator:
 
 init:
     logical_or_expr {
-        init_info_t init_info;
         $$ = &init_info;
         if (!setup_init_info($$, false, $1, error_msg)) {
             yyerror(error_msg);
@@ -293,7 +323,7 @@ init:
         if (func_sp_node == NULL) {
             yyerror(error_msg);
         }
-        init_info_t init_info;
+
         $$ = &init_info;
         if (!setup_init_info($$, false, func_sp_node, error_msg)) {
             yyerror(error_msg);
@@ -306,7 +336,6 @@ init:
 
 init_elem_l:
     logical_or_expr {
-        init_info_t init_info;
         $$ = &init_info;
         if (!setup_init_info($$, true, $1, error_msg)) {
             yyerror(error_msg);
@@ -322,7 +351,6 @@ init_elem_l:
             yyerror(error_msg);
         }
 
-        init_info_t init_info;
         $$ = &init_info;
         if (!setup_init_info($$, true, func_sp_node, error_msg)) {
             yyerror(error_msg);
@@ -352,25 +380,25 @@ init_elem_l:
 
 type_specifier:
 	BOOL {
-	    type_info_t type_info;
-	    $$ = &type_info;
+	    $$ = type_info_array + type_info_counter;
 	    if (!setup_atomic_type_info($$, BOOL_T, error_msg)) {
 	        yyerror(error_msg);
 	    }
+	    ++type_info_counter;
 	}
 	| INT {
-	    type_info_t type_info;
-	    $$ = &type_info;
+	    $$ = type_info_array + type_info_counter;
 	    if (!setup_atomic_type_info($$, INT_T, error_msg)) {
 	        yyerror(error_msg);
 	    }
+	    ++type_info_counter;
 	}
 	| UNSIGNED {
-	    type_info_t type_info;
-	    $$ = &type_info;
+	    $$ = type_info_array + type_info_counter;
 	    if (!setup_atomic_type_info($$, UNSIGNED_T, error_msg)) {
 	        yyerror(error_msg);
 	    }
+	    ++type_info_counter;
 	}
 	| type_specifier LBRACKET or_expr RBRACKET {
 	    $$ = $1;
@@ -386,16 +414,17 @@ sub_program:
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
+	    --stmt_list_counter;
     }
     ;
 
 stmt_l:
 	stmt {
-	    stmt_list_t stmt_list;
-	    $$ = &stmt_list;
+	    $$ = stmt_list_array + stmt_list_counter;
 	    if (!setup_stmt_list($$, $1, error_msg)) {
 	        yyerror(error_msg);
 	    }
+	    ++stmt_list_counter;
 	}
 	| stmt_l stmt {
 	    $$ = $1;
@@ -429,16 +458,17 @@ res_sub_program:
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
+	    --stmt_list_counter;
     }
     ;
 
 res_stmt_l:
 	res_stmt {
-	    stmt_list_t stmt_list;
-	    $$ = &stmt_list;
+	    $$ = stmt_list_array + stmt_list_counter;
 	    if (!setup_stmt_list($$, $1, error_msg)) {
 	        yyerror(error_msg);
 	    }
+	    ++stmt_list_counter;
 	}
 	| res_stmt_l res_stmt {
 	    $$ = $1;
@@ -521,7 +551,7 @@ func_call_stmt:
     INV func_call SEMICOLON {
         $$ = $2;
         func_call_node_t *func_call_node_view = (func_call_node_t *) $$;
-        if (!func_call_node_view->entry->is_unitary) {
+        if (!is_unitary($2)) {
             snprintf(error_msg, sizeof (error_msg), "Trying to invert non-unitary function %s",
                      func_call_node_view->entry->name);
             yyerror(error_msg);
@@ -549,6 +579,7 @@ if_stmt:
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
+	    --else_if_list_counter;
 	}
 	;
 
@@ -559,11 +590,11 @@ else_if:
             yyerror(error_msg);
         }
 
-        else_if_list_t else_if_list;
-        $$ = &else_if_list;
+        $$ = else_if_list_array + else_if_list_counter;
         if (!setup_else_if_list($$, else_if_node, error_msg)) {
             yyerror(error_msg);
         }
+        ++else_if_list_counter;
     }
     | else_if ELSE IF LPAREN logical_or_expr RPAREN LBRACE res_sub_program RBRACE {
         node_t *else_if_node = new_else_if_node($5, $8, error_msg);
@@ -593,16 +624,17 @@ switch_stmt:
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
+	    --case_list_counter;
 	}
 	;
 
 case_stmt_l:
     case_stmt {
-        case_list_t case_list;
-        $$ = &case_list;
+        $$ = case_list_array + case_list_counter;
         if (!setup_case_list($$, $1, error_msg)) {
             yyerror(error_msg);
         }
+        ++case_list_counter;
     }
     | case_stmt_l case_stmt {
         $$ = $1;
@@ -973,6 +1005,7 @@ array_access_expr:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
+        --access_info_counter;
 	}
 	;
 
@@ -983,11 +1016,11 @@ array_access:
             yyerror(error_msg);
         }
 
-        access_info_t access_info;
-        $$ = &access_info;
+        $$ = access_info_array + access_info_counter;
         if (!setup_access_info($$, entry, error_msg)) {
             yyerror(error_msg);
         }
+        ++access_info_counter;
     }
     | array_access LBRACKET or_expr RBRACKET {
         $$ = $1;
@@ -1031,6 +1064,7 @@ func_call:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
+        --arg_list_counter;
 	}
 	| ID LPAREN RPAREN {
         entry_t *entry = insert($1, strlen($1), yylineno, false, error_msg);
@@ -1051,16 +1085,17 @@ func_call:
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
+	    --arg_list_counter;
 	}
 	;
 
 argument_expr_l:
 	logical_or_expr {
-	    arg_list_t arg_list;
-	    $$ = &arg_list;
+	    $$ = arg_list_array + arg_list_counter;
 	    if (!setup_arg_list($$, $1, error_msg)) {
 	        yyerror(error_msg);
 	    }
+	    ++arg_list_counter;
 	}
 	| argument_expr_l COMMA logical_or_expr {
 	    $$ = $1;
@@ -1088,7 +1123,13 @@ int main(int argc, char **argv) {
     }
 
     bool dump = (argc == 2 && strncmp(argv[1], "--dump", 7) == 0) || (argc == 3 && strncmp(argv[2], "--dump", 7) == 0);
-    init_symbol_table(dump);
+    init_symbol_table();
+    stmt_list_counter = 0;
+    type_info_counter = 0;
+    arg_list_counter = 0;
+    access_info_counter = 0;
+    else_if_list_counter = 0;
+    case_list_counter = 0;
 
     yyparse();
 
@@ -1105,5 +1146,7 @@ int main(int argc, char **argv) {
         dump_symbol_table(yyout);
         fclose(yyout);
     }
+
+    free_symbol_table();
     return 0;
 }

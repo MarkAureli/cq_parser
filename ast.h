@@ -501,6 +501,8 @@ bool copy_type_info_of_node(type_info_t *type_info, const node_t *node);
 
 bool are_matching_types(type_t type_1, type_t type_2);
 
+void print_type_info(const type_info_t *type_info);
+
 void print_node(const node_t *node);
 
 void tree_traversal(const node_t *node);
