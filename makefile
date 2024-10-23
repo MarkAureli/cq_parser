@@ -36,5 +36,14 @@ test:
 	done; \
 	echo "- Definitions passed."
 
+	@for file in $(TEST_DIR)/test_grover*.cq; do \
+		./$(PARSER) $$file; \
+		if [ $$? -ne 0 ]; then \
+			echo "$(PARSER) returned 1 for file $$(basename $$file)"; \
+			exit 1; \
+		fi; \
+	done; \
+	echo "- Grover passed."
+
 clean:
 	@rm -f $(PARSER) $(PARSER).output symtab_dump.out $(PARSER).tab.c $(PARSER).tab.h $(LEXER).yy.c

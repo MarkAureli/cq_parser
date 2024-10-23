@@ -1,0 +1,29 @@
+const unsigned GROVER_ITER = 10000;
+
+bool marker(int x) {
+    return (x & 1) == 0;
+}
+
+bool all_true(int x) {
+    return true;
+}
+
+int main() {
+    quantum int state = [all_true];
+
+    for (unsigned i = 0; i < GROVER_ITER; i += 1) {
+        if (marker(state)) {
+            phase (state) += 1;
+        }
+
+        ~[all_true](state);
+
+        if (state == 0) {
+            phase (state) += 1;
+        }
+
+        [all_true](state);
+    }
+
+    return measure (state);
+}
