@@ -246,6 +246,9 @@ typedef struct reference_node {
 
 typedef struct func_call_node {
     node_type_t node_type;
+    bool is_unitary;
+    bool is_quantizable;
+    type_info_t type_info;
     entry_t *entry;
     bool inverse;
     bool sp;

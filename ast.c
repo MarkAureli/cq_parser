@@ -885,6 +885,7 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
         return NULL;
     }
 
+    bool is_quantized = false;
     if (sp) {
         if (!is_sp(entry)) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s cannot be used to create a superposition", entry->name);
@@ -939,17 +940,24 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
                 free_symbol_table();
                 return NULL;
             }
+
             if (entry->pars_type_info[i].qualifier != QUANTUM_T && type_info_of_par.qualifier == QUANTUM_T) {
-                snprintf(error_msg, ERROR_MSG_LENGTH,
-                         "Parameter %u in call to function %s is required to be classical, but is quantum",
-                         i + 1, entry->name);
-                for (unsigned j = 0; j < num_of_pars; ++j) {
-                    free_node(pars[j]);
+                if (!entry->is_quantizable) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH,
+                             "Parameter %u in call to function %s is required to be classical, but is quantum",
+                             i + 1, entry->name);
+                    for (unsigned j = 0; j < num_of_pars; ++j) {
+                        free_node(pars[j]);
+                    }
+                    free(pars);
+                    free_symbol_table();
+                    return NULL;
+                } else {
+                    is_quantized = true;
                 }
-                free(pars);
-                free_symbol_table();
-                return NULL;
-            } else if (!are_matching_types(entry->pars_type_info[i].type, type_info_of_par.type)) {
+            }
+
+            if (!are_matching_types(entry->pars_type_info[i].type, type_info_of_par.type)) {
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Parameter %u in call to function %s is required to be of type %s, but is of type %s",
                          i + 1, entry->name, type_to_str(entry->pars_type_info[i].type),
@@ -1021,6 +1029,22 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
     }
 
     new_node->node_type = FUNC_CALL_NODE_T;
+    if (sp) {
+        new_node->is_quantizable = false;
+        new_node->is_unitary = true;
+        new_node->type_info.qualifier = NONE_T;
+        new_node->type_info.type = VOID_T;
+        new_node->type_info.depth = 0;
+    } else if (is_quantized) {
+        new_node->is_quantizable = false;
+        new_node->is_unitary = true;
+        copy_type_info_of_entry(&new_node->type_info, entry);
+        new_node->type_info.qualifier = QUANTUM_T;
+    } else {
+        new_node->is_quantizable = entry->is_quantizable;
+        new_node->is_unitary = entry->is_unitary;
+        copy_type_info_of_entry(&new_node->type_info, entry);
+    }
     new_node->entry = entry;
     new_node->inverse = false;
     new_node->sp = sp;
@@ -2297,7 +2321,7 @@ bool is_quantizable(const node_t *node) {
             return ((reference_node_t *) node)->is_quantizable;
         }
         case FUNC_CALL_NODE_T: {
-            return !(((func_call_node_t *) node)->sp) && ((func_call_node_t *) node)->entry->is_quantizable;
+            return ((func_call_node_t *) node)->is_quantizable;
         }
         case LOGICAL_OP_NODE_T: {
             return ((logical_op_node_t *) node)->is_quantizable;
@@ -2366,7 +2390,7 @@ bool is_unitary(const node_t *node) {
             return ((reference_node_t *) node)->is_unitary;
         }
         case FUNC_CALL_NODE_T: {
-            return ((func_call_node_t *) node)->sp || ((func_call_node_t *) node)->entry->is_unitary;
+            return ((func_call_node_t *) node)->is_unitary;
         }
         case FUNC_SP_NODE_T: {
             return true;
@@ -2706,8 +2730,15 @@ void print_node(const node_t *node) {
             break;
         }
         case FUNC_CALL_NODE_T: {
-            printf("Function call node for %s with %u parameters\n", ((func_call_node_t *) node)->entry->name,
-                   ((func_call_node_t *) node)->num_of_pars);
+            if (((func_call_node_t *) node)->sp) {
+                printf("[%s](...) -> (", ((func_call_node_t *) node)->entry->name);
+                print_type_info(&(((func_call_node_t *) node)->type_info));
+                printf(")\n");
+            } else {
+                printf("%s(...) -> (", ((func_call_node_t *) node)->entry->name);
+                print_type_info(&(((func_call_node_t *) node)->type_info));
+                printf(")\n");
+            }
             break;
         }
         case LOGICAL_OP_NODE_T: {

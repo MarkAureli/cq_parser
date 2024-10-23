@@ -155,7 +155,7 @@ func_def:
 	    } func_head func_tail {
 	    hide_scope();
 	    set_type_info($3, QUANTUM_T, $2->type, $2->sizes, $2->depth);
-	    set_func_info($3, $5->is_unitary, false, $5->pars_type_info, $5->num_of_pars);
+	    set_func_info($3, $5->is_unitary && is_unitary($6), false, $5->pars_type_info, $5->num_of_pars);
 	    $$ = new_func_decl_node($3, $6, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
@@ -166,25 +166,19 @@ func_def:
 	    } func_head func_tail {
 	    hide_scope();
 	    set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth);
-	    set_func_info($2, false, $4->is_quantizable, $4->pars_type_info, $4->num_of_pars);
+	    set_func_info($2, false, $4->is_quantizable && is_quantizable($5), $4->pars_type_info, $4->num_of_pars);
 	    $$ = new_func_decl_node($2, $5, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
-        printf("%s takes %u parameters:\n", $2->name, $2->num_of_pars);
-        for (unsigned i = 0; i < $2->num_of_pars; ++i) {
-            printf("Parameter %u: ", i + 1);
-            print_type_info($2->pars_type_info + i);
-            putchar('\n');
-        }
-        printf("It is %squantizable and returns %s\n", ($2->is_quantizable) ? "" : "not", type_to_str($2->type));
 	}
 	| VOID declarator {
 	        incr_scope();
 	    } func_head func_tail {
 	    hide_scope();
 	    set_type_info($2, NONE_T, VOID_T, NULL, 0);
-	    set_func_info($2, $4->is_unitary, $4->is_quantizable, $4->pars_type_info, $4->num_of_pars);
+	    set_func_info($2, $4->is_unitary && is_unitary($5), $4->is_quantizable && is_quantizable($5),
+	                  $4->pars_type_info, $4->num_of_pars);
 	    $$ = new_func_decl_node($2, $5, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
