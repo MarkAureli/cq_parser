@@ -335,7 +335,179 @@ value_t *get_reduced_array(const value_t *values, const unsigned sizes[MAX_ARRAY
 }
 
 void free_node(node_t *node) {
+    if (node == NULL) {
+        return;
+    }
 
+    switch (node->node_type) {
+        case BASIC_NODE_T: {
+            free_node(node->left);
+            free_node(node->right);
+            free(node);
+            return;
+        }
+        case STMT_LIST_NODE_T: {
+            for (unsigned i = 0; i < ((stmt_list_node_t *) node)->num_of_stmts; ++i) {
+                free_node(((stmt_list_node_t *) node)->stmt_list[i]);
+            }
+            free(((stmt_list_node_t *) node)->stmt_list);
+            free((stmt_list_node_t *) node);
+            return;
+        }
+        case FUNC_DECL_NODE_T: {
+            free_node(((func_decl_node_t *) node)->func_tail);
+            free((func_decl_node_t *) node);
+            return;
+        }
+        case VAR_DECL_NODE_T: {
+            free((var_decl_node_t *) node);
+            return;
+        }
+        case VAR_DEF_NODE_T: {
+            if (((var_def_node_t *) node)->is_init_list) {
+                free(((var_def_node_t *) node)->qualified_types);
+                free(((var_def_node_t *) node)->values);
+            } else {
+                free_node(((var_def_node_t *) node)->node);
+            }
+            free((var_def_node_t *) node);
+            return;
+        }
+        case CONST_NODE_T: {
+            free(((const_node_t *) node)->values);
+            free((const_node_t *) node);
+            return;
+        }
+        case REFERENCE_NODE_T: {
+            free((reference_node_t *) node);
+            return;
+        }
+        case FUNC_CALL_NODE_T: {
+            for (unsigned i = 0; i < ((func_call_node_t *) node)->num_of_pars; ++i) {
+                free_node(((func_call_node_t *) node)->pars[i]);
+            }
+            free(((func_call_node_t *) node)->pars);
+            free((func_call_node_t *) node);
+            return;
+        }
+        case FUNC_SP_NODE_T: {
+            free((func_sp_node_t *) node);
+            return;
+        }
+        case LOGICAL_OP_NODE_T: {
+            free_node(((logical_op_node_t *) node)->left);
+            free_node(((logical_op_node_t *) node)->right);
+            free((logical_op_node_t *) node);
+            return;
+        }
+        case COMPARISON_OP_NODE_T: {
+            free_node(((comparison_op_node_t *) node)->left);
+            free_node(((comparison_op_node_t *) node)->right);
+            free((comparison_op_node_t *) node);
+            return;
+        }
+        case EQUALITY_OP_NODE_T: {
+            free_node(((equality_op_node_t *) node)->left);
+            free_node(((equality_op_node_t *) node)->right);
+            free((equality_op_node_t *) node);
+            return;
+        }
+        case NOT_OP_NODE_T: {
+            free_node(((not_op_node_t *) node)->child);
+            free((not_op_node_t *) node);
+            return;
+        }
+        case INTEGER_OP_NODE_T: {
+            free_node(((integer_op_node_t *) node)->left);
+            free_node(((integer_op_node_t *) node)->right);
+            free((integer_op_node_t *) node);
+            return;
+        }
+        case INVERT_OP_NODE_T: {
+            free_node(((invert_op_node_t *) node)->child);
+            free((invert_op_node_t *) node);
+            return;
+        }
+        case IF_NODE_T: {
+            free_node(((if_node_t *) node)->condition);
+            free_node(((if_node_t *) node)->if_branch);
+            for (unsigned i = 0; i < ((if_node_t *) node)->num_of_else_ifs; ++i) {
+                free_node(((if_node_t *) node)->else_if_branches[i]);
+            }
+            free_node(((if_node_t *) node)->else_branch);
+            free((if_node_t *) node);
+            return;
+        }
+        case ELSE_IF_NODE_T: {
+            free_node(((else_if_node_t *) node)->condition);
+            free_node(((else_if_node_t *) node)->else_if_branch);
+            free((else_if_node_t *) node);
+            return;
+        }
+        case SWITCH_NODE_T: {
+            free_node(((switch_node_t *) node)->expression);
+            for (unsigned i = 0; i < ((switch_node_t *) node)->num_of_cases; ++i) {
+                free_node(((switch_node_t *) node)->case_branches[i]);
+            }
+            free((switch_node_t *) node);
+            return;
+        }
+        case CASE_NODE_T: {
+            free_node(((case_node_t *) node)->case_branch);
+            free((case_node_t *) node);
+            return;
+        }
+        case FOR_NODE_T: {
+            free_node(((for_node_t *) node)->initialize);
+            free_node(((for_node_t *) node)->condition);
+            free_node(((for_node_t *) node)->increment);
+            free_node(((for_node_t *) node)->for_branch);
+            free((for_node_t *) node);
+            return;
+        }
+        case DO_NODE_T: {
+            free_node(((do_node_t *) node)->do_branch);
+            free_node(((do_node_t *) node)->condition);
+            free((do_node_t *) node);
+            return;
+        }
+        case WHILE_NODE_T: {
+            free_node(((while_node_t *) node)->condition);
+            free_node(((while_node_t *) node)->while_branch);
+            free((while_node_t *) node);
+            return;
+        }
+        case ASSIGN_NODE_T: {
+            free_node(((assign_node_t *) node)->left);
+            free_node(((assign_node_t *) node)->right);
+            free((assign_node_t *) node);
+            return;
+        }
+        case PHASE_NODE_T: {
+            free_node(((phase_node_t *) node)->left);
+            free_node(((phase_node_t *) node)->right);
+            free((phase_node_t *) node);
+            return;
+        }
+        case MEASURE_NODE_T: {
+            free_node(((measure_node_t *) node)->child);
+            free((measure_node_t *) node);
+            return;
+        }
+        case BREAK_NODE_T: {
+            free((break_node_t *) node);
+            return;
+        }
+        case CONTINUE_NODE_T: {
+            free((continue_node_t *) node);
+            return;
+        }
+        case RETURN_NODE_T: {
+            free_node(((return_node_t *) node)->return_value);
+            free((return_node_t *) node);
+            return;
+        }
+    }
 }
 
 qualifier_t propagate_qualifier(qualifier_t qualifier_1, qualifier_t qualifier_2) {
@@ -2242,7 +2414,7 @@ node_t *new_measure_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
     new_node->node_type = MEASURE_NODE_T;
     new_node->type_info = type_info;
     new_node->type_info.qualifier = NONE_T;
-    new_node->node = node;
+    new_node->child = node;
     return (node_t *) new_node;
 }
 
@@ -2874,7 +3046,7 @@ void print_node(const node_t *node) {
         }
         case MEASURE_NODE_T: {
             printf("measure (");
-            copy_type_info_of_node(&type_info, ((measure_node_t *) node)->node);
+            copy_type_info_of_node(&type_info, ((measure_node_t *) node)->child);
             print_type_info(&type_info);
             printf(") -> (");
             print_type_info(&(((measure_node_t *) node)->type_info));
@@ -3019,7 +3191,7 @@ void tree_traversal(const node_t *node) {
             break;
         }
         case MEASURE_NODE_T: {
-            tree_traversal(((measure_node_t *) node)->node);
+            tree_traversal(((measure_node_t *) node)->child);
             break;
         }
         case RETURN_NODE_T: {

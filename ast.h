@@ -394,7 +394,7 @@ typedef struct phase_node {
 typedef struct measure_node {
     node_type_t node_type;
     type_info_t type_info;
-    node_t *node;
+    node_t *child;
 } measure_node_t;
 
 typedef struct break_node {
@@ -510,6 +510,7 @@ void print_node(const node_t *node);
 
 void tree_traversal(const node_t *node);
 
+void free_node(node_t *node);
 
 /*
  * =====================================================================================================================

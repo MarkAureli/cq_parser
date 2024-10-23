@@ -14,6 +14,7 @@ extern FILE *yyin;
 extern FILE *yyout;
 
 int yyerror(const char *s);
+static node_t *root;
 static char error_msg[ERROR_MSG_LENGTH];
 static unsigned stmt_list_counter;
 static stmt_list_t stmt_list_array[MAX_NUM_OF_STMT_LISTS];
@@ -116,8 +117,9 @@ program:
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
+
+	    root = $$;
         --stmt_list_counter;
-	    tree_traversal($$);
 	}
 	;
 
@@ -127,6 +129,7 @@ decl_l:
         if (!setup_stmt_list($$, $1, error_msg)) {
             yyerror(error_msg);
         }
+
         ++stmt_list_counter;
     }
 	| decl_l decl {
@@ -204,6 +207,7 @@ par_l:
         if (!setup_func_info($$, *$1, error_msg)) {
             yyerror(error_msg);
         }
+
         --type_info_counter;
 	}
 	| par_l COMMA par {
@@ -211,6 +215,7 @@ par_l:
 	    if (!append_to_func_info($$, *$3, error_msg)) {
 	        yyerror(error_msg);
 	    }
+
 	    --type_info_counter;
 	}
 	;
@@ -249,6 +254,7 @@ variable_decl:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
+
         --type_info_counter;
     }
     ;
@@ -260,6 +266,7 @@ variable_def:
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
+
 	    --type_info_counter;
 	}
 	| CONST type_specifier declarator ASSIGN init SEMICOLON {
@@ -280,6 +287,7 @@ variable_def:
                    get_length_of_array(const_node_view->type_info.sizes,
                                        const_node_view->type_info.depth) * sizeof (value_t));
         }
+
         --type_info_counter;
     }
 	| type_specifier declarator ASSIGN init SEMICOLON {
@@ -288,6 +296,7 @@ variable_def:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
+
         --type_info_counter;
     }
 	;
@@ -378,6 +387,7 @@ type_specifier:
 	    if (!setup_atomic_type_info($$, BOOL_T, error_msg)) {
 	        yyerror(error_msg);
 	    }
+
 	    ++type_info_counter;
 	}
 	| INT {
@@ -385,6 +395,7 @@ type_specifier:
 	    if (!setup_atomic_type_info($$, INT_T, error_msg)) {
 	        yyerror(error_msg);
 	    }
+
 	    ++type_info_counter;
 	}
 	| UNSIGNED {
@@ -392,6 +403,7 @@ type_specifier:
 	    if (!setup_atomic_type_info($$, UNSIGNED_T, error_msg)) {
 	        yyerror(error_msg);
 	    }
+
 	    ++type_info_counter;
 	}
 	| type_specifier LBRACKET or_expr RBRACKET {
@@ -408,6 +420,7 @@ sub_program:
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
+
 	    --stmt_list_counter;
     }
     ;
@@ -418,6 +431,7 @@ stmt_l:
 	    if (!setup_stmt_list($$, $1, error_msg)) {
 	        yyerror(error_msg);
 	    }
+
 	    ++stmt_list_counter;
 	}
 	| stmt_l stmt {
@@ -452,6 +466,7 @@ res_sub_program:
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
+
 	    --stmt_list_counter;
     }
     ;
@@ -462,6 +477,7 @@ res_stmt_l:
 	    if (!setup_stmt_list($$, $1, error_msg)) {
 	        yyerror(error_msg);
 	    }
+
 	    ++stmt_list_counter;
 	}
 	| res_stmt_l res_stmt {
@@ -573,6 +589,7 @@ if_stmt:
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
+
 	    --else_if_list_counter;
 	}
 	;
@@ -588,6 +605,7 @@ else_if:
         if (!setup_else_if_list($$, else_if_node, error_msg)) {
             yyerror(error_msg);
         }
+
         ++else_if_list_counter;
     }
     | else_if ELSE IF LPAREN logical_or_expr RPAREN LBRACE res_sub_program RBRACE {
@@ -618,6 +636,7 @@ switch_stmt:
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
+
 	    --case_list_counter;
 	}
 	;
@@ -628,6 +647,7 @@ case_stmt_l:
         if (!setup_case_list($$, $1, error_msg)) {
             yyerror(error_msg);
         }
+
         ++case_list_counter;
     }
     | case_stmt_l case_stmt {
@@ -999,6 +1019,7 @@ array_access_expr:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
+
         --access_info_counter;
 	}
 	;
@@ -1014,6 +1035,7 @@ array_access:
         if (!setup_access_info($$, entry, error_msg)) {
             yyerror(error_msg);
         }
+
         ++access_info_counter;
     }
     | array_access LBRACKET or_expr RBRACKET {
@@ -1058,6 +1080,7 @@ func_call:
         if ($$ == NULL) {
             yyerror(error_msg);
         }
+
         --arg_list_counter;
 	}
 	| ID LPAREN RPAREN {
@@ -1079,6 +1102,7 @@ func_call:
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
+
 	    --arg_list_counter;
 	}
 	;
@@ -1089,6 +1113,7 @@ argument_expr_l:
 	    if (!setup_arg_list($$, $1, error_msg)) {
 	        yyerror(error_msg);
 	    }
+
 	    ++arg_list_counter;
 	}
 	| argument_expr_l COMMA logical_or_expr {
@@ -1118,6 +1143,7 @@ int main(int argc, char **argv) {
 
     bool dump = (argc == 2 && strncmp(argv[1], "--dump", 7) == 0) || (argc == 3 && strncmp(argv[2], "--dump", 7) == 0);
     init_symbol_table();
+    root = NULL;
     stmt_list_counter = 0;
     type_info_counter = 0;
     arg_list_counter = 0;
@@ -1127,11 +1153,13 @@ int main(int argc, char **argv) {
 
     yyparse();
 
+
     if (argc > 1) {
         fclose(yyin);
     }
 
     if (dump) {
+        tree_traversal(root);
         yyout = fopen("symtab_dump.out", "w");
         if (!yyout) {
             fprintf(stderr, "Could not open symtab_dump.out\n");
@@ -1141,6 +1169,7 @@ int main(int argc, char **argv) {
         fclose(yyout);
     }
 
+    free_node(root);
     free_symbol_table();
     return 0;
 }
