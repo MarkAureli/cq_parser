@@ -2765,83 +2765,83 @@ bool are_matching_types(type_t type_1, type_t type_2) {
     return true;
 }
 
-void print_const_value(type_t type, value_t value) {
+void fprint_const_value(FILE *output_file, type_t type, value_t value) {
     switch (type) {
         case VOID_T: {
             return;
         }
         case BOOL_T: {
             if (value.b_val) {
-                printf("true");
+                fprintf(output_file, "true");
             } else {
-                printf("false");
+                fprintf(output_file, "false");
             }
             return;
         }
         case INT_T: {
-            printf("%d", value.i_val);
+            fprintf(output_file, "%d", value.i_val);
             return;
         }
         case UNSIGNED_T: {
-            printf("%u", value.u_val);
+            fprintf(output_file, "%u", value.u_val);
         }
         return;
     }
 }
 
-void print_type_info(const type_info_t *type_info) {
+void fprint_type_info(FILE *output_file, const type_info_t *type_info) {
     switch (type_info->qualifier) {
         case NONE_T: {
             break;
         }
         case CONST_T: {
-            printf("const ");
+            fprintf(output_file, "const ");
             break;
         }
         case QUANTUM_T: {
-            printf("quantum ");
+            fprintf(output_file, "quantum ");
             break;
         }
     }
-    printf("%s", type_to_str(type_info->type));
+    fprintf(output_file, "%s", type_to_str(type_info->type));
     for (unsigned i = 0; i < type_info->depth; ++i) {
-        printf("[%u]", type_info->sizes[i]);
+        fprintf(output_file, "[%u]", type_info->sizes[i]);
     }
 }
 
-void print_node(const node_t *node) {
+void fprint_node(FILE *output_file, const node_t *node) {
     type_info_t type_info;
     switch (node->node_type) {
         case BASIC_NODE_T: {
-            printf("Basic node\n");
+            fprintf(output_file, "Basic node\n");
             break;
         }
         case STMT_LIST_NODE_T: {
-            printf("Statement list node with %u statements\n", ((stmt_list_node_t *) node)->num_of_stmts);
+            fprintf(output_file, "Statement list node with %u statements\n", ((stmt_list_node_t *) node)->num_of_stmts);
             break;
         }
         case FUNC_SP_NODE_T: {
-            printf("Function superposition node for %s\n", ((func_sp_node_t *) node)->entry->name);
+            fprintf(output_file, "Function superposition node for %s\n", ((func_sp_node_t *) node)->entry->name);
             break;
         }
         case FUNC_DECL_NODE_T: {
-            printf("Function declaration node for %s\n", ((func_decl_node_t *) node)->entry->name);
+            fprintf(output_file, "Function declaration node for %s\n", ((func_decl_node_t *) node)->entry->name);
             break;
         }
         case VAR_DECL_NODE_T: {
             var_decl_node_t *var_decl_node_view = ((var_decl_node_t *) node);
-            printf("Declaration: ");
+            fprintf(output_file, "Declaration: ");
             copy_type_info_of_node(&type_info, node);
-            print_type_info(&type_info);
-            printf(" %s\n", var_decl_node_view->entry->name);
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, " %s\n", var_decl_node_view->entry->name);
             break;
         }
         case VAR_DEF_NODE_T: {
             var_def_node_t *var_def_node_view = ((var_def_node_t *) node);
-            printf("Definition: ");
+            fprintf(output_file, "Definition: ");
             copy_type_info_of_node(&type_info, node);
-            print_type_info(&type_info);
-            printf(" %s\n", var_def_node_view->entry->name);
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, " %s\n", var_def_node_view->entry->name);
             break;
         }
         case CONST_NODE_T: {
@@ -2849,246 +2849,246 @@ void print_node(const node_t *node) {
             if (type_info.depth == 0) {
                 switch (type_info.type) {
                     case BOOL_T: {
-                        printf("%s\n", ((const_node_t *) node)->values[0].b_val ? "true" : "false");
+                        fprintf(output_file, "%s\n", ((const_node_t *) node)->values[0].b_val ? "true" : "false");
                         break;
                     }
                     case INT_T: {
-                        printf("%d\n", ((const_node_t *) node)->values[0].i_val);
+                        fprintf(output_file, "%d\n", ((const_node_t *) node)->values[0].i_val);
                         break;
                     }
                     case UNSIGNED_T: {
-                        printf("%u\n", ((const_node_t *) node)->values[0].u_val);
+                        fprintf(output_file, "%u\n", ((const_node_t *) node)->values[0].u_val);
                         break;
                     }
                     case VOID_T: {
-                        printf("undefined\n");
+                        fprintf(output_file, "undefined\n");
                         break;
                     }
                 }
             } else {
-                putchar('{');
+                fprintf(output_file, "{");
                 for (unsigned i = 0; i < get_length_of_array(type_info.sizes, type_info.depth); ++i) {
                     if (i != 0) {
-                        printf(", ");
+                        fprintf(output_file, ", ");
                     }
                     switch (type_info.type) {
                         case BOOL_T: {
-                            printf("%s", ((const_node_t *) node)->values[i].b_val ? "true" : "false");
+                            fprintf(output_file, "%s", ((const_node_t *) node)->values[i].b_val ? "true" : "false");
                             break;
                         }
                         case INT_T: {
-                            printf("%d", ((const_node_t *) node)->values[i].i_val);
+                            fprintf(output_file, "%d", ((const_node_t *) node)->values[i].i_val);
                             break;
                         }
                         case UNSIGNED_T: {
-                            printf("%u", ((const_node_t *) node)->values[i].u_val);
+                            fprintf(output_file, "%u", ((const_node_t *) node)->values[i].u_val);
                             break;
                         }
                         case VOID_T: {
-                            printf("undefined");
+                            fprintf(output_file, "undefined");
                             break;
                         }
                     }
                 }
-                printf("}\n");
+                fprintf(output_file, "}\n");
             }
             break;
         }
         case REFERENCE_NODE_T: {
             copy_type_info_of_node(&type_info, node);
-            printf("Reference to ");
-            print_type_info(&type_info);
-            printf(" %s\n", ((reference_node_t *) node)->entry->name);
+            fprintf(output_file, "Reference to ");
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, " %s\n", ((reference_node_t *) node)->entry->name);
             break;
         }
         case FUNC_CALL_NODE_T: {
             if (((func_call_node_t *) node)->sp) {
-                printf("[%s](...) -> (", ((func_call_node_t *) node)->entry->name);
-                print_type_info(&(((func_call_node_t *) node)->type_info));
-                printf(")\n");
+                fprintf(output_file, "[%s](...) -> (", ((func_call_node_t *) node)->entry->name);
+                fprint_type_info(output_file, &(((func_call_node_t *) node)->type_info));
+                fprintf(output_file, ")\n");
             } else {
-                printf("%s(...) -> (", ((func_call_node_t *) node)->entry->name);
-                print_type_info(&(((func_call_node_t *) node)->type_info));
-                printf(")\n");
+                fprintf(output_file, "%s(...) -> (", ((func_call_node_t *) node)->entry->name);
+                fprint_type_info(output_file, &(((func_call_node_t *) node)->type_info));
+                fprintf(output_file, ")\n");
             }
             break;
         }
         case LOGICAL_OP_NODE_T: {
-            putchar('(');
+            fprintf(output_file, "(");
             copy_type_info_of_node(&type_info, ((logical_op_node_t *) node)->left);
-            print_type_info(&type_info);
-            printf(") %s (", logical_op_to_str(((logical_op_node_t *) node)->op));
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ") %s (", logical_op_to_str(((logical_op_node_t *) node)->op));
             copy_type_info_of_node(&type_info, ((logical_op_node_t *) node)->right);
-            print_type_info(&type_info);
-            printf(") -> (");
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ") -> (");
             copy_type_info_of_node(&type_info, node);
-            print_type_info(&type_info);
-            printf(")\n");
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ")\n");
             break;
         }
         case COMPARISON_OP_NODE_T: {
-            putchar('(');
+            fprintf(output_file, "(");
             copy_type_info_of_node(&type_info, ((comparison_op_node_t *) node)->left);
-            print_type_info(&type_info);
-            printf(") %s (", comparison_op_to_str(((comparison_op_node_t *) node)->op));
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ") %s (", comparison_op_to_str(((comparison_op_node_t *) node)->op));
             copy_type_info_of_node(&type_info, ((comparison_op_node_t *) node)->right);
-            print_type_info(&type_info);
-            printf(") -> (");
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ") -> (");
             copy_type_info_of_node(&type_info, node);
-            print_type_info(&type_info);
-            printf(")\n");
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ")\n");
             break;
         }
         case EQUALITY_OP_NODE_T: {
-            putchar('(');
+            fprintf(output_file, "(");
             copy_type_info_of_node(&type_info, ((equality_op_node_t *) node)->left);
-            print_type_info(&type_info);
-            printf(") %s (", equality_op_to_str(((equality_op_node_t *) node)->op));
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ") %s (", equality_op_to_str(((equality_op_node_t *) node)->op));
             copy_type_info_of_node(&type_info, ((equality_op_node_t *) node)->right);
-            print_type_info(&type_info);
-            printf(") -> (");
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ") -> (");
             copy_type_info_of_node(&type_info, node);
-            print_type_info(&type_info);
-            printf(")\n");
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ")\n");
             break;
         }
         case NOT_OP_NODE_T: {
-            printf("!(");
+            fprintf(output_file, "!(");
             copy_type_info_of_node(&type_info, ((not_op_node_t *) node)->child);
-            print_type_info(&type_info);
-            printf(") -> (");
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ") -> (");
             copy_type_info_of_node(&type_info, node);
-            print_type_info(&type_info);
-            printf(")\n");
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ")\n");
             break;
         }
         case INTEGER_OP_NODE_T: {
-            putchar('(');
+            fprintf(output_file, "(");
             copy_type_info_of_node(&type_info, ((integer_op_node_t *) node)->left);
-            print_type_info(&type_info);
-            printf(") %s (", integer_op_to_str(((integer_op_node_t *) node)->op));
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ") %s (", integer_op_to_str(((integer_op_node_t *) node)->op));
             copy_type_info_of_node(&type_info, ((integer_op_node_t *) node)->right);
-            print_type_info(&type_info);
-            printf(") -> (");
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ") -> (");
             copy_type_info_of_node(&type_info, node);
-            print_type_info(&type_info);
-            printf(")\n");
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ")\n");
             break;
         }
         case INVERT_OP_NODE_T: {
-            printf("~(");
+            fprintf(output_file, "~(");
             copy_type_info_of_node(&type_info, ((invert_op_node_t *) node)->child);
-            print_type_info(&type_info);
-            printf(") -> (");
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ") -> (");
             copy_type_info_of_node(&type_info, node);
-            print_type_info(&type_info);
-            printf(")\n");
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ")\n");
             break;
         }
         case IF_NODE_T: {
-            printf("If statement with %u \"else if\"s and%s \"else\"\n",
+            fprintf(output_file, "If statement with %u \"else if\"s and%s \"else\"\n",
                    ((if_node_t *) node)->num_of_else_ifs, (((if_node_t *) node)->else_branch != NULL) ? "" : " no");
             break;
         }
         case ELSE_IF_NODE_T: {
-            printf("Else-if branch\n");
+            fprintf(output_file, "Else-if branch\n");
             break;
         }
         case SWITCH_NODE_T: {
-            printf("Switch statement with %u cases\n", ((switch_node_t *) node)->num_of_cases);
+            fprintf(output_file, "Switch statement with %u cases\n", ((switch_node_t *) node)->num_of_cases);
             break;
         }
         case CASE_NODE_T: {
             if (((case_node_t *) node)->case_const_type == VOID_T) {
-                printf("default:\n");
+                fprintf(output_file, "default:\n");
             } else {
-                printf("case ");
-                print_const_value(((case_node_t *) node)->case_const_type,
+                fprintf(output_file, "case ");
+                fprint_const_value(output_file, ((case_node_t *) node)->case_const_type,
                                   ((case_node_t *) node)->case_const_value);
-                printf(":\n");
+                fprintf(output_file, ":\n");
             }
             break;
         }
         case FOR_NODE_T: {
-            printf("For loop\n");
+            fprintf(output_file, "For loop\n");
             break;
         }
         case DO_NODE_T: {
-            printf("Do-while loop\n");
+            fprintf(output_file, "Do-while loop\n");
             break;
         }
         case WHILE_NODE_T: {
-            printf("While loop\n");
+            fprintf(output_file, "While loop\n");
             break;
         }
         case ASSIGN_NODE_T: {
-            putchar('(');
+            fprintf(output_file, "(");
             copy_type_info_of_node(&type_info, ((assign_node_t *) node)->left);
-            print_type_info(&type_info);
-            printf(") %s (", assign_op_to_str(((assign_node_t *) node)->op));
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ") %s (", assign_op_to_str(((assign_node_t *) node)->op));
             copy_type_info_of_node(&type_info, ((assign_node_t *) node)->right);
-            print_type_info(&type_info);
-            printf(") -> (");
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ") -> (");
             copy_type_info_of_node(&type_info, node);
-            print_type_info(&type_info);
-            printf(")\n");
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ")\n");
             break;
         }
         case PHASE_NODE_T: {
-            printf("phase (");
+            fprintf(output_file, "phase (");
             copy_type_info_of_node(&type_info, ((phase_node_t *) node)->left);
-            print_type_info(&type_info);
-            printf(") %s= (", (((phase_node_t *) node)->is_positive) ? "+" : "-");
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ") %s= (", (((phase_node_t *) node)->is_positive) ? "+" : "-");
             copy_type_info_of_node(&type_info, ((phase_node_t *) node)->right);
-            print_type_info(&type_info);
-            printf(")\n");
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ")\n");
             break;
         }
         case MEASURE_NODE_T: {
-            printf("measure (");
+            fprintf(output_file, "measure (");
             copy_type_info_of_node(&type_info, ((measure_node_t *) node)->child);
-            print_type_info(&type_info);
-            printf(") -> (");
-            print_type_info(&(((measure_node_t *) node)->type_info));
-            printf(")\n");
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, ") -> (");
+            fprint_type_info(output_file, &(((measure_node_t *) node)->type_info));
+            fprintf(output_file, ")\n");
             break;
         }
         case BREAK_NODE_T: {
-            printf("Break\n");
+            fprintf(output_file, "Break\n");
             break;
         }
         case CONTINUE_NODE_T: {
-            printf("Continue\n");
+            fprintf(output_file, "Continue\n");
             break;
         }
         case RETURN_NODE_T: {
-            printf("Return ");
-            print_type_info(&(((return_node_t *) node)->type_info));
-            putchar('\n');
+            fprintf(output_file, "Return ");
+            fprint_type_info(output_file, &(((return_node_t *) node)->type_info));
+            fprintf(output_file, "\n");
             break;
         }
     }
 }
 
-void tree_traversal(const node_t *node) {
+void fprint_tree(FILE *output_file, const node_t *node) {
     if (node == NULL) {
         return;
     }
-    print_node(node);
+    fprint_node(output_file, node);
     switch (node->node_type) {
         case BASIC_NODE_T: {
-            tree_traversal(node->left);
-            tree_traversal(node->right);
+            fprint_tree(output_file, node->left);
+            fprint_tree(output_file, node->right);
             break;
         }
         case STMT_LIST_NODE_T: {
             for (unsigned i = 0; i < ((stmt_list_node_t *) node)->num_of_stmts; ++i) {
-                tree_traversal(((stmt_list_node_t *) node)->stmt_list[i]);
+                fprint_tree(output_file, ((stmt_list_node_t *) node)->stmt_list[i]);
             }
             break;
         }
         case FUNC_DECL_NODE_T: {
-            tree_traversal(((func_decl_node_t *) node)->func_tail);
+            fprint_tree(output_file, ((func_decl_node_t *) node)->func_tail);
             break;
         }
         case VAR_DEF_NODE_T: {
@@ -3096,106 +3096,106 @@ void tree_traversal(const node_t *node) {
                 for (unsigned i = 0; i < get_length_of_array(((var_def_node_t *) node)->entry->sizes,
                                                              ((var_def_node_t *) node)->entry->depth); ++i) {
                     if ((((var_def_node_t *) node)->qualified_types[i].qualifier != CONST_T)) {
-                        tree_traversal(((var_def_node_t *) node)->values[i].node_value);
+                        fprint_tree(output_file, ((var_def_node_t *) node)->values[i].node_value);
                     }
                 }
             } else {
-                tree_traversal(((var_def_node_t *) node)->node);
+                fprint_tree(output_file, ((var_def_node_t *) node)->node);
             }
             break;
         }
-        case INTEGER_OP_NODE_T: {
-            tree_traversal(((integer_op_node_t *)node)->left);
-            tree_traversal(((integer_op_node_t *)node)->right);
-            break;
-        }
         case LOGICAL_OP_NODE_T: {
-            tree_traversal(((logical_op_node_t *)node)->left);
-            tree_traversal(((logical_op_node_t *)node)->right);
+            fprint_tree(output_file, ((logical_op_node_t *) node)->left);
+            fprint_tree(output_file, ((logical_op_node_t *) node)->right);
             break;
         }
         case COMPARISON_OP_NODE_T: {
-            tree_traversal(((comparison_op_node_t *)node)->left);
-            tree_traversal(((comparison_op_node_t *)node)->right);
+            fprint_tree(output_file, ((comparison_op_node_t *) node)->left);
+            fprint_tree(output_file, ((comparison_op_node_t *) node)->right);
             break;
         }
         case EQUALITY_OP_NODE_T: {
-            tree_traversal(((equality_op_node_t *)node)->left);
-            tree_traversal(((equality_op_node_t *)node)->right);
-            break;
-        }
-        case INVERT_OP_NODE_T: {
-            tree_traversal(((invert_op_node_t *) node)->child);
+            fprint_tree(output_file, ((equality_op_node_t *) node)->left);
+            fprint_tree(output_file, ((equality_op_node_t *) node)->right);
             break;
         }
         case NOT_OP_NODE_T: {
-            tree_traversal(((not_op_node_t *) node)->child);
+            fprint_tree(output_file, ((not_op_node_t *) node)->child);
+            break;
+        }
+        case INTEGER_OP_NODE_T: {
+            fprint_tree(output_file, ((integer_op_node_t *) node)->left);
+            fprint_tree(output_file, ((integer_op_node_t *) node)->right);
+            break;
+        }
+        case INVERT_OP_NODE_T: {
+            fprint_tree(output_file, ((invert_op_node_t *) node)->child);
             break;
         }
         case FUNC_CALL_NODE_T: {
             for (unsigned i = 0; i < ((func_call_node_t *) node)->num_of_pars; ++i) {
-                tree_traversal(((func_call_node_t *) node)->pars[i]);
+                fprint_tree(output_file, ((func_call_node_t *) node)->pars[i]);
             }
             break;
         }
         case IF_NODE_T: {
-            tree_traversal(((if_node_t *) node)->condition);
-            tree_traversal(((if_node_t *) node)->if_branch);
+            fprint_tree(output_file, ((if_node_t *) node)->condition);
+            fprint_tree(output_file, ((if_node_t *) node)->if_branch);
             for (unsigned i = 0; i < ((if_node_t *) node)->num_of_else_ifs; ++i) {
-                tree_traversal(((if_node_t *) node)->else_if_branches[i]);
+                fprint_tree(output_file, ((if_node_t *) node)->else_if_branches[i]);
             }
-            tree_traversal(((if_node_t *) node)->else_branch);
+            fprint_tree(output_file, ((if_node_t *) node)->else_branch);
             break;
         }
         case ELSE_IF_NODE_T: {
-            tree_traversal(((else_if_node_t *) node)->condition);
-            tree_traversal(((else_if_node_t *) node)->else_if_branch);
+            fprint_tree(output_file, ((else_if_node_t *) node)->condition);
+            fprint_tree(output_file, ((else_if_node_t *) node)->else_if_branch);
             break;
         }
         case SWITCH_NODE_T: {
-            tree_traversal(((switch_node_t *) node)->expression);
+            fprint_tree(output_file, ((switch_node_t *) node)->expression);
             for (unsigned i = 0; i < ((switch_node_t *) node)->num_of_cases; ++i) {
-                tree_traversal(((switch_node_t *) node)->case_branches[i]);
+                fprint_tree(output_file, ((switch_node_t *) node)->case_branches[i]);
             }
             break;
         }
         case CASE_NODE_T: {
-            tree_traversal(((case_node_t *) node)->case_branch);
+            fprint_tree(output_file, ((case_node_t *) node)->case_branch);
             break;
         }
         case FOR_NODE_T: {
-            tree_traversal(((for_node_t *) node)->initialize);
-            tree_traversal(((for_node_t *) node)->condition);
-            tree_traversal(((for_node_t *) node)->increment);
-            tree_traversal(((for_node_t *) node)->for_branch);
+            fprint_tree(output_file, ((for_node_t *) node)->initialize);
+            fprint_tree(output_file, ((for_node_t *) node)->condition);
+            fprint_tree(output_file, ((for_node_t *) node)->increment);
+            fprint_tree(output_file, ((for_node_t *) node)->for_branch);
             break;
         }
         case DO_NODE_T: {
-            tree_traversal(((do_node_t *) node)->do_branch);
-            tree_traversal(((do_node_t *) node)->condition);
+            fprint_tree(output_file, ((do_node_t *) node)->do_branch);
+            fprint_tree(output_file, ((do_node_t *) node)->condition);
             break;
         }
         case WHILE_NODE_T: {
-            tree_traversal(((while_node_t *) node)->condition);
-            tree_traversal(((while_node_t *) node)->while_branch);
+            fprint_tree(output_file, ((while_node_t *) node)->condition);
+            fprint_tree(output_file, ((while_node_t *) node)->while_branch);
             break;
         }
         case ASSIGN_NODE_T: {
-            tree_traversal(((assign_node_t *) node)->left);
-            tree_traversal(((assign_node_t *) node)->right);
+            fprint_tree(output_file, ((assign_node_t *) node)->left);
+            fprint_tree(output_file, ((assign_node_t *) node)->right);
             break;
         }
         case PHASE_NODE_T: {
-            tree_traversal(((phase_node_t *) node)->left);
-            tree_traversal(((phase_node_t *) node)->right);
+            fprint_tree(output_file, ((phase_node_t *) node)->left);
+            fprint_tree(output_file, ((phase_node_t *) node)->right);
             break;
         }
         case MEASURE_NODE_T: {
-            tree_traversal(((measure_node_t *) node)->child);
+            fprint_tree(output_file, ((measure_node_t *) node)->child);
             break;
         }
         case RETURN_NODE_T: {
-            tree_traversal(((return_node_t *) node)->return_value);
+            fprint_tree(output_file, ((return_node_t *) node)->return_value);
             break;
         }
         default: {

@@ -1159,13 +1159,22 @@ int main(int argc, char **argv) {
     }
 
     if (dump) {
-        tree_traversal(root);
-        yyout = fopen("symtab_dump.out", "w");
+        char symbol_table_dump_file[] = "symbol_table_dump.out";
+        yyout = fopen(symbol_table_dump_file, "w");
         if (!yyout) {
-            fprintf(stderr, "Could not open symtab_dump.out\n");
+            fprintf(stderr, "%s\n", symbol_table_dump_file);
             return 1;
         }
-        dump_symbol_table(yyout);
+        fprint_symbol_table(yyout);
+        fclose(yyout);
+
+        char tree_dump_file[] = "tree_dump.out";
+        yyout = fopen(tree_dump_file, "w");
+        if (!yyout) {
+            fprintf(stderr, "%s\n", tree_dump_file);
+            return 1;
+        }
+        fprint_tree(yyout, root);
         fclose(yyout);
     }
 

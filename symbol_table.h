@@ -233,7 +233,7 @@ void set_func_info(entry_t *entry, bool is_unitary, bool is_quantizable, type_in
  * \brief                               Dump symbol table content to output file
  * \param[out]                          output_file: Output file for symbol table
  */
-void dump_symbol_table(FILE *output_file);
+void fprint_symbol_table(FILE *output_file);
 
 
 /*

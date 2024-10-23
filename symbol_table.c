@@ -319,7 +319,7 @@ void set_func_info(entry_t *entry, bool is_unitary, bool is_quantizable, type_in
 }
 
 /* See header for documentation */
-void dump_symbol_table(FILE * output_file){
+void fprint_symbol_table(FILE * output_file){
     for (unsigned i = 0; i < MAX_TOKEN_LENGTH; ++i) {
         fputc('-', output_file);
     }

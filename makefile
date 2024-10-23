@@ -12,7 +12,8 @@ all: $(LEXER).l $(PARSER).y symbol_table.c ast.c parsing.c
 
 example:
 	@./$(PARSER) example.cq --dump
-	@cat symtab_dump.out
+	@cat tree_dump.out
+	@cat symbol_table_dump.out
 
 test:
 	@echo "Running tests..."; \
