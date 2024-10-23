@@ -188,7 +188,7 @@ entry_t *insert(const char *name, unsigned length, unsigned line_num, bool decla
     }
     if (entry == NULL) {
         if (declaration == false) {
-            snprintf(error_msg, ERROR_MSG_LENGTH, "Undeclared identifier %s at line %u\n", name, line_num);
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Undeclared identifier %s at line %u", name, line_num);
             free_symbol_table();
             return NULL;
         }
@@ -221,34 +221,16 @@ entry_t *insert(const char *name, unsigned length, unsigned line_num, bool decla
         if (declaration == true) {
             if (entry->scope == cur_scope) {
                 snprintf(error_msg, ERROR_MSG_LENGTH,
-                         "Multiple declaration of identifier %s at line %u (previous declaration in line %u)\n",
+                         "Multiple declaration of identifier %s at line %u (previous declaration at line %u)",
                          name, line_num, entry->lines->line_num);
                 free_symbol_table();
                 return NULL;
             } else {
-                entry = malloc(sizeof (entry_t));
-                if (entry == NULL) {
-                    snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for symbol table entry for %s failed",
-                             name);
-                    free_symbol_table();
-                    return NULL;
-                }
-
-                strncpy(entry->name, name, length);
-                entry->scope = cur_scope;
-                entry->lines = malloc(sizeof (ref_list_t));
-                if (entry->lines == NULL) {
-                    snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for reference list for %s failed", name);
-                    free_symbol_table();
-                    return NULL;
-                }
-
-                entry->lines->line_num = line_num;
-                entry->lines->next = NULL;
-                entry->qualifier = NONE_T;
-                entry->type = VOID_T;
-                entry->next = symbol_table[hash_value];
-                symbol_table[hash_value] = entry;
+                snprintf(error_msg, ERROR_MSG_LENGTH,
+                         "Declaration of identifier %s at line %u shadows declaration at line %u",
+                         name, line_num, entry->lines->line_num);
+                free_symbol_table();
+                return NULL;
             }
         } else {
             ref_list_t *references = entry->lines;
@@ -319,7 +301,7 @@ void set_func_info(entry_t *entry, bool is_unitary, bool is_quantizable, type_in
 }
 
 /* See header for documentation */
-void fprint_symbol_table(FILE * output_file){
+void fprint_symbol_table(FILE * output_file) {
     for (unsigned i = 0; i < MAX_TOKEN_LENGTH; ++i) {
         fputc('-', output_file);
     }
@@ -379,6 +361,11 @@ void fprint_symbol_table(FILE * output_file){
                     type_str_length += 3;
                 }
                 switch (l->type) {
+                    case VOID_T: {
+                        fprintf(output_file, "void");
+                        type_str_length += 4;
+                        break;
+                    }
                     case BOOL_T: {
                         fprintf(output_file, "bool");
                         type_str_length += 4;
@@ -392,11 +379,6 @@ void fprint_symbol_table(FILE * output_file){
                     case UNSIGNED_T: {
                         fprintf(output_file, "unsigned");
                         type_str_length += 8;
-                        break;
-                    }
-                    case VOID_T: {
-                        fprintf(output_file, "void");
-                        type_str_length += 4;
                         break;
                     }
                 }

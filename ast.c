@@ -610,9 +610,12 @@ type_t propagate_type(op_type_t op_type, type_t type_1, type_t type_2) {
 
 node_t *new_stmt_list_node(bool is_unitary, bool is_quantizable, node_t **stmt_list, unsigned num_of_stmts,
                            char error_msg[ERROR_MSG_LENGTH]) {
+    return_style_t result_return_style = NONE_ST;
+    type_info_t result_return_type_info;
     for (unsigned i = 0; i < num_of_stmts; ++i) {
+        return_style_t current_return_style = get_return_style(stmt_list[i]);
         if ((stmt_list[i]->node_type == BREAK_NODE_T || stmt_list[i]->node_type == CONTINUE_NODE_T
-            || stmt_list[i]->node_type == RETURN_NODE_T) && i < num_of_stmts - 1) {
+            || current_return_style == DEFINITE_ST) && i < num_of_stmts - 1) {
             for (unsigned j = i + 1; j < num_of_stmts; ++j) {
                 free_node(stmt_list[j]);
             }
@@ -629,6 +632,38 @@ node_t *new_stmt_list_node(bool is_unitary, bool is_quantizable, node_t **stmt_l
             }
 
             stmt_list = temp;
+        }
+
+        if (current_return_style != NONE_ST) {
+            type_info_t current_return_type_info;
+            copy_return_type_info_of_node(&current_return_type_info, stmt_list[i]);
+            if (result_return_style != NONE_ST) {
+                if (result_return_type_info.qualifier != current_return_type_info.qualifier) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH, "Non-matching qualifiers in return statements");
+                    return NULL;
+                } else if (result_return_type_info.type != current_return_type_info.type) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH, "Non-matching types (%s and %s) in return statements",
+                             type_to_str(result_return_type_info.type), type_to_str(current_return_type_info.type));
+                    return NULL;
+                } else if (result_return_type_info.depth != current_return_type_info.depth) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH, "Non-matching depths (%u and %u) in return statements",
+                             result_return_type_info.depth, current_return_type_info.depth);
+                    return NULL;
+                }
+
+                for (unsigned j = 0; j < result_return_type_info.depth; ++j) {
+                    if (result_return_type_info.sizes[j] != current_return_type_info.sizes[j]) {
+                        snprintf(error_msg, ERROR_MSG_LENGTH,
+                                 "Non-matching sizes in depth %u (%u and %u) in return statements",
+                                 j, result_return_type_info.sizes[j], current_return_type_info.sizes[j]);
+                        return NULL;
+                    }
+                }
+            } else {
+                copy_return_type_info_of_node(&result_return_type_info, stmt_list[i]);
+            }
+
+            result_return_style = current_return_style;
         }
     }
     stmt_list_node_t *new_node = malloc(sizeof (stmt_list_node_t));
@@ -647,6 +682,10 @@ node_t *new_stmt_list_node(bool is_unitary, bool is_quantizable, node_t **stmt_l
     new_node->is_quantizable = is_quantizable;
     new_node->stmt_list = stmt_list;
     new_node->num_of_stmts = num_of_stmts;
+    new_node->return_style = result_return_style;
+    if (result_return_style != NONE_ST) {
+        memcpy(&(new_node->return_type_info), &(result_return_type_info), sizeof (result_return_type_info));
+    }
     return (node_t *) new_node;
 }
 
@@ -656,6 +695,55 @@ node_t *new_func_decl_node(entry_t *entry, node_t *func_tail, char error_msg[ERR
         free_node(func_tail);
         free_symbol_table();
         return NULL;
+    }
+
+    return_style_t func_tail_return_style = get_return_style(func_tail);
+    type_info_t func_tail_return_type_info;
+    if (func_tail_return_style != NONE_ST) {
+        copy_return_type_info_of_node(&func_tail_return_type_info, func_tail);
+    }
+    if (entry->type == VOID_T) {
+        if (func_tail_return_style != NONE_ST && func_tail_return_type_info.type != VOID_T) {
+            snprintf(error_msg, ERROR_MSG_LENGTH,
+                     "Function %s is declared to return void, but has non-void return statement", entry->name);
+            return NULL;
+        }
+    } else {
+        if (func_tail_return_style == NONE_ST) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Non-void function %s has no return statement", entry->name);
+            return NULL;
+        } else if (func_tail_return_style == CONDITIONAL_ST) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Non-void function %s does not return in all branches", entry->name);
+            return NULL;
+        } else {
+            if (entry->qualifier == QUANTUM_T && func_tail_return_type_info.qualifier != QUANTUM_T
+                || entry->qualifier == NONE_T && func_tail_return_type_info.qualifier == QUANTUM_T) {
+                snprintf(error_msg, ERROR_MSG_LENGTH,
+                         "Declared return qualifier of function %s does not match the actually returned qualifier",
+                         entry->name);
+                return NULL;
+            } else if (entry->type != func_tail_return_type_info.type) {
+                snprintf(error_msg, ERROR_MSG_LENGTH,
+                         "Declared return type %s of function %s does not match the actually returned type %s",
+                         type_to_str(entry->type), entry->name, type_to_str(func_tail_return_type_info.type));
+                return NULL;
+            } else if (entry->depth != func_tail_return_type_info.depth) {
+                snprintf(error_msg, ERROR_MSG_LENGTH,
+                         "Declared return depth %u of function %s does not match the actually returned depth %u",
+                         entry->depth, entry->name, func_tail_return_type_info.depth);
+                return NULL;
+            }
+
+            for (unsigned j = 0; j < entry->depth; ++j) {
+                if (entry->sizes[j] != func_tail_return_type_info.sizes[j]) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH,
+                             "Declared return size of %u in depth %u of function %s does not match the actually "
+                             "returned size of %u",
+                             entry->sizes[j], j, entry->name, func_tail_return_type_info.sizes[j]);
+                    return NULL;
+                }
+            }
+        }
     }
 
     func_decl_node_t *new_node = malloc(sizeof (func_decl_node_t));
@@ -1022,7 +1110,7 @@ node_t *new_reference_node(entry_t *entry, const bool index_is_const[MAX_ARRAY_D
         }
 
         new_node->node_type = REFERENCE_NODE_T;
-        new_node->is_quantizable = entry->qualifier != QUANTUM_T && all_indices_const;
+        new_node->is_quantizable = entry->scope != 0 && entry->qualifier != QUANTUM_T && all_indices_const;
         new_node->is_unitary = entry->qualifier == QUANTUM_T && all_indices_const;
         new_node->type_info.qualifier = (entry->qualifier == CONST_T) ? NONE_T : entry->qualifier;
         new_node->type_info.type = entry->type;
@@ -1695,6 +1783,10 @@ node_t *new_invert_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
 node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branches, unsigned num_of_else_ifs,
                     node_t *else_branch, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t if_condition_type_info;
+    return_style_t if_return_style = get_return_style(if_branch);
+    return_style_t else_return_style = get_return_style(else_branch);
+    return_style_t result_return_style = NONE_ST;
+    type_info_t result_return_type_info;
     bool result_is_quantizable = is_quantizable(condition) && is_quantizable(if_branch)
                                  && is_quantizable(else_branch);
     bool result_is_unitary = is_unitary(condition);
@@ -1734,7 +1826,7 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
         free_symbol_table();
         return NULL;
     } else if (if_condition_type_info.qualifier == QUANTUM_T) {
-        if (!is_unitary(if_branch)) {
+        if (!is_unitary(if_branch) || if_return_style != NONE_ST) {
             snprintf(error_msg, ERROR_MSG_LENGTH,
                      "If-condition is quantum, but statements in if-branch are not unitary");
             free_node(condition);
@@ -1746,7 +1838,7 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
             free_node(else_branch);
             free_symbol_table();
             return NULL;
-        } else if (else_branch != NULL && !is_unitary(else_branch)) {
+        } else if (else_branch != NULL && (!is_unitary(else_branch) || else_return_style != NONE_ST)) {
             snprintf(error_msg, ERROR_MSG_LENGTH,
                      "If-condition is quantum, but statements in else-branch are not unitary");
             free_node(condition);
@@ -1761,12 +1853,19 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
         }
     }
 
+    if (if_return_style != NONE_ST) {
+        copy_return_type_info_of_node(&result_return_type_info, if_branch);
+        result_return_style = if_return_style;
+    }
+
     type_info_t else_if_condition_type_info;
     for (unsigned i = 0; i < num_of_else_ifs; ++i) {
+        return_style_t current_return_style = get_return_style(else_if_branches[i]);
         else_if_node_t *else_if_node_view = (else_if_node_t *) (else_if_node_t *) else_if_branches[i];
         copy_type_info_of_node(&else_if_condition_type_info, else_if_node_view->condition);
 
-        if (else_if_condition_type_info.qualifier != if_condition_type_info.qualifier) {
+        if (else_if_condition_type_info.qualifier == QUANTUM_T && if_condition_type_info.qualifier != QUANTUM_T
+            || else_if_condition_type_info.qualifier != QUANTUM_T && if_condition_type_info.qualifier == QUANTUM_T) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if-condition %u is %s while if-condition is %s",
                      i + 1, (else_if_condition_type_info.qualifier  == QUANTUM_T) ? "quantum" : "classical",
                      (if_condition_type_info.qualifier == QUANTUM_T) ? "quantum" : "classical");
@@ -1783,6 +1882,85 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
 
         result_is_quantizable = result_is_quantizable && is_quantizable(else_if_branches[i]);
         result_is_unitary = result_is_unitary && is_unitary(else_if_branches[i]);
+
+        if (current_return_style != NONE_ST) {
+            type_info_t elif_return_type_info;
+            copy_return_type_info_of_node(&elif_return_type_info, else_if_branches[i]);
+            if (result_return_style != NONE_ST) {
+                if (result_return_type_info.qualifier == QUANTUM_T && elif_return_type_info.qualifier != QUANTUM_T
+                    || result_return_type_info.qualifier != QUANTUM_T && elif_return_type_info.qualifier == QUANTUM_T) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH,
+                             "Non-matching qualifiers in return statements in if-branch and else-if-branch %u", i + 1);
+                    return NULL;
+                } else if (result_return_type_info.type != elif_return_type_info.type) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH,
+                             "Non-matching types (%s and %s) in return statements in if-branch and else-if-branch %u",
+                             type_to_str(result_return_type_info.type), type_to_str(elif_return_type_info.type), i + 1);
+                    return NULL;
+                } else if (result_return_type_info.depth != elif_return_type_info.depth) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH,
+                             "Non-matching depths (%u and %u) in return statements in if-branch and else-if-branch %u",
+                             result_return_type_info.depth, elif_return_type_info.depth, i + 1);
+                    return NULL;
+                }
+
+                for (unsigned j = 0; j < result_return_type_info.depth; ++j) {
+                    if (result_return_type_info.sizes[j] != elif_return_type_info.sizes[j]) {
+                        snprintf(error_msg, ERROR_MSG_LENGTH,
+                                 "Non-matching sizes in depth %u (%u and %u) in return statements in if-branch"
+                                 "and else-if-branch %u",
+                                 j, result_return_type_info.sizes[j], elif_return_type_info.sizes[j], i + 1);
+                        return NULL;
+                    }
+                }
+                result_return_style = (current_return_style == DEFINITE_ST && result_return_style == DEFINITE_ST) ?
+                DEFINITE_ST : CONDITIONAL_ST;
+            } else {
+                memcpy(&result_return_type_info, &elif_return_type_info, sizeof (elif_return_type_info));
+                result_return_style = CONDITIONAL_ST;
+            }
+        }
+    }
+
+    if (result_return_style != NONE_ST) {
+        if (else_branch != NULL && else_return_style != NONE_ST) {
+            type_info_t else_return_type_info;
+            copy_return_type_info_of_node(&else_return_type_info, else_branch);
+            if (result_return_type_info.qualifier == QUANTUM_T && else_return_type_info.qualifier != QUANTUM_T
+                || result_return_type_info.qualifier != QUANTUM_T && else_return_type_info.qualifier == QUANTUM_T) {
+                snprintf(error_msg, ERROR_MSG_LENGTH,
+                         "Non-matching qualifiers in return statements in if-branch and else-branch");
+                return NULL;
+            } else if (result_return_type_info.type != else_return_type_info.type) {
+                snprintf(error_msg, ERROR_MSG_LENGTH,
+                         "Non-matching types (%s and %s) in return statements in if-branch and else-branch",
+                         type_to_str(result_return_type_info.type), type_to_str(else_return_type_info.type));
+                return NULL;
+            } else if (result_return_type_info.depth != else_return_type_info.depth) {
+                snprintf(error_msg, ERROR_MSG_LENGTH,
+                         "Non-matching depths (%u and %u) in return statements in if-branch and else-branch",
+                         result_return_type_info.depth, else_return_type_info.depth);
+                return NULL;
+            }
+
+            for (unsigned j = 0; j < result_return_type_info.depth; ++j) {
+                if (result_return_type_info.sizes[j] != else_return_type_info.sizes[j]) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH,
+                             "Non-matching sizes in depth %u (%u and %u) in return statements in if-branch"
+                             " and else-branch",
+                             j, result_return_type_info.sizes[j], else_return_type_info.sizes[j]);
+                    return NULL;
+                }
+            }
+
+            result_return_style = (else_return_style == DEFINITE_ST && result_return_style == DEFINITE_ST) ?
+                                  DEFINITE_ST : CONDITIONAL_ST;
+        } else {
+            result_return_style = CONDITIONAL_ST;
+        }
+    } else if (else_branch != NULL && else_return_style != NONE_ST) {
+        result_return_style = CONDITIONAL_ST;
+        copy_return_type_info_of_node(&result_return_type_info, else_branch);
     }
 
     if_node_t *new_node = malloc(sizeof (if_node_t));
@@ -1807,11 +1985,16 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
     new_node->else_if_branches = else_if_branches;
     new_node->num_of_else_ifs = num_of_else_ifs;
     new_node->else_branch = else_branch;
+    new_node->return_style = result_return_style;
+    if (result_return_style != NONE_ST) {
+        memcpy(&(new_node->return_type_info), &result_return_type_info, sizeof (result_return_type_info));
+    }
     return (node_t *) new_node;
 }
 
 node_t *new_else_if_node(node_t *condition, node_t *else_if_branch, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t condition_type_info;
+    return_style_t else_if_return_style = get_return_style(else_if_branch);
     if (!copy_type_info_of_node(&condition_type_info, condition)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if-condition is not an expression");
         free_node(condition);
@@ -1832,7 +2015,8 @@ node_t *new_else_if_node(node_t *condition, node_t *else_if_branch, char error_m
         free_node(else_if_branch);
         free_symbol_table();
         return NULL;
-    } else if (condition_type_info.qualifier == QUANTUM_T && !(((stmt_list_node_t *) else_if_branch)->is_unitary)) {
+    } else if (condition_type_info.qualifier == QUANTUM_T && (!(((stmt_list_node_t *) else_if_branch)->is_unitary)
+                || else_if_return_style != NONE_ST)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if-condition is quantum, but statements are not unitary");
         free_node(condition);
         free_node(else_if_branch);
@@ -1850,16 +2034,25 @@ node_t *new_else_if_node(node_t *condition, node_t *else_if_branch, char error_m
     }
 
     new_node->node_type = ELSE_IF_NODE_T;
-    new_node->is_quantizable = is_quantizable(condition) && is_quantizable(else_if_branch);
-    new_node->is_unitary = is_unitary(condition);
+    if (else_if_return_style == NONE_ST) {
+        new_node->is_quantizable = is_quantizable(condition) && is_quantizable(else_if_branch);
+        new_node->is_unitary = is_unitary(condition);
+    } else {
+        new_node->is_quantizable = false;
+        new_node->is_unitary = false;
+        copy_return_type_info_of_node(&(new_node->return_type_info), else_if_branch);
+    }
     new_node->condition = condition;
     new_node->else_if_branch = else_if_branch;
+    new_node->return_style = else_if_return_style;
     return (node_t *) new_node;
 }
 
 node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num_of_cases,
                         char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t expression_type_info;
+    return_style_t result_return_style = NONE_ST;
+    type_info_t result_return_type_info;
     bool result_is_quantizable = is_quantizable(expression);
     bool result_is_unitary = is_unitary(expression);
     if (!copy_type_info_of_node(&expression_type_info, expression)) {
@@ -1882,8 +2075,9 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
         free_symbol_table();
         return NULL;
     }
-
+    bool has_default_case = false;
     for (unsigned i = 0; i < num_of_cases; ++i) {
+        return_style_t current_return_style = get_return_style(case_branches[i]);
         case_node_t *case_node_view = (case_node_t *) case_branches[i];
         stmt_list_node_t *case_branch_view = (stmt_list_node_t *) case_node_view->case_branch;
         if (case_node_view->case_const_type != VOID_T
@@ -1897,7 +2091,7 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
             free(case_branches);
             free_symbol_table();
             return NULL;
-        } else if (expression_type_info.qualifier == QUANTUM_T && !case_branch_view->is_unitary) {
+        } else if (expression_type_info.qualifier == QUANTUM_T && !(case_node_view->is_unitary)) {
             snprintf(error_msg, ERROR_MSG_LENGTH,
                      "Switch-expression is quantum, but statements in case %u are not unitary", i + 1);
             free_node(expression);
@@ -1909,24 +2103,64 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
             return NULL;
         }
 
-        if (case_node_view->case_const_type == VOID_T && i < num_of_cases - 1) { /* default statement reached */
-            for (unsigned j = i + 1; j < num_of_cases; ++j) {
-                free_node(case_branches[j]);
+        if (current_return_style != NONE_ST) {
+            type_info_t case_return_type_info;
+            copy_return_type_info_of_node(&case_return_type_info, case_branches[i]);
+            if (result_return_style != NONE_ST) {
+                if (result_return_type_info.qualifier == QUANTUM_T && case_return_type_info.qualifier != QUANTUM_T
+                    || result_return_type_info.qualifier != QUANTUM_T && case_return_type_info.qualifier == QUANTUM_T) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH,
+                             "Non-matching qualifiers in return statements in case-branches");
+                    return NULL;
+                } else if (result_return_type_info.type != case_return_type_info.type) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH,
+                             "Non-matching types (%s and %s) in return statements in case-branches",
+                             type_to_str(result_return_type_info.type), type_to_str(case_return_type_info.type));
+                    return NULL;
+                } else if (result_return_type_info.depth != case_return_type_info.depth) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH,
+                             "Non-matching depths (%u and %u) in return statements in case-branches",
+                             result_return_type_info.depth, case_return_type_info.depth);
+                    return NULL;
+                }
+
+                for (unsigned j = 0; j < result_return_type_info.depth; ++j) {
+                    if (result_return_type_info.sizes[j] != case_return_type_info.sizes[j]) {
+                        snprintf(error_msg, ERROR_MSG_LENGTH,
+                                 "Non-matching sizes in depth %u (%u and %u) in return statements in case-branches",
+                                 j, result_return_type_info.sizes[j], case_return_type_info.sizes[j]);
+                        return NULL;
+                    }
+                }
+                result_return_style = (current_return_style == DEFINITE_ST && result_return_style == DEFINITE_ST) ?
+                                      DEFINITE_ST : CONDITIONAL_ST;
+            } else {
+                memcpy(&result_return_type_info, &case_return_type_info, sizeof (case_return_type_info));
+                result_return_style = CONDITIONAL_ST;
             }
-            num_of_cases = i + 1;
-            node_t **temp = realloc(case_branches, num_of_cases * sizeof (node_t *));
-            if (temp == NULL) {
-                snprintf(error_msg, ERROR_MSG_LENGTH, "Reallocating case list in switch node failed");
-                free_node(expression);
-                for (unsigned j = 0; j < num_of_cases; ++j) {
+        }
+
+        if (case_node_view->case_const_type == VOID_T) {
+            has_default_case = true;
+            if (i < num_of_cases - 1) { /* default statement reached */
+                for (unsigned j = i + 1; j < num_of_cases; ++j) {
                     free_node(case_branches[j]);
                 }
-                free(case_branches);
-                free_symbol_table();
-                return NULL;
+                num_of_cases = i + 1;
+                node_t **temp = realloc(case_branches, num_of_cases * sizeof(node_t *));
+                if (temp == NULL) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH, "Reallocating case list in switch node failed");
+                    free_node(expression);
+                    for (unsigned j = 0; j < num_of_cases; ++j) {
+                        free_node(case_branches[j]);
+                    }
+                    free(case_branches);
+                    free_symbol_table();
+                    return NULL;
+                }
+                case_branches = temp;
+                break;
             }
-            case_branches = temp;
-            break;
         }
 
         for (unsigned j = 0; j < i; ++j) {
@@ -1951,6 +2185,9 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
         result_is_quantizable = result_is_quantizable && is_quantizable(case_branches[i]);
         result_is_unitary = result_is_unitary && is_unitary(case_branches[i]);
     }
+    if (!has_default_case) {
+        result_return_style = (result_return_style == NONE_ST) ? NONE_ST : CONDITIONAL_ST;
+    }
     switch_node_t *new_node = malloc(sizeof (switch_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for switch node failed");
@@ -1969,10 +2206,15 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
     new_node->expression = expression;
     new_node->case_branches = case_branches;
     new_node->num_of_cases = num_of_cases;
+    new_node->return_style = result_return_style;
+    if (result_return_style != NONE_ST) {
+        memcpy(&(new_node->return_type_info), &result_return_type_info, sizeof (result_return_type_info));
+    }
     return (node_t *) new_node;
 }
 
 node_t *new_case_node(node_t *case_const, node_t *case_branch, char error_msg[ERROR_MSG_LENGTH]) {
+    return_style_t case_return_style = get_return_style(case_branch);
     case_node_t *new_node = malloc(sizeof (case_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for case node failed");
@@ -1983,8 +2225,14 @@ node_t *new_case_node(node_t *case_const, node_t *case_branch, char error_msg[ER
     }
 
     new_node->node_type = CASE_NODE_T;
-    new_node->is_unitary = is_unitary(case_branch);
-    new_node->is_quantizable = is_quantizable(case_branch);
+    if (case_return_style == NONE_ST) {
+        new_node->is_quantizable = is_quantizable(case_branch);
+        new_node->is_unitary = is_unitary(case_branch);
+    } else {
+        new_node->is_quantizable = false;
+        new_node->is_unitary = false;
+        copy_return_type_info_of_node(&(new_node->return_type_info), case_branch);
+    }
     if (case_const != NULL) {
         new_node->case_const_type = ((const_node_t *) case_const)->type_info.type;
         new_node->case_const_value = ((const_node_t *) case_const)->values[0];
@@ -1993,6 +2241,7 @@ node_t *new_case_node(node_t *case_const, node_t *case_branch, char error_msg[ER
         new_node->case_const_type = VOID_T;
     }
     new_node->case_branch = case_branch;
+    new_node->return_style = case_return_style;
     return (node_t *) new_node;
 }
 
@@ -2251,8 +2500,8 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
         free_symbol_table();
         return NULL;
     }
-    unsigned depth = left_type_info.depth;
 
+    unsigned depth = left_type_info.depth;
     for (unsigned i = 0; i < depth; ++i) {
         if (left_type_info.sizes[i] != right_type_info.sizes[i]) {
             snprintf(error_msg, ERROR_MSG_LENGTH,
@@ -2264,9 +2513,9 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
             return NULL;
         }
     }
+
     unsigned *sizes = left_type_info.sizes;
     unsigned length = get_length_of_array(sizes, depth);
-
     if (right_type_info.qualifier == CONST_T) { /* right is of node_type CONST_NODE_T */
         const_node_t *const_node_view_right = (const_node_t *) right;
         if (op == ASSIGN_DIV_OP) {
@@ -2302,8 +2551,8 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
     }
 
     new_node->node_type = ASSIGN_NODE_T;
-    new_node->is_quantizable = left_type_info.qualifier != QUANTUM_T && is_quantizable(right);
-    new_node->is_unitary = left_type_info.qualifier == QUANTUM_T && is_unitary(right);
+    new_node->is_quantizable = is_quantizable(left) && is_quantizable(right);
+    new_node->is_unitary = is_unitary(left) && is_unitary(right);
     new_node->op = op;
     new_node->left = left;
     new_node->right = right;
@@ -2451,21 +2700,116 @@ node_t *new_return_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
         return NULL;
     }
 
+    new_node->node_type = RETURN_NODE_T;
     if (node != NULL) {
+        new_node->is_quantizable = is_quantizable(node);
+        new_node->is_unitary = is_unitary(node);
         if (!copy_type_info_of_node(&(new_node->type_info), node)) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Return value is not an expression");
             free_node(node);
             free_symbol_table();
             return NULL;
         }
+        new_node->type_info.qualifier = (new_node->type_info.qualifier == QUANTUM_T) ? QUANTUM_T : NONE_T;
     } else {
+        new_node->is_quantizable = true;
+        new_node->is_unitary = true;
         new_node->type_info.qualifier = NONE_T;
         new_node->type_info.type = VOID_T;
         new_node->type_info.depth = 0;
     }
-    new_node->node_type = RETURN_NODE_T;
     new_node->return_value = node;
     return (node_t *) new_node;
+}
+
+bool copy_return_type_info_of_node(type_info_t *type_info, const node_t *node) {
+    if (node == NULL) {
+        return false;
+    }
+
+    switch (node->node_type) {
+        case STMT_LIST_NODE_T: {
+            type_info->qualifier = ((stmt_list_node_t *) node)->return_type_info.qualifier;
+            type_info->type = ((stmt_list_node_t *) node)->return_type_info.type;
+            memcpy(type_info->sizes, ((stmt_list_node_t *) node)->return_type_info.sizes,
+                   ((stmt_list_node_t *) node)->return_type_info.depth * sizeof (unsigned));
+            type_info->depth = ((stmt_list_node_t *) node)->return_type_info.depth;
+            return true;
+        }
+        case IF_NODE_T: {
+            type_info->qualifier = ((if_node_t *) node)->return_type_info.qualifier;
+            type_info->type = ((if_node_t *) node)->return_type_info.type;
+            memcpy(type_info->sizes, ((if_node_t *) node)->return_type_info.sizes,
+                   ((if_node_t *) node)->return_type_info.depth * sizeof (unsigned));
+            type_info->depth = ((if_node_t *) node)->return_type_info.depth;
+            return true;
+        }
+        case ELSE_IF_NODE_T: {
+            type_info->qualifier = ((else_if_node_t *) node)->return_type_info.qualifier;
+            type_info->type = ((else_if_node_t *) node)->return_type_info.type;
+            memcpy(type_info->sizes, ((else_if_node_t *) node)->return_type_info.sizes,
+                   ((else_if_node_t *) node)->return_type_info.depth * sizeof (unsigned));
+            type_info->depth = ((else_if_node_t *) node)->return_type_info.depth;
+            return true;
+        }
+        case SWITCH_NODE_T: {
+            type_info->qualifier = ((switch_node_t *) node)->return_type_info.qualifier;
+            type_info->type = ((switch_node_t *) node)->return_type_info.type;
+            memcpy(type_info->sizes, ((switch_node_t *) node)->return_type_info.sizes,
+                   ((switch_node_t *) node)->return_type_info.depth * sizeof (unsigned));
+            type_info->depth = ((switch_node_t *) node)->return_type_info.depth;
+            return true;
+        }
+        case CASE_NODE_T: {
+            type_info->qualifier = ((case_node_t *) node)->return_type_info.qualifier;
+            type_info->type = ((case_node_t *) node)->return_type_info.type;
+            memcpy(type_info->sizes, ((case_node_t *) node)->return_type_info.sizes,
+                   ((case_node_t *) node)->return_type_info.depth * sizeof (unsigned));
+            type_info->depth = ((case_node_t *) node)->return_type_info.depth;
+            return true;
+        }
+        case RETURN_NODE_T: {
+            type_info->qualifier = ((return_node_t *) node)->type_info.qualifier;
+            type_info->type = ((return_node_t *) node)->type_info.type;
+            memcpy(type_info->sizes, ((return_node_t *) node)->type_info.sizes,
+                   ((return_node_t *) node)->type_info.depth * sizeof (unsigned));
+            type_info->depth = ((return_node_t *) node)->type_info.depth;
+            return true;
+        }
+        default: {
+            return false;
+        }
+    }
+}
+
+return_style_t get_return_style(const node_t *node) {
+    if (node == NULL) {
+        return NONE_ST;
+    }
+
+    switch (node->node_type) {
+        case STMT_LIST_NODE_T: {
+            return ((stmt_list_node_t *) node)->return_style;
+        }
+        case IF_NODE_T: {
+            return ((if_node_t *) node)->return_style;
+        }
+        case ELSE_IF_NODE_T: {
+            return ((else_if_node_t *) node)->return_style;
+        }
+        case SWITCH_NODE_T: {
+            return ((switch_node_t *) node)->return_style;
+        }
+        case CASE_NODE_T: {
+            return ((case_node_t *) node)->return_style;
+        }
+        case RETURN_NODE_T: {
+            return DEFINITE_ST;
+        }
+        default: {
+            return NONE_ST;
+        }
+    }
 }
 
 bool is_quantizable(const node_t *node) {
@@ -2532,7 +2876,7 @@ bool is_quantizable(const node_t *node) {
             return false;
         }
         case RETURN_NODE_T: {
-            return true; /* not sure about that*/
+            return ((return_node_t *) node)->is_quantizable;
         }
         default: {
             return false;
@@ -2604,7 +2948,7 @@ bool is_unitary(const node_t *node) {
             return ((phase_node_t *) node)->is_unitary;
         }
         case RETURN_NODE_T: {
-            return true; /* not sure about that*/
+            return ((return_node_t *) node)->is_unitary;
         }
         default: {
             return false;
@@ -2820,10 +3164,6 @@ void fprint_node(FILE *output_file, const node_t *node) {
             fprintf(output_file, "Statement list node with %u statements\n", ((stmt_list_node_t *) node)->num_of_stmts);
             break;
         }
-        case FUNC_SP_NODE_T: {
-            fprintf(output_file, "Function superposition node for %s\n", ((func_sp_node_t *) node)->entry->name);
-            break;
-        }
         case FUNC_DECL_NODE_T: {
             fprintf(output_file, "Function declaration node for %s\n", ((func_decl_node_t *) node)->entry->name);
             break;
@@ -2903,14 +3243,20 @@ void fprint_node(FILE *output_file, const node_t *node) {
         }
         case FUNC_CALL_NODE_T: {
             if (((func_call_node_t *) node)->sp) {
-                fprintf(output_file, "[%s](...) -> (", ((func_call_node_t *) node)->entry->name);
+                fprintf(output_file, "%s[%s](...) -> (", (((func_call_node_t *) node)->inverse) ? "~" : "",
+                        ((func_call_node_t *) node)->entry->name);
                 fprint_type_info(output_file, &(((func_call_node_t *) node)->type_info));
                 fprintf(output_file, ")\n");
             } else {
-                fprintf(output_file, "%s(...) -> (", ((func_call_node_t *) node)->entry->name);
+                fprintf(output_file, "%s%s(...) -> (", (((func_call_node_t *) node)->inverse) ? "~" : "",
+                        ((func_call_node_t *) node)->entry->name);
                 fprint_type_info(output_file, &(((func_call_node_t *) node)->type_info));
                 fprintf(output_file, ")\n");
             }
+            break;
+        }
+        case FUNC_SP_NODE_T: {
+            fprintf(output_file, "Function superposition node for %s\n", ((func_sp_node_t *) node)->entry->name);
             break;
         }
         case LOGICAL_OP_NODE_T: {

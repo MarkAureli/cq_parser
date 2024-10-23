@@ -707,12 +707,13 @@ for_stmt:
         incr_scope();
         incr_nested_loop_counter();
     } LPAREN for_first logical_or_expr SEMICOLON assign_expr RPAREN LBRACE sub_program RBRACE {
-        decr_nested_loop_counter();
-        hide_scope();
         $$ = new_for_node($4, $5, $7, $10, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
+
+        decr_nested_loop_counter();
+        hide_scope();
     }
     ;
 

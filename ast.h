@@ -138,6 +138,15 @@ typedef enum assign_op {
 } assign_op_t;
 
 /**
+ * \brief                               Return style enumeration
+ */
+typedef enum return_style {
+    NONE_ST,                                /*!< No return style */
+    CONDITIONAL_ST,                         /*!< Conditional return style*/
+    DEFINITE_ST,                            /*!< Definite return style */
+} return_style_t;
+
+/**
  * \brief                               Node type enumeration
  */
 typedef enum node_type {
@@ -195,10 +204,12 @@ typedef struct node {
 
 typedef struct stmt_list_node {
     node_type_t node_type;
-    bool is_unitary;
     bool is_quantizable;
+    bool is_unitary;
     node_t **stmt_list;
     unsigned num_of_stmts;
+    return_style_t return_style;
+    type_info_t return_type_info;
 } stmt_list_node_t;
 
 typedef struct func_decl_node {
@@ -214,8 +225,8 @@ typedef struct var_decl_node {
 
 typedef struct var_def_node {
     node_type_t node_type;
-    bool is_unitary;
     bool is_quantizable;
+    bool is_unitary;
     entry_t *entry;
     bool is_init_list;
     union {
@@ -236,8 +247,8 @@ typedef struct const_node {
 
 typedef struct reference_node {
     node_type_t node_type;
-    bool is_unitary;
     bool is_quantizable;
+    bool is_unitary;
     type_info_t type_info;
     bool index_is_const[MAX_ARRAY_DEPTH];
     index_t indices[MAX_ARRAY_DEPTH];
@@ -246,8 +257,8 @@ typedef struct reference_node {
 
 typedef struct func_call_node {
     node_type_t node_type;
-    bool is_unitary;
     bool is_quantizable;
+    bool is_unitary;
     type_info_t type_info;
     entry_t *entry;
     bool inverse;
@@ -263,8 +274,8 @@ typedef struct func_sp_node {
 
 typedef struct logical_op_node {
     node_type_t node_type;
-    bool is_unitary;
     bool is_quantizable;
+    bool is_unitary;
     type_info_t type_info;
     logical_op_t op;
     node_t *left;
@@ -273,8 +284,8 @@ typedef struct logical_op_node {
 
 typedef struct comparison_op_node {
     node_type_t node_type;
-    bool is_unitary;
     bool is_quantizable;
+    bool is_unitary;
     type_info_t type_info;
     comparison_op_t op;
     node_t *left;
@@ -283,8 +294,8 @@ typedef struct comparison_op_node {
 
 typedef struct equality_op_node {
     node_type_t node_type;
-    bool is_unitary;
     bool is_quantizable;
+    bool is_unitary;
     type_info_t type_info;
     equality_op_t op;
     node_t *left;
@@ -293,16 +304,16 @@ typedef struct equality_op_node {
 
 typedef struct not_op_node {
     node_type_t node_type;
-    bool is_unitary;
     bool is_quantizable;
+    bool is_unitary;
     type_info_t type_info;
     node_t *child;
 } not_op_node_t;
 
 typedef struct integer_op_node {
     node_type_t node_type;
-    bool is_unitary;
     bool is_quantizable;
+    bool is_unitary;
     type_info_t type_info;
     integer_op_t op;
     node_t *left;
@@ -311,47 +322,55 @@ typedef struct integer_op_node {
 
 typedef struct invert_op_node {
     node_type_t node_type;
-    bool is_unitary;
     bool is_quantizable;
+    bool is_unitary;
     type_info_t type_info;
     node_t *child;
 } invert_op_node_t;
 
 typedef struct if_node {
     node_type_t node_type;
-    bool is_unitary;
     bool is_quantizable;
+    bool is_unitary;
     node_t *condition;
     node_t *if_branch;
     node_t **else_if_branches;
     unsigned num_of_else_ifs;
     node_t *else_branch;
+    return_style_t return_style;
+    type_info_t return_type_info;
 } if_node_t;
 
 typedef struct else_if_node {
     node_type_t node_type;
-    bool is_unitary;
     bool is_quantizable;
+    bool is_unitary;
     node_t *condition;
     node_t *else_if_branch;
+    return_style_t return_style;
+    type_info_t return_type_info;
 } else_if_node_t;
 
 typedef struct switch_node {
     node_type_t node_type;
-    bool is_unitary;
     bool is_quantizable;
+    bool is_unitary;
     node_t *expression;
     node_t **case_branches;
     unsigned num_of_cases;
+    return_style_t return_style;
+    type_info_t return_type_info;
 } switch_node_t;
 
 typedef struct case_node {
     node_type_t node_type;
-    bool is_unitary;
     bool is_quantizable;
+    bool is_unitary;
     type_t case_const_type;
     value_t case_const_value;
     node_t *case_branch;
+    return_style_t return_style;
+    type_info_t return_type_info;
 } case_node_t;
 
 typedef struct for_node {
@@ -376,8 +395,8 @@ typedef struct while_node {
 
 typedef struct assign_node {
     node_type_t node_type;
-    bool is_unitary;
     bool is_quantizable;
+    bool is_unitary;
     assign_op_t op;
     node_t *left;
     node_t *right;
@@ -407,6 +426,8 @@ typedef struct continue_node {
 
 typedef struct return_node {
     node_type_t node_type;
+    bool is_quantizable;
+    bool is_unitary;
     type_info_t type_info;
     node_t *return_value;
 } return_node_t;
@@ -493,6 +514,10 @@ node_t *new_break_node(char error_msg[ERROR_MSG_LENGTH]);
 node_t *new_continue_node(char error_msg[ERROR_MSG_LENGTH]);
 
 node_t *new_return_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]);
+
+bool copy_return_type_info_of_node(type_info_t *type_info, const node_t *node);
+
+return_style_t get_return_style(const node_t *node);
 
 bool is_quantizable(const node_t *node);
 

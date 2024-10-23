@@ -132,7 +132,7 @@ typedef struct ref_list {
  * \note                                This structure defines the symbol table as a linked list of entries
  */
 typedef struct entry {
-    char name[MAX_TOKEN_LENGTH];                 /*!< Name of entry */
+    char name[MAX_TOKEN_LENGTH];            /*!< Name of entry */
     unsigned scope;                         /*!< Scope of entry */
     ref_list_t *lines;                      /*!< List of references of entry */
     qualifier_t qualifier;                  /*!< Qualifier of entry */
@@ -185,7 +185,7 @@ void init_symbol_table();
 void free_symbol_table();
 
 /**
- * \brief                               Insert entry in symbol table and produce pointer to that entry
+ * \brief                               Insert entry in symbol table and return pointer to that entry
  * \param[in]                           name: Name of entry
  * \param[in]                           length: Length of name string
  * \param[in]                           line_num: Line number of appearance
