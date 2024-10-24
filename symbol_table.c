@@ -42,9 +42,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef NULL
-#include <__stddef_null.h>
-#endif
 #include "symbol_table.h"
 
 
@@ -273,8 +270,13 @@ void incr_scope() {
 }
 
 /* See header for documentation */
-void set_type_info(entry_t *entry, qualifier_t qualifier, type_t type, const unsigned sizes[MAX_ARRAY_DEPTH],
-                   unsigned depth) {
+bool set_type_info(entry_t *entry, qualifier_t qualifier, type_t type, const unsigned sizes[MAX_ARRAY_DEPTH],
+                   unsigned depth, char error_msg[ERROR_MSG_LENGTH]) {
+    if (entry == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "An error occurred setting type information in the symbol table");
+        return false;
+    }
+
     entry->qualifier = qualifier;
     entry->type = type;
     memcpy(entry->sizes, sizes, depth * sizeof (unsigned));
@@ -288,20 +290,26 @@ void set_type_info(entry_t *entry, qualifier_t qualifier, type_t type, const uns
     if (qualifier == CONST_T) {
         entry->values = calloc(length, sizeof (value_t));
     }
+    return true;
 }
 
 /* See header for documentation */
-void set_func_info(entry_t *entry, bool is_unitary, bool is_quantizable, type_info_t *pars_type_info,
-                   unsigned num_of_pars) {
+bool set_func_info(entry_t *entry, bool is_unitary, bool is_quantizable, type_info_t *pars_type_info,
+                   unsigned num_of_pars, char error_msg[ERROR_MSG_LENGTH]) {
+    if (entry == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "An error occurred setting function information in the symbol table");
+        return false;
+    }
     entry->is_function = true;
     entry->is_unitary = is_unitary;
     entry->is_quantizable = is_quantizable;
     entry->pars_type_info = pars_type_info;
     entry->num_of_pars = num_of_pars;
+    return true;
 }
 
 /* See header for documentation */
-void fprint_symbol_table(FILE * output_file) {
+void fprint_symbol_table(FILE *output_file) {
     for (unsigned i = 0; i < MAX_TOKEN_LENGTH; ++i) {
         fputc('-', output_file);
     }
@@ -337,11 +345,11 @@ void fprint_symbol_table(FILE * output_file) {
     fprintf(output_file, "------ -------------\n");
     for (unsigned i = 0; i < SYMBOL_TABLE_SIZE; ++i) {
         if (shadow_symbol_table[i] != NULL) {
-            entry_t *l = shadow_symbol_table[i];
-            while (l != NULL) { 
-                ref_list_t *t = l->lines;
-                fprintf(output_file, "%-*s", MAX_TOKEN_LENGTH + 1, l->name);
-                switch (l->qualifier) {
+            entry_t *entry = shadow_symbol_table[i];
+            while (entry != NULL) {
+                ref_list_t *t = entry->lines;
+                fprintf(output_file, "%-*s", MAX_TOKEN_LENGTH + 1, entry->name);
+                switch (entry->qualifier) {
                     case NONE_T: {
                         fprintf(output_file, "%-11s", "");
                         break;
@@ -356,11 +364,11 @@ void fprint_symbol_table(FILE * output_file) {
                     }
                 }
                 unsigned type_str_length = 0;
-                if (l->is_function) {
+                if (entry->is_function) {
                     fprintf(output_file, "-> ");
                     type_str_length += 3;
                 }
-                switch (l->type) {
+                switch (entry->type) {
                     case VOID_T: {
                         fprintf(output_file, "void");
                         type_str_length += 4;
@@ -382,20 +390,20 @@ void fprint_symbol_table(FILE * output_file) {
                         break;
                     }
                 }
-                for (unsigned j = 0; j < l->depth; ++j) {
+                for (unsigned j = 0; j < entry->depth; ++j) {
                     fprintf(output_file, "[]");
                     type_str_length += 2;
                 }
                 for (unsigned k = type_str_length; k < 12 + MAX_ARRAY_DEPTH * 2; ++k) {
                     fprintf(output_file, " ");
                 }
-                fprintf(output_file, "%-7u", l->scope);
+                fprintf(output_file, "%-7u", entry->scope);
                 while (t != NULL) {
                     fprintf(output_file, "%-4u ", t->line_num);
                     t = t->next;
                 }
                 fprintf(output_file, "\n");
-                l = l->next;
+                entry = entry->next;
 	        }
         }
     }

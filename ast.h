@@ -150,34 +150,34 @@ typedef enum return_style {
  * \brief                               Node type enumeration
  */
 typedef enum node_type {
-    BASIC_NODE_T,
-    STMT_LIST_NODE_T,
-    FUNC_DECL_NODE_T,
-    VAR_DECL_NODE_T,
-    VAR_DEF_NODE_T,
-    CONST_NODE_T,
-    REFERENCE_NODE_T,
-    FUNC_CALL_NODE_T,
-    FUNC_SP_NODE_T,
-    LOGICAL_OP_NODE_T,
-    COMPARISON_OP_NODE_T,
-    EQUALITY_OP_NODE_T,
-    NOT_OP_NODE_T,
-    INTEGER_OP_NODE_T,
-    INVERT_OP_NODE_T,
-    IF_NODE_T,
-    ELSE_IF_NODE_T,
-    SWITCH_NODE_T,
-    CASE_NODE_T,
-    FOR_NODE_T,
-    DO_NODE_T,
-    WHILE_NODE_T,
-    ASSIGN_NODE_T,
-    PHASE_NODE_T,
-    MEASURE_NODE_T,
-    BREAK_NODE_T,
-    CONTINUE_NODE_T,
-    RETURN_NODE_T,
+    BASIC_NODE_T,                           /*!< Basic node type */
+    STMT_LIST_NODE_T,                       /*!< Statement list node type */
+    VAR_DECL_NODE_T,                        /*!< Variable declaration node type */
+    VAR_DEF_NODE_T,                         /*!< Variable definition node type */
+    FUNC_DEF_NODE_T,                        /*!< Function definition node type */
+    CONST_NODE_T,                           /*!< Constant node type */
+    REFERENCE_NODE_T,                       /*!< Reference node type */
+    FUNC_CALL_NODE_T,                       /*!< Function call node type */
+    FUNC_SP_NODE_T,                         /*!< Function superposition node type */
+    LOGICAL_OP_NODE_T,                      /*!< Logical operator node type */
+    COMPARISON_OP_NODE_T,                   /*!< Comparison operator node type */
+    EQUALITY_OP_NODE_T,                     /*!< Equality operator node type */
+    NOT_OP_NODE_T,                          /*!< Not-operator node type */
+    INTEGER_OP_NODE_T,                      /*!< Integer operator node type */
+    INVERT_OP_NODE_T,                       /*!< Invert-operator node type */
+    IF_NODE_T,                              /*!< If node type */
+    ELSE_IF_NODE_T,                         /*!< Else-if node type */
+    SWITCH_NODE_T,                          /*!< Switch node type */
+    CASE_NODE_T,                            /*!< Case node type */
+    FOR_NODE_T,                             /*!< For-loop node type */
+    DO_NODE_T,                              /*!< Do-while-loop node type */
+    WHILE_NODE_T,                           /*!< While-loop node type */
+    ASSIGN_NODE_T,                          /*!< Assignment node type */
+    PHASE_NODE_T,                           /*!< Phase node type */
+    MEASURE_NODE_T,                         /*!< Measurement node type */
+    BREAK_NODE_T,                           /*!< Break node type */
+    CONTINUE_NODE_T,                        /*!< Continue node type */
+    RETURN_NODE_T,                          /*!< Return node type */
 } node_type_t;
 
 /**
@@ -196,240 +196,354 @@ typedef union array_value {
     struct node *node_value;                /*!< Node value */
 } array_value_t;
 
+/**
+ * \brief                               Basic node struct
+ * \note                                This structure defines a basic-node with two child nodes
+ */
 typedef struct node {
-    node_type_t node_type;
-    struct node *left;
-    struct node *right;
+    node_type_t node_type;                  /*!< Node type */
+    struct node *left;                      /*!< Left child */
+    struct node *right;                     /*!< Right child */
 } node_t;
 
+/**
+ * \brief                               Statement list node struct
+ * \note                                This structure defines a statement-list-node with at least one child node
+ */
 typedef struct stmt_list_node {
-    node_type_t node_type;
-    bool is_quantizable;
-    bool is_unitary;
-    node_t **stmt_list;
-    unsigned num_of_stmts;
-    return_style_t return_style;
-    type_info_t return_type_info;
+    node_type_t node_type;                  /*!< Node type */
+    bool is_quantizable;                    /*!< Whether all statements are quantizable */
+    bool is_unitary;                        /*!< Whether all statements are unitary */
+    node_t **stmt_list;                     /*!< List of statements (child nodes) */
+    unsigned num_of_stmts;                  /*!< Number of statements */
+    return_style_t return_style;            /*!< Return style of statements (child nodes) */
+    type_info_t return_type_info;           /*!< Return type information of statements (child nodes) */
 } stmt_list_node_t;
 
-typedef struct func_decl_node {
-    node_type_t node_type;
-    entry_t *entry;
-    node_t *func_tail;
-} func_decl_node_t;
-
+/**
+ * \brief                               Variable declaration node struct
+ * \note                                This structure defines a variable-declaration-node with no child nodes
+ */
 typedef struct var_decl_node {
-    node_type_t node_type;
-    entry_t *entry;
+    node_type_t node_type;                  /*!< Node type */
+    entry_t *entry;                         /*!< Corresponding entry in the symbol table */
 } var_decl_node_t;
 
+/**
+ * \brief                               Variable definition node struct
+ * \note                                This structure defines a variable-definition-node with an arbitrary number of
+ *                                          child nodes
+ */
 typedef struct var_def_node {
-    node_type_t node_type;
-    bool is_quantizable;
-    bool is_unitary;
-    entry_t *entry;
-    bool is_init_list;
+    node_type_t node_type;                  /*!< Node type */
+    bool is_quantizable;                    /*!< Whether the variable definition is quantizable */
+    bool is_unitary;                        /*!< Whether the variable definition is unitary */
+    entry_t *entry;                         /*!< Corresponding entry in the symbol table */
+    bool is_init_list;                      /*!< Whether the variable is initialized with an initializer list */
     union {
-        node_t *node;
+        node_t *node;                       /*!< Right-hand side of variable definition (child node) */
         struct {
-            qualified_type_t *qualified_types;
-            array_value_t *values;
+            q_type_t *q_types;              /*!< Qualified types of initializer list entries */
+            array_value_t *values;          /*!< Initializer list entries (possibly child nodes) */
         };
     };
-    unsigned length;
+    unsigned length;                        /*!< Length of initializer list */
 } var_def_node_t;
 
+/**
+ * \brief                               Function definition node struct
+ * \note                                This structure defines a function-definition-node with one child node
+ */
+typedef struct func_def_node {
+    node_type_t node_type;                  /*!< Node type */
+    entry_t *entry;                         /*!< Corresponding entry in the symbol table */
+    node_t *func_tail;                      /*!< Function tail (child node) */
+} func_def_node_t;
+
+/**
+ * \brief                               Constant node struct
+ * \note                                This structure defines a constant-node with no child nodes
+ */
 typedef struct const_node {
-    node_type_t node_type;
-    type_info_t type_info;
-    value_t *values;
+    node_type_t node_type;                  /*!< Node type */
+    type_info_t type_info;                  /*!< Type information of constant */
+    value_t *values;                        /*!< Array of constant values */
 } const_node_t;
 
+/**
+ * \brief                               Reference node struct
+ * \note                                This structure defines a reference-node with an arbitrary number of child nodes
+ */
 typedef struct reference_node {
-    node_type_t node_type;
-    bool is_quantizable;
-    bool is_unitary;
-    type_info_t type_info;
-    bool index_is_const[MAX_ARRAY_DEPTH];
-    index_t indices[MAX_ARRAY_DEPTH];
-    entry_t *entry;
+    node_type_t node_type;                  /*!< Node type */
+    bool is_quantizable;                    /*!< Whether reference is quantizable */
+    bool is_unitary;                        /*!< Whether reference is unitary */
+    type_info_t type_info;                  /*!< Type information of reference */
+    bool index_is_const[MAX_ARRAY_DEPTH];   /*!< Whether indices have constant values */
+    index_t indices[MAX_ARRAY_DEPTH];       /*!< Array of indices (possibly child nodes) */
+    entry_t *entry;                         /*!< Entry of referenced variable in the symbol table */
 } reference_node_t;
 
+/**
+ * \brief                               Function call node struct
+ * \note                                This structure defines a function-call-node with an arbitrary number of child
+ *                                          nodes
+ */
 typedef struct func_call_node {
-    node_type_t node_type;
-    bool is_quantizable;
-    bool is_unitary;
-    type_info_t type_info;
-    entry_t *entry;
-    bool inverse;
-    bool sp;
-    node_t **pars;
-    unsigned num_of_pars;
+    node_type_t node_type;                  /*!< Node type */
+    bool is_quantizable;                    /*!< Whether function call is quantizable */
+    bool is_unitary;                        /*!< Whether function call is unitary */
+    type_info_t type_info;                  /*!< Type information of the function's return */
+    entry_t *entry;                         /*!< Entry of called function in the symbol table */
+    bool inverse;                           /*!< Whether the inverted function is called */
+    bool sp;                                /*!< Whether it is a superposition-creating function call */
+    node_t **pars;                          /*!< Array of function parameters (child nodes) */
+    unsigned num_of_pars;                   /*!< Number of function parameters */
 } func_call_node_t;
 
+/**
+ * \brief                               Function superposition node struct
+ * \note                                This structure defines a function-superposition-node with no child nodes
+ */
 typedef struct func_sp_node {
-    node_type_t node_type;
-    entry_t *entry;
+    node_type_t node_type;                  /*!< Node type */
+    entry_t *entry;                         /*!< Entry of the superposition-creating function in the symbol table */
 } func_sp_node_t;
 
+/**
+ * \brief                               Logical operator node struct
+ * \note                                This structure defines a logical-operator-node with two child nodes
+ */
 typedef struct logical_op_node {
-    node_type_t node_type;
-    bool is_quantizable;
-    bool is_unitary;
-    type_info_t type_info;
-    logical_op_t op;
-    node_t *left;
-    node_t *right;
+    node_type_t node_type;                  /*!< Node type */
+    bool is_quantizable;                    /*!< Whether logical operation is quantizable */
+    bool is_unitary;                        /*!< Whether logical operation is unitary */
+    type_info_t type_info;                  /*!< Type information of the logical operation's result */
+    logical_op_t op;                        /*!< Logical operator */
+    node_t *left;                           /*!< Left operand (child node) */
+    node_t *right;                          /*!< Right operand (child node) */
 } logical_op_node_t;
 
+/**
+ * \brief                               Comparison operator node struct
+ * \note                                This structure defines a comparison-operator-node with two child nodes
+ */
 typedef struct comparison_op_node {
-    node_type_t node_type;
-    bool is_quantizable;
-    bool is_unitary;
-    type_info_t type_info;
-    comparison_op_t op;
-    node_t *left;
-    node_t *right;
+    node_type_t node_type;                  /*!< Node type */
+    bool is_quantizable;                    /*!< Whether comparison operation is quantizable */
+    bool is_unitary;                        /*!< Whether comparison operation is unitary */
+    type_info_t type_info;                  /*!< Type information of the comparison operation's result */
+    comparison_op_t op;                     /*!< Comparison operator */
+    node_t *left;                           /*!< Left operand (child node) */
+    node_t *right;                          /*!< Right operand (child node) */
 } comparison_op_node_t;
 
+/**
+ * \brief                               Equality operator node struct
+ * \note                                This structure defines an equality-operator-node with two child nodes
+ */
 typedef struct equality_op_node {
-    node_type_t node_type;
-    bool is_quantizable;
-    bool is_unitary;
-    type_info_t type_info;
-    equality_op_t op;
-    node_t *left;
-    node_t *right;
+    node_type_t node_type;                  /*!< Node type */
+    bool is_quantizable;                    /*!< Whether equality operation is quantizable */
+    bool is_unitary;                        /*!< Whether equality operation is unitary */
+    type_info_t type_info;                  /*!< Type information of the equality operation's result */
+    equality_op_t op;                       /*!< Equality operator */
+    node_t *left;                           /*!< Left operand (child node) */
+    node_t *right;                          /*!< Right operand (child node) */
 } equality_op_node_t;
 
+/**
+ * \brief                               Not-operator node struct
+ * \note                                This structure defines a not-operator-node with one child node
+ */
 typedef struct not_op_node {
-    node_type_t node_type;
-    bool is_quantizable;
-    bool is_unitary;
-    type_info_t type_info;
-    node_t *child;
+    node_type_t node_type;                  /*!< Node type */
+    bool is_quantizable;                    /*!< Whether not-operation is quantizable */
+    bool is_unitary;                        /*!< Whether not-operation is unitary */
+    type_info_t type_info;                  /*!< Type information of the not-operation's result */
+    node_t *child;                          /*!< Operand (child node) */
 } not_op_node_t;
 
+/**
+ * \brief                               Integer operator node struct
+ * \note                                This structure defines an integer-operator-node with two child nodes
+ */
 typedef struct integer_op_node {
-    node_type_t node_type;
-    bool is_quantizable;
-    bool is_unitary;
-    type_info_t type_info;
-    integer_op_t op;
-    node_t *left;
-    node_t *right;
+    node_type_t node_type;                  /*!< Node type */
+    bool is_quantizable;                    /*!< Whether integer operation is quantizable */
+    bool is_unitary;                        /*!< Whether integer operation is unitary */
+    type_info_t type_info;                  /*!< Type information of the integer operation's result */
+    integer_op_t op;                        /*!< Integer operator */
+    node_t *left;                           /*!< Left operand (child node) */
+    node_t *right;                          /*!< Right operand (child node) */
 } integer_op_node_t;
 
+/**
+ * \brief                               Invert-operator node struct
+ * \note                                This structure defines an invert-operator-node with one child node
+ */
 typedef struct invert_op_node {
-    node_type_t node_type;
-    bool is_quantizable;
-    bool is_unitary;
-    type_info_t type_info;
-    node_t *child;
+    node_type_t node_type;                  /*!< Node type */
+    bool is_quantizable;                    /*!< Whether invert-operation is quantizable */
+    bool is_unitary;                        /*!< Whether invert-operation is unitary */
+    type_info_t type_info;                  /*!< Type information of the invert-operation's result */
+    node_t *child;                          /*!< Operand (child node) */
 } invert_op_node_t;
 
+/**
+ * \brief                               If node struct
+ * \note                                This structure defines an if-node with at least two child nodes
+ */
 typedef struct if_node {
-    node_type_t node_type;
-    bool is_quantizable;
-    bool is_unitary;
-    node_t *condition;
-    node_t *if_branch;
-    node_t **else_if_branches;
-    unsigned num_of_else_ifs;
-    node_t *else_branch;
-    return_style_t return_style;
-    type_info_t return_type_info;
+    node_type_t node_type;                  /*!< Node type */
+    bool is_quantizable;                    /*!< Whether if(-else)-statement is quantizable */
+    bool is_unitary;                        /*!< Whether if(-else)-statement is unitary */
+    node_t *condition;                      /*!< If-condition (child node) */
+    node_t *if_branch;                      /*!< If-branch (child node) */
+    node_t **else_ifs;                      /*!< Array of else-ifs (child nodes) */
+    unsigned num_of_else_ifs;               /*!< Number of else-ifs */
+    node_t *else_branch;                    /*!< Optional else-branch (child node) */
+    return_style_t return_style;            /*!< Return style of if(-else)-statement */
+    type_info_t return_type_info;           /*!< Return type information of if(-else)-statement */
 } if_node_t;
 
+/**
+ * \brief                               Else-if node struct
+ * \note                                This structure defines an else-if-node with two child nodes
+ */
 typedef struct else_if_node {
-    node_type_t node_type;
-    bool is_quantizable;
-    bool is_unitary;
-    node_t *condition;
-    node_t *else_if_branch;
-    return_style_t return_style;
-    type_info_t return_type_info;
+    node_type_t node_type;                  /*!< Node type */
+    bool is_quantizable;                    /*!< Whether else-if-statement is quantizable */
+    bool is_unitary;                        /*!< Whether else-if-statement is unitary */
+    node_t *condition;                      /*!< Else-if-condition (child node) */
+    node_t *else_if_branch;                 /*!< Else-if-branch (child node) */
+    return_style_t return_style;            /*!< Return style of else-if-statement */
+    type_info_t return_type_info;           /*!< Return type information of else-if-statement */
 } else_if_node_t;
 
+/**
+ * \brief                               Switch node struct
+ * \note                                This structure defines a switch-node with at least one child node
+ */
 typedef struct switch_node {
-    node_type_t node_type;
-    bool is_quantizable;
-    bool is_unitary;
-    node_t *expression;
-    node_t **case_branches;
-    unsigned num_of_cases;
-    return_style_t return_style;
-    type_info_t return_type_info;
+    node_type_t node_type;                  /*!< Node type */
+    bool is_quantizable;                    /*!< Whether switch-statement is quantizable */
+    bool is_unitary;                        /*!< Whether switch-statement is unitary */
+    node_t *expression;                     /*!< Switch-expression (child node) */
+    node_t **cases;                         /*!< Array of cases (child nodes) */
+    unsigned num_of_cases;                  /*!< Number of cases */
+    return_style_t return_style;            /*!< Return style of switch-statement */
+    type_info_t return_type_info;           /*!< Return type information of switch-statement */
 } switch_node_t;
 
+/**
+ * \brief                               Case node struct
+ * \note                                This structure defines a case-node with one child nodes
+ */
 typedef struct case_node {
-    node_type_t node_type;
-    bool is_quantizable;
-    bool is_unitary;
-    type_t case_const_type;
-    value_t case_const_value;
-    node_t *case_branch;
-    return_style_t return_style;
-    type_info_t return_type_info;
+    node_type_t node_type;                  /*!< Node type */
+    bool is_quantizable;                    /*!< Whether case is quantizable */
+    bool is_unitary;                        /*!< Whether case is unitary */
+    type_t case_const_type;                 /*!< Type of case value */
+    value_t case_const_value;               /*!< Case value */
+    node_t *case_branch;                    /*!< Case branch (child node) */
+    return_style_t return_style;            /*!< Return style of case */
+    type_info_t return_type_info;           /*!< Return type information of case */
 } case_node_t;
 
+/**
+ * \brief                               For-loop node struct
+ * \note                                This structure defines a for-loop-node with four child nodes
+ */
 typedef struct for_node {
-    node_type_t node_type;
-    node_t *initialize;
-    node_t *condition;
-    node_t *increment;
-    node_t *for_branch;
+    node_type_t node_type;                  /*!< Node type */
+    node_t *initialize;                     /*!< For-loop-initialization statement (child node) */
+    node_t *condition;                      /*!< For-loop-condition (child node) */
+    node_t *increment;                      /*!< For-loop-increment (child node) */
+    node_t *for_branch;                     /*!< For-loop-branch (child node) */
 } for_node_t;
 
+/**
+ * \brief                               Do-while-loop node struct
+ * \note                                This structure defines a do-while-loop-node with two child nodes
+ */
 typedef struct do_node {
-    node_type_t node_type;
-    node_t *do_branch;
-    node_t *condition;
+    node_type_t node_type;                  /*!< Node type */
+    node_t *do_branch;                      /*!< Do-while-loop-branch (child node) */
+    node_t *condition;                      /*!< Do-while-loop-condition (child node) */
 } do_node_t;
 
+/**
+ * \brief                               While-loop node struct
+ * \note                                This structure defines a while-loop-node with two child nodes
+ */
 typedef struct while_node {
-    node_type_t node_type;
-    node_t *condition;
-    node_t *while_branch;
+    node_type_t node_type;                  /*!< Node type */
+    node_t *condition;                      /*!< While-loop-condition (child node) */
+    node_t *while_branch;                   /*!< While-loop-branch (child node) */
 } while_node_t;
 
+/**
+ * \brief                               Assignment node struct
+ * \note                                This structure defines an assignment-node with two child nodes
+ */
 typedef struct assign_node {
-    node_type_t node_type;
-    bool is_quantizable;
-    bool is_unitary;
-    assign_op_t op;
-    node_t *left;
-    node_t *right;
+    node_type_t node_type;                  /*!< Node type */
+    bool is_quantizable;                    /*!< Whether assignment is quantizable */
+    bool is_unitary;                        /*!< Whether assignment is unitary */
+    assign_op_t op;                         /*!< Assignment operator */
+    node_t *left;                           /*!< Left-hand side of assignment (child node) */
+    node_t *right;                          /*!< Right-hand side of assignment (child node) */
 } assign_node_t;
 
+/**
+ * \brief                               Phase node struct
+ * \note                                This structure defines a phase-node with two child nodes
+ */
 typedef struct phase_node {
-    node_type_t node_type;
-    bool is_unitary;
-    bool is_positive;
-    node_t *left;
-    node_t *right;
+    node_type_t node_type;                  /*!< Node type */
+    bool is_unitary;                        /*!< Whether change of phase is unitary */
+    bool is_positive;                       /*!< Whether change of phase is positive */
+    node_t *left;                           /*!< Variable whose phase is changed (child node) */
+    node_t *right;                          /*!< Change of phase (child node) */
 } phase_node_t;
 
+/**
+ * \brief                               Measurement node struct
+ * \note                                This structure defines a measurement-node with one child node
+ */
 typedef struct measure_node {
-    node_type_t node_type;
-    type_info_t type_info;
-    node_t *child;
+    node_type_t node_type;                  /*!< Node type */
+    type_info_t type_info;                  /*!< Type information of measurement result */
+    node_t *child;                          /*!< Quantity to be measured */
 } measure_node_t;
 
+/**
+ * \brief                               Break node struct
+ * \note                                This structure defines a break-node with zero child nodes
+ */
 typedef struct break_node {
-    node_type_t node_type;
+    node_type_t node_type;                  /*!< Node type */
 } break_node_t;
 
+/**
+ * \brief                               Continue node struct
+ * \note                                This structure defines a continue-node with zero child nodes
+ */
 typedef struct continue_node {
-    node_type_t node_type;
+    node_type_t node_type;                  /*!< Node type */
 } continue_node_t;
 
+/**
+ * \brief                               Return node struct
+ * \note                                This structure defines a return-node with one child node
+ */
 typedef struct return_node {
-    node_type_t node_type;
-    bool is_quantizable;
-    bool is_unitary;
-    type_info_t type_info;
-    node_t *return_value;
+    node_type_t node_type;                  /*!< Node type */
+    bool is_quantizable;                    /*!< Whether return statement is quantizable */
+    bool is_unitary;                        /*!< Whether return statement is unitary */
+    type_info_t type_info;                  /*!< Return style */
+    node_t *return_value;                   /*!< Returned quantity (child node) */
 } return_node_t;
 
 
@@ -439,29 +553,57 @@ typedef struct return_node {
  * =====================================================================================================================
  */
 
+/**
+ * \brief                               Convert operator type to printable string
+ * \param[in]                           op_type: Operator type
+ * \return                              String representing input operator type
+ */
 char *op_type_to_str(op_type_t op_type);
 
+/**
+ * \brief                               Convert logical operator to printable string
+ * \param[in]                           logical_op: Logical operator
+ * \return                              String representing input logical operator
+ */
 char *logical_op_to_str(logical_op_t logical_op);
 
+/**
+ * \brief                               Convert comparison operator to printable string
+ * \param[in]                           comparison_op: Comparison operator
+ * \return                              String representing input comparison operator
+ */
 char *comparison_op_to_str(comparison_op_t comparison_op);
 
+/**
+ * \brief                               Convert equality operator to printable string
+ * \param[in]                           equality_op: Equality operator
+ * \return                              String representing input equality operator
+ */
 char *equality_op_to_str(equality_op_t equality_op);
 
+/**
+ * \brief                               Convert integer operator to printable string
+ * \param[in]                           integer_op: Integer operator
+ * \return                              String representing input integer operator
+ */
 char *integer_op_to_str(integer_op_t integer_op);
 
+/**
+ * \brief                               Convert assignment operator to printable string
+ * \param[in]                           assign_op: Assignment operator
+ * \return                              String representing input assignment operator
+ */
 char *assign_op_to_str(assign_op_t assign_op);
-
-unsigned get_length_of_array(const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth);
 
 node_t *new_stmt_list_node(bool is_unitary, bool is_quantizable, node_t **stmt_list, unsigned num_of_stmts,
                            char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_func_decl_node(entry_t *entry, node_t *func_tail, char error_msg[ERROR_MSG_LENGTH]);
-
 node_t *new_var_decl_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, qualified_type_t *qualified_types,
+node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type_t *qualified_types,
                          array_value_t *values, unsigned length, char error_msg[ERROR_MSG_LENGTH]);
+
+node_t *new_func_def_node(entry_t *entry, node_t *func_tail, char error_msg[ERROR_MSG_LENGTH]);
 
 node_t *new_const_node(type_t type, value_t value, char error_msg[ERROR_MSG_LENGTH]);
 
@@ -534,6 +676,7 @@ void fprint_node(FILE *output_file, const node_t *node);
 void fprint_tree(FILE *output_file, const node_t *node);
 
 void free_node(node_t *node);
+
 
 /*
  * =====================================================================================================================

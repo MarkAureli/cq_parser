@@ -226,14 +226,14 @@ bool setup_init_info(init_info_t *init_info, bool is_init_list, node_t *node, ch
         }
 
         init_info->is_init_list = true;
-        init_info->qualified_types = malloc(sizeof (qualified_type_t));
+        init_info->qualified_types = malloc(sizeof (q_type_t));
         init_info->values = malloc(sizeof (array_value_t));
         if (init_info->qualified_types == NULL || init_info->values == NULL) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for initialization information failed");
             return false;
         }
 
-        qualified_type_t qualified_type = { .qualifier=type_info.qualifier, .type=type_info.type };
+        q_type_t qualified_type = { .qualifier=type_info.qualifier, .type=type_info.type };
         init_info->qualified_types[0] = qualified_type;
         if (type_info.qualifier == CONST_T) {
             init_info->values[0].const_value = ((const_node_t *) node)->values[0];
@@ -270,10 +270,10 @@ bool append_to_init_info(init_info_t *init_info, node_t *node, char error_msg[ER
     } else {
         value.node_value = node;
     }
-    qualified_type_t qualified_type = { .qualifier=type_info.qualifier, .type=type_info.type };
+    q_type_t qualified_type = { .qualifier=type_info.qualifier, .type=type_info.type };
     unsigned current_length = (init_info->length)++;
-    qualified_type_t *temp_1 = realloc(init_info->qualified_types,
-                                     (current_length + 1) * sizeof (qualified_type_t));
+    q_type_t *temp_1 = realloc(init_info->qualified_types,
+                                     (current_length + 1) * sizeof (q_type_t));
     array_value_t *temp_2 = realloc(init_info->values, (current_length + 1) * sizeof (array_value_t));
     if (temp_1 == NULL || temp_2 == NULL) {
         free(init_info->qualified_types);

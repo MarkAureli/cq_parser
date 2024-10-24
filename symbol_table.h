@@ -100,12 +100,12 @@ typedef union value {
 
 /**
  * \brief                               Qualified type struct
- * \note                                This structure defined the qualified type (qualifier + type) of a variable
+ * \note                                This structure defines the qualified type (qualifier + type) of a variable
  */
-typedef struct qualified_type {
+typedef struct q_type {
     qualifier_t qualifier;                  /*!< Qualifier of qualified type */
     type_t type;                            /*!< Type of qualified type */
-} qualified_type_t;
+} q_type_t;
 
 /**
  * \brief                               Type info struct
@@ -213,9 +213,11 @@ void incr_scope();
  * \param[in]                           type: Type to be set
  * \param[in]                           sizes: Sizes to be set
  * \param[in]                           depth: Depth to be set
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return                              Whether setting the type information was successful
  */
-void set_type_info(entry_t *entry, qualifier_t qualifier, type_t type, const unsigned sizes[MAX_ARRAY_DEPTH],
-                   unsigned depth);
+bool set_type_info(entry_t *entry, qualifier_t qualifier, type_t type, const unsigned sizes[MAX_ARRAY_DEPTH],
+                   unsigned depth, char error_msg[ERROR_MSG_LENGTH]);
 
 /**
  * \brief                               Set function information of symbol table entry
@@ -225,9 +227,11 @@ void set_type_info(entry_t *entry, qualifier_t qualifier, type_t type, const uns
  * \param[in]                           is_quantizable: Whether function can be used for creating a superposition
  * \param[in]                           pars_type_info: Type information of function parameters
  * \param[in]                           num_of_pars: Number of function parameters
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return                              Whether setting the function information was successful
  */
-void set_func_info(entry_t *entry, bool is_unitary, bool is_quantizable, type_info_t *pars_type_info,
-                   unsigned num_of_pars);
+bool set_func_info(entry_t *entry, bool is_unitary, bool is_quantizable, type_info_t *pars_type_info,
+                   unsigned num_of_pars, char error_msg[ERROR_MSG_LENGTH]);
 
 /**
  * \brief                               Dump symbol table content to output file

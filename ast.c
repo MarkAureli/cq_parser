@@ -1,10 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#ifndef NULL
-#include <__stddef_null.h>
-#endif
 #include "ast.h"
 
 char *op_type_to_string(op_type_t op_type) {
@@ -354,9 +350,9 @@ void free_node(node_t *node) {
             free((stmt_list_node_t *) node);
             return;
         }
-        case FUNC_DECL_NODE_T: {
-            free_node(((func_decl_node_t *) node)->func_tail);
-            free((func_decl_node_t *) node);
+        case FUNC_DEF_NODE_T: {
+            free_node(((func_def_node_t *) node)->func_tail);
+            free((func_def_node_t *) node);
             return;
         }
         case VAR_DECL_NODE_T: {
@@ -365,7 +361,7 @@ void free_node(node_t *node) {
         }
         case VAR_DEF_NODE_T: {
             if (((var_def_node_t *) node)->is_init_list) {
-                free(((var_def_node_t *) node)->qualified_types);
+                free(((var_def_node_t *) node)->q_types);
                 free(((var_def_node_t *) node)->values);
             } else {
                 free_node(((var_def_node_t *) node)->node);
@@ -432,7 +428,7 @@ void free_node(node_t *node) {
             free_node(((if_node_t *) node)->condition);
             free_node(((if_node_t *) node)->if_branch);
             for (unsigned i = 0; i < ((if_node_t *) node)->num_of_else_ifs; ++i) {
-                free_node(((if_node_t *) node)->else_if_branches[i]);
+                free_node(((if_node_t *) node)->else_ifs[i]);
             }
             free_node(((if_node_t *) node)->else_branch);
             free((if_node_t *) node);
@@ -447,7 +443,7 @@ void free_node(node_t *node) {
         case SWITCH_NODE_T: {
             free_node(((switch_node_t *) node)->expression);
             for (unsigned i = 0; i < ((switch_node_t *) node)->num_of_cases; ++i) {
-                free_node(((switch_node_t *) node)->case_branches[i]);
+                free_node(((switch_node_t *) node)->cases[i]);
             }
             free((switch_node_t *) node);
             return;
@@ -689,7 +685,7 @@ node_t *new_stmt_list_node(bool is_unitary, bool is_quantizable, node_t **stmt_l
     return (node_t *) new_node;
 }
 
-node_t *new_func_decl_node(entry_t *entry, node_t *func_tail, char error_msg[ERROR_MSG_LENGTH]) {
+node_t *new_func_def_node(entry_t *entry, node_t *func_tail, char error_msg[ERROR_MSG_LENGTH]) {
     if (!entry->is_function) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not a function", entry->name);
         free_node(func_tail);
@@ -746,7 +742,7 @@ node_t *new_func_decl_node(entry_t *entry, node_t *func_tail, char error_msg[ERR
         }
     }
 
-    func_decl_node_t *new_node = malloc(sizeof (func_decl_node_t));
+    func_def_node_t *new_node = malloc(sizeof (func_def_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for function declaration node failed");
         free_node(func_tail);
@@ -754,7 +750,7 @@ node_t *new_func_decl_node(entry_t *entry, node_t *func_tail, char error_msg[ERR
         return NULL;
     }
 
-    new_node->node_type = FUNC_DECL_NODE_T;
+    new_node->node_type = FUNC_DEF_NODE_T;
     new_node->entry = entry;
     new_node->func_tail = func_tail;
     return (node_t *) new_node;
@@ -779,7 +775,7 @@ node_t *new_var_decl_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
     return (node_t *) new_node;
 }
 
-node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, qualified_type_t *qualified_types,
+node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type_t *qualified_types,
                          array_value_t *values, unsigned length, char error_msg[ERROR_MSG_LENGTH]) {
     bool result_is_quantizable = true;
     bool result_is_unitary = true;
@@ -1027,12 +1023,24 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, qualif
     new_node->entry = entry;
     new_node->is_init_list = is_init_list;
     if (is_init_list) {
-        new_node->qualified_types = qualified_types;
+        new_node->q_types = qualified_types;
         new_node->values = values;
     } else {
         new_node->node = node;
     }
     new_node->length = length;
+
+    if (entry->qualifier == CONST_T) {
+        if (is_init_list) {
+            for (unsigned i = 0; i < length; ++i) {
+                entry->values[i] = values[i].const_value;
+            }
+        } else {
+            const_node_t *const_node_view = (const_node_t *) node;
+            memcpy(entry->values, const_node_view->values, sizeof (value_t) *
+                   get_length_of_array(const_node_view->type_info.sizes, const_node_view->type_info.depth));
+        }
+    }
     return (node_t *) new_node;
 }
 
@@ -1324,7 +1332,7 @@ node_t *new_func_sp_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
         return NULL;
     }
 
-    func_decl_node_t *new_node = malloc(sizeof (func_sp_node_t));
+    func_def_node_t *new_node = malloc(sizeof (func_sp_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for function superposition node failed");
         free_symbol_table();
@@ -1982,7 +1990,7 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
     new_node->is_unitary = result_is_unitary;
     new_node->condition = condition;
     new_node->if_branch = if_branch;
-    new_node->else_if_branches = else_if_branches;
+    new_node->else_ifs = else_if_branches;
     new_node->num_of_else_ifs = num_of_else_ifs;
     new_node->else_branch = else_branch;
     new_node->return_style = result_return_style;
@@ -2204,7 +2212,7 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
     new_node->is_quantizable = result_is_quantizable;
     new_node->is_unitary = result_is_unitary;
     new_node->expression = expression;
-    new_node->case_branches = case_branches;
+    new_node->cases = case_branches;
     new_node->num_of_cases = num_of_cases;
     new_node->return_style = result_return_style;
     if (result_return_style != NONE_ST) {
@@ -3164,8 +3172,8 @@ void fprint_node(FILE *output_file, const node_t *node) {
             fprintf(output_file, "Statement list node with %u statements\n", ((stmt_list_node_t *) node)->num_of_stmts);
             break;
         }
-        case FUNC_DECL_NODE_T: {
-            fprintf(output_file, "Function declaration node for %s\n", ((func_decl_node_t *) node)->entry->name);
+        case FUNC_DEF_NODE_T: {
+            fprintf(output_file, "Function declaration node for %s\n", ((func_def_node_t *) node)->entry->name);
             break;
         }
         case VAR_DECL_NODE_T: {
@@ -3433,15 +3441,15 @@ void fprint_tree(FILE *output_file, const node_t *node) {
             }
             break;
         }
-        case FUNC_DECL_NODE_T: {
-            fprint_tree(output_file, ((func_decl_node_t *) node)->func_tail);
+        case FUNC_DEF_NODE_T: {
+            fprint_tree(output_file, ((func_def_node_t *) node)->func_tail);
             break;
         }
         case VAR_DEF_NODE_T: {
             if (((var_def_node_t *) node)->is_init_list) {
                 for (unsigned i = 0; i < get_length_of_array(((var_def_node_t *) node)->entry->sizes,
                                                              ((var_def_node_t *) node)->entry->depth); ++i) {
-                    if ((((var_def_node_t *) node)->qualified_types[i].qualifier != CONST_T)) {
+                    if ((((var_def_node_t *) node)->q_types[i].qualifier != CONST_T)) {
                         fprint_tree(output_file, ((var_def_node_t *) node)->values[i].node_value);
                     }
                 }
@@ -3488,7 +3496,7 @@ void fprint_tree(FILE *output_file, const node_t *node) {
             fprint_tree(output_file, ((if_node_t *) node)->condition);
             fprint_tree(output_file, ((if_node_t *) node)->if_branch);
             for (unsigned i = 0; i < ((if_node_t *) node)->num_of_else_ifs; ++i) {
-                fprint_tree(output_file, ((if_node_t *) node)->else_if_branches[i]);
+                fprint_tree(output_file, ((if_node_t *) node)->else_ifs[i]);
             }
             fprint_tree(output_file, ((if_node_t *) node)->else_branch);
             break;
@@ -3501,7 +3509,7 @@ void fprint_tree(FILE *output_file, const node_t *node) {
         case SWITCH_NODE_T: {
             fprint_tree(output_file, ((switch_node_t *) node)->expression);
             for (unsigned i = 0; i < ((switch_node_t *) node)->num_of_cases; ++i) {
-                fprint_tree(output_file, ((switch_node_t *) node)->case_branches[i]);
+                fprint_tree(output_file, ((switch_node_t *) node)->cases[i]);
             }
             break;
         }

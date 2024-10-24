@@ -13,7 +13,7 @@ extern int yylineno;
 extern FILE *yyin;
 extern FILE *yyout;
 
-int yyerror(const char *s);
+int yyerror(const char *message);
 static node_t *root;
 static char error_msg[ERROR_MSG_LENGTH];
 static unsigned stmt_list_counter;
@@ -157,9 +157,16 @@ func_def:
 	        incr_scope();
 	    } func_head func_tail {
 	    hide_scope();
-	    set_type_info($3, QUANTUM_T, $2->type, $2->sizes, $2->depth);
-	    set_func_info($3, $5->is_unitary && is_unitary($6), false, $5->pars_type_info, $5->num_of_pars);
-	    $$ = new_func_decl_node($3, $6, error_msg);
+	    if (!set_type_info($3, QUANTUM_T, $2->type, $2->sizes, $2->depth, error_msg)) {
+	        yyerror(error_msg);
+	    }
+
+	    if (!set_func_info($3, $5->is_unitary && is_unitary($6), false, $5->pars_type_info, $5->num_of_pars,
+	        error_msg)) {
+	        yyerror(error_msg);
+	    }
+
+	    $$ = new_func_def_node($3, $6, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
@@ -168,9 +175,16 @@ func_def:
 	        incr_scope();
 	    } func_head func_tail {
 	    hide_scope();
-	    set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth);
-	    set_func_info($2, false, $4->is_quantizable && is_quantizable($5), $4->pars_type_info, $4->num_of_pars);
-	    $$ = new_func_decl_node($2, $5, error_msg);
+	    if (!set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth, error_msg)) {
+	        yyerror(error_msg);
+	    }
+
+	    if (!set_func_info($2, false, $4->is_quantizable && is_quantizable($5), $4->pars_type_info, $4->num_of_pars,
+	        error_msg)) {
+	        yyerror(error_msg);
+	    }
+
+	    $$ = new_func_def_node($2, $5, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -179,10 +193,16 @@ func_def:
 	        incr_scope();
 	    } func_head func_tail {
 	    hide_scope();
-	    set_type_info($2, NONE_T, VOID_T, NULL, 0);
-	    set_func_info($2, $4->is_unitary && is_unitary($5), $4->is_quantizable && is_quantizable($5),
-	                  $4->pars_type_info, $4->num_of_pars);
-	    $$ = new_func_decl_node($2, $5, error_msg);
+	    if (!set_type_info($2, NONE_T, VOID_T, NULL, 0, error_msg)) {
+	        yyerror(error_msg);
+	    }
+
+	    if (!set_func_info($2, $4->is_unitary && is_unitary($5), $4->is_quantizable && is_quantizable($5),
+	                  $4->pars_type_info, $4->num_of_pars, error_msg)) {
+	        yyerror(error_msg);
+	    }
+
+	    $$ = new_func_def_node($2, $5, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
@@ -222,12 +242,18 @@ par_l:
 
 par:
 	QUANTUM type_specifier declarator {
-	    set_type_info($3, QUANTUM_T, $2->type, $2->sizes, $2->depth);
+	    if (!set_type_info($3, QUANTUM_T, $2->type, $2->sizes, $2->depth, error_msg)) {
+	        yyerror(error_msg);
+	    }
+
 	    $$ = $2;
 	    $$->qualifier = QUANTUM_T;
 	}
 	| type_specifier declarator {
-        set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth);
+        if (!set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth, error_msg)) {
+            yyerror(error_msg);
+        }
+
 	    $$ = $1;
 	    $$->qualifier = NONE_T;
     }
@@ -241,7 +267,10 @@ func_tail:
 
 variable_decl:
     QUANTUM type_specifier declarator SEMICOLON {
-        set_type_info($3, QUANTUM_T, $2->type, $2->sizes, $2->depth);
+        if (!set_type_info($3, QUANTUM_T, $2->type, $2->sizes, $2->depth, error_msg)) {
+            yyerror(error_msg);
+        }
+
         $$ = new_var_decl_node($3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -249,7 +278,10 @@ variable_decl:
         --type_info_counter;
     }
     | type_specifier declarator SEMICOLON {
-        set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth);
+        if (!set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth, error_msg)) {
+            yyerror(error_msg);
+        }
+
         $$ = new_var_decl_node($2, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -261,7 +293,10 @@ variable_decl:
 
 variable_def:
     QUANTUM type_specifier declarator ASSIGN init SEMICOLON {
-	    set_type_info($3, QUANTUM_T, $2->type, $2->sizes, $2->depth);
+	    if (!set_type_info($3, QUANTUM_T, $2->type, $2->sizes, $2->depth, error_msg)) {
+	        yyerror(error_msg);
+	    }
+
 	    $$ = new_var_def_node($3, $5->is_init_list, $5->node, $5->qualified_types, $5->values, $5->length, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
@@ -270,28 +305,22 @@ variable_def:
 	    --type_info_counter;
 	}
 	| CONST type_specifier declarator ASSIGN init SEMICOLON {
-	    set_type_info($3, CONST_T, $2->type, $2->sizes, $2->depth);
+	    if (!set_type_info($3, CONST_T, $2->type, $2->sizes, $2->depth, error_msg)) {
+	        yyerror(error_msg);
+	    }
+
 	    $$ = new_var_def_node($3, $5->is_init_list, $5->node, $5->qualified_types, $5->values, $5->length, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 
-        /* set values of constant symbol table entry */
-        if ($5->is_init_list) {
-            for (unsigned i = 0; i < $5->length; ++i) {
-                $3->values[i] = $5->values[i].const_value;
-            }
-        } else {
-            const_node_t *const_node_view = (const_node_t *) $5->node;
-            memcpy($3->values, const_node_view->values,
-                   get_length_of_array(const_node_view->type_info.sizes,
-                                       const_node_view->type_info.depth) * sizeof (value_t));
-        }
-
         --type_info_counter;
     }
 	| type_specifier declarator ASSIGN init SEMICOLON {
-	    set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth);
+	    if (!set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth, error_msg)) {
+	        yyerror(error_msg);
+	    }
+
         $$ = new_var_def_node($2, $4->is_init_list, $4->node, $4->qualified_types, $4->values, $4->length, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -1077,6 +1106,7 @@ func_call:
         if (entry == NULL) {
             yyerror(error_msg);
         }
+
         $$ = new_func_call_node(false, entry, $3->args, $3->num_of_args, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -1089,6 +1119,7 @@ func_call:
         if (entry == NULL) {
             yyerror(error_msg);
         }
+
 	    $$ = new_func_call_node(false, entry, NULL, 0, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -1099,6 +1130,7 @@ func_call:
         if (entry == NULL) {
             yyerror(error_msg);
         }
+
 	    $$ = new_func_call_node(true, entry, $5->args, $5->num_of_args, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
@@ -1127,8 +1159,8 @@ argument_expr_l:
 
 %%
 
-int yyerror(const char *msg) {
-    fprintf(stderr, "Parsing failed in line %d: %s\n", yylineno, msg);
+int yyerror(const char *message) {
+    fprintf(stderr, "Parsing failed in line %d: %s\n", yylineno, message);
     exit(1);
 }
 

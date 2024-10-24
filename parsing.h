@@ -100,7 +100,7 @@ typedef struct init_info {
     union {
         node_t *node;
         struct {
-            qualified_type_t *qualified_types;
+            q_type_t *qualified_types;
             array_value_t *values;
             unsigned length;
         };
