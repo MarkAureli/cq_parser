@@ -279,7 +279,7 @@ bool set_type_info(entry_t *entry, qualifier_t qualifier, type_t type, const uns
 
     entry->qualifier = qualifier;
     entry->type = type;
-    memcpy(entry->sizes, sizes, depth * sizeof (unsigned));
+    memcpy(entry->sizes, sizes, sizeof (entry->sizes));
     entry->depth = depth;
     unsigned length = 1;
     for (unsigned i = 0; i < depth; ++i) {

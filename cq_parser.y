@@ -113,7 +113,7 @@ static case_list_t case_list_array[MAX_NUM_OF_CASE_LISTS];
 
 program:
 	decl_l {
-	    $$ = new_stmt_list_node($1->is_unitary, $1->is_quantizable, $1->stmt_nodes, $1->num_of_stmts, error_msg);
+	    $$ = new_stmt_list_node($1->is_quantizable, $1->is_unitary, $1->stmt_nodes, $1->num_of_stmts, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
@@ -445,7 +445,7 @@ type_specifier:
 
 sub_program:
     stmt_l {
-	    $$ = new_stmt_list_node($1->is_unitary, $1->is_quantizable, $1->stmt_nodes, $1->num_of_stmts, error_msg);
+	    $$ = new_stmt_list_node($1->is_quantizable, $1->is_unitary, $1->stmt_nodes, $1->num_of_stmts, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
@@ -491,7 +491,7 @@ decl_stmt:
 
 res_sub_program:
     res_stmt_l {
-	    $$ = new_stmt_list_node($1->is_unitary, $1->is_quantizable, $1->stmt_nodes, $1->num_of_stmts, error_msg);
+	    $$ = new_stmt_list_node($1->is_quantizable, $1->is_unitary, $1->stmt_nodes, $1->num_of_stmts, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }

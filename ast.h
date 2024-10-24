@@ -595,37 +595,159 @@ char *integer_op_to_str(integer_op_t integer_op);
  */
 char *assign_op_to_str(assign_op_t assign_op);
 
-node_t *new_stmt_list_node(bool is_unitary, bool is_quantizable, node_t **stmt_list, unsigned num_of_stmts,
+/**
+ * \brief                               Allocate new statement-list-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           is_quantizable: Whether statement list is quantizable
+ * \param[in]                           is_unitary: Whether statement list is unitary
+ * \param[in]                           stmt_list: Statement list
+ * \param[in]                           num_of_stmts: Number of statements
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated statement-list-node or `NULL` upon failure
+ */
+node_t *new_stmt_list_node(bool is_quantizable, bool is_unitary, node_t **stmt_list, unsigned num_of_stmts,
                            char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new variable-declaration-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           entry: Entry of declared variable in the symbol table
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated variable-declaration-node or `NULL` upon failure
+ */
 node_t *new_var_decl_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type_t *qualified_types,
+/**
+ * \brief                               Allocate new variable-definition-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           entry: Entry of defined variable in the symbol table
+ * \param[in]                           is_init_list: Whether variable definition is done via an initializer list
+ * \param[in]                           node: Right-hand side of variable definition if no initializer list is given
+ * \param[in]                           q_types: Qualified types of values within initializer list
+ * \param[in]                           values: Values with initializer list
+ * \param[in]                           length: Length of initializer list
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated variable-definition-node or `NULL` upon failure
+ */
+node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type_t *q_types,
                          array_value_t *values, unsigned length, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new function-definition-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           entry: Entry of defined function in the symbol table
+ * \param[in]                           func_tail: Tail of function definition
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated function-definition-node or `NULL` upon failure
+ */
 node_t *new_func_def_node(entry_t *entry, node_t *func_tail, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new constant-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           type: Type of constant value
+ * \param[in]                           value: Constant value
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated constant-node or `NULL` upon failure
+ */
 node_t *new_const_node(type_t type, value_t value, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new reference-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           entry: Entry of referenced variable in the symbol table
+ * \param[in]                           index_is_const: Whether indices in reference are constant
+ * \param[in]                           indices: Indices of reference
+ * \param[in]                           index_depth: Number of indices in reference
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated reference-node or `NULL` upon failure
+ */
 node_t *new_reference_node(entry_t *entry, const bool index_is_const[MAX_ARRAY_DEPTH],
                            const index_t indices[MAX_ARRAY_DEPTH], unsigned index_depth,
                            char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new function-call-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           sp: Whether function is called as a superposition-creating function
+ * \param[in]                           entry: Entry of called function in the symbol table
+ * \param[in]                           pars: Parameters of function call
+ * \param[in]                           num_of_pars: Number of parameters of function call
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated function-call-node or `NULL` upon failure
+ */
 node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_of_pars,
                            char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new function-superposition-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           entry: Entry of called superposition-creating function in the symbol table
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated function-superposition-node or `NULL` upon failure
+ */
 node_t *new_func_sp_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new logical-operator-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           left: Left-hand side of logical operation
+ * \param[in]                           op: Logical operator
+ * \param[in]                           right: Right-hand side of logical operation
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated logical-operator-node or `NULL` upon failure
+ */
 node_t *new_logical_op_node(node_t *left, logical_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new comparison-operator-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           left: Left-hand side of comparison operation
+ * \param[in]                           op: Comparison operator
+ * \param[in]                           right: Right-hand side of comparison operation
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated comparison-operator-node or `NULL` upon failure
+ */
 node_t *new_comparison_op_node(node_t *left, comparison_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new equality-operator-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           left: Left-hand side of equality operation
+ * \param[in]                           op: Equality operator
+ * \param[in]                           right: Right-hand side of equality operation
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated equality-operator-node or `NULL` upon failure
+ */
 node_t *new_equality_op_node(node_t *left, equality_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new not-operator-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           child: Operand of not-operation
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated not-operator-node or `NULL` upon failure
+ */
 node_t *new_not_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new integer-operator-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           left: Left-hand side of integer operation
+ * \param[in]                           op: Integer operator
+ * \param[in]                           right: Right-hand side of integer operation
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated integer-operator-node or `NULL` upon failure
+ */
 node_t *new_integer_op_node(node_t *left, integer_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new invert-operator-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           child: Operand of invert-operation
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated invert-operator-node or `NULL` upon failure
+ */
 node_t *new_invert_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]);
 
 node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branches, unsigned num_of_else_ifs,

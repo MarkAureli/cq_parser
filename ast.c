@@ -604,7 +604,7 @@ type_t propagate_type(op_type_t op_type, type_t type_1, type_t type_2) {
     }
 }
 
-node_t *new_stmt_list_node(bool is_unitary, bool is_quantizable, node_t **stmt_list, unsigned num_of_stmts,
+node_t *new_stmt_list_node(bool is_quantizable, bool is_unitary, node_t **stmt_list, unsigned num_of_stmts,
                            char error_msg[ERROR_MSG_LENGTH]) {
     return_style_t result_return_style = NONE_ST;
     type_info_t result_return_type_info;
@@ -680,7 +680,7 @@ node_t *new_stmt_list_node(bool is_unitary, bool is_quantizable, node_t **stmt_l
     new_node->num_of_stmts = num_of_stmts;
     new_node->return_style = result_return_style;
     if (result_return_style != NONE_ST) {
-        memcpy(&(new_node->return_type_info), &(result_return_type_info), sizeof (result_return_type_info));
+        memcpy(&(new_node->return_type_info), &(result_return_type_info), sizeof (type_info_t));
     }
     return (node_t *) new_node;
 }
@@ -1124,8 +1124,8 @@ node_t *new_reference_node(entry_t *entry, const bool index_is_const[MAX_ARRAY_D
         new_node->type_info.type = entry->type;
         memcpy(new_node->type_info.sizes, entry->sizes + index_depth, (entry->depth - index_depth) * sizeof (unsigned));
         new_node->type_info.depth = entry->depth - index_depth;
-        memcpy(new_node->index_is_const, index_is_const, index_depth * sizeof (bool));
-        memcpy(new_node->indices, indices, index_depth * sizeof (index_t));
+        memcpy(new_node->index_is_const, index_is_const, sizeof (new_node->index_is_const));
+        memcpy(new_node->indices, indices, sizeof (new_node->indices));
         new_node->entry = entry;
         return (node_t *) new_node;
     }
@@ -1391,8 +1391,7 @@ node_t *new_logical_op_node(node_t *left, logical_op_t op, node_t *right, char e
         }
     }
 
-    unsigned *sizes = left_type_info.sizes;
-    unsigned length = get_length_of_array(sizes, depth);
+    unsigned length = get_length_of_array(left_type_info.sizes, depth);
     if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
         const_node_t *const_node_view_left = (const_node_t *) left;
         const_node_t *const_node_view_right = (const_node_t *) right;
@@ -1417,7 +1416,7 @@ node_t *new_logical_op_node(node_t *left, logical_op_t op, node_t *right, char e
         new_node->is_unitary = is_unitary(left) && is_unitary(right);
         new_node->type_info.qualifier = result_qualifier;
         new_node->type_info.type = BOOL_T;
-        memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+        memcpy(new_node->type_info.sizes, left_type_info.sizes, sizeof (left_type_info.sizes));
         new_node->type_info.depth = depth;
         new_node->op = op;
         new_node->left = left;
@@ -1471,8 +1470,7 @@ node_t *new_comparison_op_node(node_t *left, comparison_op_t op, node_t *right, 
         }
     }
 
-    unsigned *sizes = left_type_info.sizes;
-    unsigned length = get_length_of_array(sizes, depth);
+    unsigned length = get_length_of_array(left_type_info.sizes, depth);
     if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
         const_node_t *const_node_view_left = (const_node_t *) left;
         const_node_t *const_node_view_right = (const_node_t *) right;
@@ -1498,7 +1496,7 @@ node_t *new_comparison_op_node(node_t *left, comparison_op_t op, node_t *right, 
         new_node->is_unitary = is_unitary(left) && is_unitary(right);
         new_node->type_info.qualifier = result_qualifier;
         new_node->type_info.type = BOOL_T;
-        memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+        memcpy(new_node->type_info.sizes, left_type_info.sizes, sizeof (left_type_info.sizes));
         new_node->type_info.depth = depth;
         new_node->op = op;
         new_node->left = left;
@@ -1552,8 +1550,7 @@ node_t *new_equality_op_node(node_t *left, equality_op_t op, node_t *right, char
         }
     }
 
-    unsigned *sizes = left_type_info.sizes;
-    unsigned length = get_length_of_array(sizes, depth);
+    unsigned length = get_length_of_array(left_type_info.sizes, depth);
     if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
         const_node_t *const_node_view_left = (const_node_t *) left;
         const_node_t *const_node_view_right = (const_node_t *) right;
@@ -1582,7 +1579,7 @@ node_t *new_equality_op_node(node_t *left, equality_op_t op, node_t *right, char
         new_node->is_unitary = is_unitary(left) && is_unitary(right);
         new_node->type_info.qualifier = result_qualifier;
         new_node->type_info.type = BOOL_T;
-        memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+        memcpy(new_node->type_info.sizes, left_type_info.sizes, sizeof (left_type_info.sizes));
         new_node->type_info.depth = depth;
         new_node->op = op;
         new_node->left = left;
@@ -1629,7 +1626,7 @@ node_t *new_not_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
         new_node->is_unitary = is_unitary(child);
         new_node->type_info.qualifier = result_qualifier;
         new_node->type_info.type = BOOL_T;
-        memcpy(new_node->type_info.sizes, child_type_info.sizes, child_type_info.depth * sizeof (unsigned));
+        memcpy(new_node->type_info.sizes, child_type_info.sizes, sizeof (child_type_info.sizes));
         new_node->type_info.depth = child_type_info.depth;
         new_node->child = child;
         return (node_t *) new_node;
@@ -1682,9 +1679,8 @@ node_t *new_integer_op_node(node_t *left, integer_op_t op, node_t *right, char e
             return NULL;
         }
     }
-    unsigned *sizes = left_type_info.sizes;
-    unsigned length = get_length_of_array(sizes, depth);
 
+    unsigned length = get_length_of_array(left_type_info.sizes, depth);
     if (result_qualifier == CONST_T) { /* left and right are of node_type CONST_NODE_T */
         const_node_t *const_node_view_left = (const_node_t *) left;
         const_node_t *const_node_view_right = (const_node_t *) right;
@@ -1728,7 +1724,7 @@ node_t *new_integer_op_node(node_t *left, integer_op_t op, node_t *right, char e
         new_node->is_unitary = is_unitary(left) && is_unitary(right);
         new_node->type_info.qualifier = result_qualifier;
         new_node->type_info.type = result_type;
-        memcpy(new_node->type_info.sizes, sizes, depth * sizeof (unsigned));
+        memcpy(new_node->type_info.sizes, left_type_info.sizes, sizeof (left_type_info.sizes));
         new_node->type_info.depth = depth;
         new_node->op = op;
         new_node->left = left;
@@ -1781,7 +1777,7 @@ node_t *new_invert_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
         new_node->is_unitary = is_unitary(child);
         new_node->type_info.qualifier = result_qualifier;
         new_node->type_info.type = result_type;
-        memcpy(new_node->type_info.sizes, child_type_info.sizes, child_type_info.depth * sizeof (unsigned));
+        memcpy(new_node->type_info.sizes, child_type_info.sizes, sizeof (child_type_info.sizes));
         new_node->type_info.depth = child_type_info.depth;
         new_node->child = child;
         return (node_t *) new_node;
@@ -1924,7 +1920,7 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
                 result_return_style = (current_return_style == DEFINITE_ST && result_return_style == DEFINITE_ST) ?
                 DEFINITE_ST : CONDITIONAL_ST;
             } else {
-                memcpy(&result_return_type_info, &elif_return_type_info, sizeof (elif_return_type_info));
+                memcpy(&result_return_type_info, &elif_return_type_info, sizeof (type_info_t));
                 result_return_style = CONDITIONAL_ST;
             }
         }
@@ -1995,7 +1991,7 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
     new_node->else_branch = else_branch;
     new_node->return_style = result_return_style;
     if (result_return_style != NONE_ST) {
-        memcpy(&(new_node->return_type_info), &result_return_type_info, sizeof (result_return_type_info));
+        memcpy(&(new_node->return_type_info), &result_return_type_info, sizeof (type_info_t));
     }
     return (node_t *) new_node;
 }
@@ -2143,7 +2139,7 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
                 result_return_style = (current_return_style == DEFINITE_ST && result_return_style == DEFINITE_ST) ?
                                       DEFINITE_ST : CONDITIONAL_ST;
             } else {
-                memcpy(&result_return_type_info, &case_return_type_info, sizeof (case_return_type_info));
+                memcpy(&result_return_type_info, &case_return_type_info, sizeof (type_info_t));
                 result_return_style = CONDITIONAL_ST;
             }
         }
@@ -2216,7 +2212,7 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
     new_node->num_of_cases = num_of_cases;
     new_node->return_style = result_return_style;
     if (result_return_style != NONE_ST) {
-        memcpy(&(new_node->return_type_info), &result_return_type_info, sizeof (result_return_type_info));
+        memcpy(&(new_node->return_type_info), &result_return_type_info, sizeof (type_info_t));
     }
     return (node_t *) new_node;
 }
@@ -2737,51 +2733,27 @@ bool copy_return_type_info_of_node(type_info_t *type_info, const node_t *node) {
 
     switch (node->node_type) {
         case STMT_LIST_NODE_T: {
-            type_info->qualifier = ((stmt_list_node_t *) node)->return_type_info.qualifier;
-            type_info->type = ((stmt_list_node_t *) node)->return_type_info.type;
-            memcpy(type_info->sizes, ((stmt_list_node_t *) node)->return_type_info.sizes,
-                   ((stmt_list_node_t *) node)->return_type_info.depth * sizeof (unsigned));
-            type_info->depth = ((stmt_list_node_t *) node)->return_type_info.depth;
+            memcpy(type_info, &(((stmt_list_node_t *) node)->return_type_info), sizeof (type_info_t));
             return true;
         }
         case IF_NODE_T: {
-            type_info->qualifier = ((if_node_t *) node)->return_type_info.qualifier;
-            type_info->type = ((if_node_t *) node)->return_type_info.type;
-            memcpy(type_info->sizes, ((if_node_t *) node)->return_type_info.sizes,
-                   ((if_node_t *) node)->return_type_info.depth * sizeof (unsigned));
-            type_info->depth = ((if_node_t *) node)->return_type_info.depth;
+            memcpy(type_info, &(((if_node_t *) node)->return_type_info), sizeof (type_info_t));
             return true;
         }
         case ELSE_IF_NODE_T: {
-            type_info->qualifier = ((else_if_node_t *) node)->return_type_info.qualifier;
-            type_info->type = ((else_if_node_t *) node)->return_type_info.type;
-            memcpy(type_info->sizes, ((else_if_node_t *) node)->return_type_info.sizes,
-                   ((else_if_node_t *) node)->return_type_info.depth * sizeof (unsigned));
-            type_info->depth = ((else_if_node_t *) node)->return_type_info.depth;
+            memcpy(type_info, &(((else_if_node_t *) node)->return_type_info), sizeof (type_info_t));
             return true;
         }
         case SWITCH_NODE_T: {
-            type_info->qualifier = ((switch_node_t *) node)->return_type_info.qualifier;
-            type_info->type = ((switch_node_t *) node)->return_type_info.type;
-            memcpy(type_info->sizes, ((switch_node_t *) node)->return_type_info.sizes,
-                   ((switch_node_t *) node)->return_type_info.depth * sizeof (unsigned));
-            type_info->depth = ((switch_node_t *) node)->return_type_info.depth;
+            memcpy(type_info, &(((switch_node_t *) node)->return_type_info), sizeof (type_info_t));
             return true;
         }
         case CASE_NODE_T: {
-            type_info->qualifier = ((case_node_t *) node)->return_type_info.qualifier;
-            type_info->type = ((case_node_t *) node)->return_type_info.type;
-            memcpy(type_info->sizes, ((case_node_t *) node)->return_type_info.sizes,
-                   ((case_node_t *) node)->return_type_info.depth * sizeof (unsigned));
-            type_info->depth = ((case_node_t *) node)->return_type_info.depth;
+            memcpy(type_info, &(((case_node_t *) node)->return_type_info), sizeof (type_info_t));
             return true;
         }
         case RETURN_NODE_T: {
-            type_info->qualifier = ((return_node_t *) node)->type_info.qualifier;
-            type_info->type = ((return_node_t *) node)->type_info.type;
-            memcpy(type_info->sizes, ((return_node_t *) node)->type_info.sizes,
-                   ((return_node_t *) node)->type_info.depth * sizeof (unsigned));
-            type_info->depth = ((return_node_t *) node)->type_info.depth;
+            memcpy(type_info, &(((return_node_t *) node)->type_info), sizeof (type_info_t));
             return true;
         }
         default: {
@@ -2967,7 +2939,7 @@ bool is_unitary(const node_t *node) {
 void copy_type_info_of_entry(type_info_t *type_info, const entry_t *entry) {
     type_info->qualifier = entry->qualifier;
     type_info->type = entry->type;
-    memcpy(type_info->sizes, entry->sizes, entry->depth * sizeof (unsigned));
+    memcpy(type_info->sizes, entry->sizes, sizeof (entry->sizes));
     type_info->depth = entry->depth;
 }
 
@@ -2982,41 +2954,55 @@ bool copy_type_info_of_node(type_info_t *type_info, const node_t *node) {
             return true;
         }
         case CONST_NODE_T: {
-            type_info->qualifier = ((const_node_t *) node)->type_info.qualifier;
-            type_info->type = ((const_node_t *) node)->type_info.type;
-            memcpy(type_info->sizes, ((const_node_t *) node)->type_info.sizes,
-                   ((const_node_t *) node)->type_info.depth * sizeof (unsigned));
-            type_info->depth = ((const_node_t *) node)->type_info.depth;
+            memcpy(type_info, &(((const_node_t *) node)->type_info), sizeof (type_info_t));
+            return true;
+        }
+        case REFERENCE_NODE_T: {
+            memcpy(type_info, &(((reference_node_t *) node)->type_info), sizeof (type_info_t));
+            return true;
+        }
+        case FUNC_CALL_NODE_T: {
+            copy_type_info_of_entry(type_info, ((func_call_node_t *) node)->entry);
             return true;
         }
         case FUNC_SP_NODE_T: {
             copy_type_info_of_entry(type_info, ((func_sp_node_t *) node)->entry);
             return true;
         }
-        case REFERENCE_NODE_T: {
-            type_info->qualifier = ((reference_node_t *) node)->type_info.qualifier;
-            type_info->type = ((reference_node_t *) node)->type_info.type;
-            memcpy(type_info->sizes, ((reference_node_t *) node)->type_info.sizes,
-                   ((reference_node_t *) node)->type_info.depth * sizeof (unsigned));
-            type_info->depth = ((reference_node_t *) node)->type_info.depth;
+        case LOGICAL_OP_NODE_T: {
+            memcpy(type_info, &(((logical_op_node_t *) node)->type_info), sizeof (type_info_t));
+            return true;
+        }
+        case COMPARISON_OP_NODE_T: {
+            memcpy(type_info, &(((comparison_op_node_t *) node)->type_info), sizeof (type_info_t));
+            return true;
+        }
+        case EQUALITY_OP_NODE_T: {
+            memcpy(type_info, &(((equality_op_node_t *) node)->type_info), sizeof (type_info_t));
+            return true;
+        }
+        case NOT_OP_NODE_T: {
+            memcpy(type_info, &(((not_op_node_t *) node)->type_info), sizeof (type_info_t));
+            return true;
+        }
+        case INTEGER_OP_NODE_T: {
+            memcpy(type_info, &(((integer_op_node_t *) node)->type_info), sizeof (type_info_t));
+            return true;
+        }
+        case INVERT_OP_NODE_T: {
+            memcpy(type_info, &(((invert_op_node_t *) node)->type_info), sizeof (type_info_t));
             return true;
         }
         case ASSIGN_NODE_T: {
             switch (((assign_node_t *) node)->left->node_type) {
                 case CONST_NODE_T: {
-                    type_info->qualifier = ((const_node_t *) ((assign_node_t *) node)->left)->type_info.qualifier;
-                    type_info->type = ((const_node_t *) ((assign_node_t *) node)->left)->type_info.type;
-                    memcpy(type_info->sizes, ((const_node_t *) ((assign_node_t *) node)->left)->type_info.sizes,
-                           ((const_node_t *) ((assign_node_t *) node)->left)->type_info.depth * sizeof (unsigned));
-                    type_info->depth = ((const_node_t *) ((assign_node_t *) node)->left)->type_info.depth;
+                    memcpy(type_info, &(((const_node_t *) ((assign_node_t *) node)->left)->type_info),
+                           sizeof (type_info_t));
                     return true;
                 }
                 case REFERENCE_NODE_T: {
-                    type_info->qualifier = ((reference_node_t *) ((assign_node_t *) node)->left)->type_info.qualifier;
-                    type_info->type = ((reference_node_t *) ((assign_node_t *) node)->left)->type_info.type;
-                    memcpy(type_info->sizes, ((reference_node_t *) ((assign_node_t *) node)->left)->type_info.sizes,
-                           ((reference_node_t *) ((assign_node_t *) node)->left)->type_info.depth * sizeof (unsigned));
-                    type_info->depth = ((reference_node_t *) ((assign_node_t *) node)->left)->type_info.depth;
+                    memcpy(type_info, &(((reference_node_t *) ((assign_node_t *) node)->left)->type_info),
+                           sizeof (type_info_t));
                     return true;
                 }
                 default: {
@@ -3024,64 +3010,8 @@ bool copy_type_info_of_node(type_info_t *type_info, const node_t *node) {
                 }
             }
         }
-        case LOGICAL_OP_NODE_T: {
-            type_info->qualifier = ((logical_op_node_t *) node)->type_info.qualifier;
-            type_info->type = ((logical_op_node_t *) node)->type_info.type;
-            memcpy(type_info->sizes, ((logical_op_node_t *) node)->type_info.sizes,
-                   ((logical_op_node_t *) node)->type_info.depth * sizeof (unsigned));
-            type_info->depth = ((logical_op_node_t *) node)->type_info.depth;
-            return true;
-        }
-        case COMPARISON_OP_NODE_T: {
-            type_info->qualifier = ((comparison_op_node_t *) node)->type_info.qualifier;
-            type_info->type = ((comparison_op_node_t *) node)->type_info.type;
-            memcpy(type_info->sizes, ((comparison_op_node_t *) node)->type_info.sizes,
-                   ((comparison_op_node_t *) node)->type_info.depth * sizeof (unsigned));
-            type_info->depth = ((comparison_op_node_t *) node)->type_info.depth;
-            return true;
-        }
-        case EQUALITY_OP_NODE_T: {
-            type_info->qualifier = ((equality_op_node_t *) node)->type_info.qualifier;
-            type_info->type = ((equality_op_node_t *) node)->type_info.type;
-            memcpy(type_info->sizes, ((equality_op_node_t *) node)->type_info.sizes,
-                   ((equality_op_node_t *) node)->type_info.depth * sizeof (unsigned));
-            type_info->depth = ((equality_op_node_t *) node)->type_info.depth;
-            return true;
-        }
-        case NOT_OP_NODE_T: {
-            type_info->qualifier = ((not_op_node_t *) node)->type_info.qualifier;
-            type_info->type = ((not_op_node_t *) node)->type_info.type;
-            memcpy(type_info->sizes, ((not_op_node_t *) node)->type_info.sizes,
-                   ((not_op_node_t *) node)->type_info.depth * sizeof (unsigned));
-            type_info->depth = ((not_op_node_t *) node)->type_info.depth;
-            return true;
-        }
-        case INTEGER_OP_NODE_T: {
-            type_info->qualifier = ((integer_op_node_t *) node)->type_info.qualifier;
-            type_info->type = ((integer_op_node_t *) node)->type_info.type;
-            memcpy(type_info->sizes, ((integer_op_node_t *) node)->type_info.sizes,
-                   ((integer_op_node_t *) node)->type_info.depth * sizeof (unsigned));
-            type_info->depth = ((integer_op_node_t *) node)->type_info.depth;
-            return true;
-        }
-        case INVERT_OP_NODE_T: {
-            type_info->qualifier = ((invert_op_node_t *) node)->type_info.qualifier;
-            type_info->type = ((invert_op_node_t *) node)->type_info.type;
-            memcpy(type_info->sizes, ((invert_op_node_t *) node)->type_info.sizes,
-                   ((invert_op_node_t *) node)->type_info.depth * sizeof (unsigned));
-            type_info->depth = ((invert_op_node_t *) node)->type_info.depth;
-            return true;
-        }
         case MEASURE_NODE_T: {
-            type_info->qualifier = ((measure_node_t *) node)->type_info.qualifier;
-            type_info->type = ((measure_node_t *) node)->type_info.type;
-            memcpy(type_info->sizes, ((measure_node_t *) node)->type_info.sizes,
-                   ((measure_node_t *) node)->type_info.depth * sizeof (unsigned));
-            type_info->depth = ((measure_node_t *) node)->type_info.depth;
-            return true;
-        }
-        case FUNC_CALL_NODE_T: {
-            copy_type_info_of_entry(type_info, ((func_call_node_t *) node)->entry);
+            memcpy(type_info, &(((measure_node_t *) node)->type_info), sizeof (type_info_t));
             return true;
         }
         default: {
