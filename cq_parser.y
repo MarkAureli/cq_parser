@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ast.h"
-#include "parsing.h"
+#include "pars_utils.h"
 #include "rules.h"
 #include "symbol_table.h"
 
@@ -413,7 +413,7 @@ init_elem_l:
 type_specifier:
 	BOOL {
 	    $$ = type_info_array + type_info_counter;
-	    if (!setup_atomic_type_info($$, BOOL_T, error_msg)) {
+	    if (!setup_type_info($$, BOOL_T, error_msg)) {
 	        yyerror(error_msg);
 	    }
 
@@ -421,7 +421,7 @@ type_specifier:
 	}
 	| INT {
 	    $$ = type_info_array + type_info_counter;
-	    if (!setup_atomic_type_info($$, INT_T, error_msg)) {
+	    if (!setup_type_info($$, INT_T, error_msg)) {
 	        yyerror(error_msg);
 	    }
 
@@ -429,7 +429,7 @@ type_specifier:
 	}
 	| UNSIGNED {
 	    $$ = type_info_array + type_info_counter;
-	    if (!setup_atomic_type_info($$, UNSIGNED_T, error_msg)) {
+	    if (!setup_type_info($$, UNSIGNED_T, error_msg)) {
 	        yyerror(error_msg);
 	    }
 
@@ -1211,7 +1211,7 @@ int main(int argc, char **argv) {
         fclose(yyout);
     }
 
-    free_node(root);
+    free_tree(root);
     free_symbol_table();
     return 0;
 }

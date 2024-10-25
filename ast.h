@@ -554,13 +554,6 @@ typedef struct return_node {
  */
 
 /**
- * \brief                               Convert operator type to printable string
- * \param[in]                           op_type: Operator type
- * \return                              String representing input operator type
- */
-char *op_type_to_str(op_type_t op_type);
-
-/**
  * \brief                               Convert logical operator to printable string
  * \param[in]                           logical_op: Logical operator
  * \return                              String representing input logical operator
@@ -594,6 +587,28 @@ char *integer_op_to_str(integer_op_t integer_op);
  * \return                              String representing input assignment operator
  */
 char *assign_op_to_str(assign_op_t assign_op);
+
+/**
+ * \brief                               Copy type information from a node to given address
+ * \param[out]                          type_info: Address to copy the type information to
+ * \param[out]                          node: Node whose type information is to be copied
+ * \return                              Whether copying type information was successful
+ */
+bool copy_type_info_of_node(type_info_t *type_info, const node_t *node);
+
+/**
+ * \brief                               Check the quantizable-attribute of a node
+ * \param[in]                           node: Node whose quantizable-attribute is to be checked
+ * \return                              Node's Quantizable-attribute
+ */
+bool is_quantizable(const node_t *node);
+
+/**
+ * \brief                               Check the unitary-attribute of a node
+ * \param[in]                           node: Node whose unitary-attribute is to be checked
+ * \return                              Node's unitary-attribute
+ */
+bool is_unitary(const node_t *node);
 
 /**
  * \brief                               Allocate new statement-list-node and return pointer to it
@@ -750,54 +765,159 @@ node_t *new_integer_op_node(node_t *left, integer_op_t op, node_t *right, char e
  */
 node_t *new_invert_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branches, unsigned num_of_else_ifs,
+/**
+ * \brief                               Allocate new if-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           condition: If-condition
+ * \param[in]                           if_branch: If-branch
+ * \param[in]                           else_ifs: Else-if-statements
+ * \param[in]                           num_of_else_ifs: Number of else-if-statements
+ * \param[in]                           else_branch: Optional else-branch
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated if-node or `NULL` upon failure
+ */
+node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_ifs, unsigned num_of_else_ifs,
                     node_t *else_branch, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new else-if-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           condition: Else-if-condition
+ * \param[in]                           else_if_branch: Else-if-branch
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated else-if-node or `NULL` upon failure
+ */
 node_t *new_else_if_node(node_t *condition, node_t *else_if_branch, char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num_of_cases,
-                        char error_msg[ERROR_MSG_LENGTH]);
+/**
+ * \brief                               Allocate new switch-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           expression: Switch-expression
+ * \param[in]                           cases: Cases
+ * \param[in]                           num_of_cases: Number of cases
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated switch-node or `NULL` upon failure
+ */
+node_t *new_switch_node(node_t *expression, node_t **cases, unsigned num_of_cases, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new case-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           case_const: Case constant (qualified type and value)
+ * \param[in]                           case_branch: Case-branch
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated case-node or `NULL` upon failure
+ */
 node_t *new_case_node(node_t *case_const, node_t *case_branch, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new for-loop-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           initialize: For-loop-initialization statement
+ * \param[in]                           condition: For-loop-condition statement
+ * \param[in]                           increment: For-loop-increment statement
+ * \param[in]                           for_branch: For-loop-branch
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated for-loop-node or `NULL` upon failure
+ */
 node_t *new_for_node(node_t *initialize, node_t *condition, node_t *increment, node_t *for_branch,
                      char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new do-while-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           do_branch: Do-while-loop-branch
+ * \param[in]                           condition: Do-while-loop-condition
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated do-while-loop-node or `NULL` upon failure
+ */
 node_t *new_do_node(node_t *do_branch, node_t *condition, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new while-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           condition: While-loop-condition
+ * \param[in]                           while_branch: While-loop-branch
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated while-loop-node or `NULL` upon failure
+ */
 node_t *new_while_node(node_t *condition, node_t *while_branch, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new assignment-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           left: Left-hand side of assignment
+ * \param[in]                           op: Assignment operator
+ * \param[in]                           right: Right-hand side of assignment
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated assignment-node or `NULL` upon failure
+ */
 node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new phase-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           left: Variable whose phase is changed
+ * \param[in]                           positive: Whether change of phase is positive
+ * \param[in]                           right: Change of phase
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated phase-node or `NULL` upon failure
+ */
 node_t *new_phase_node(node_t *left, bool is_positive, node_t *right, char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_measure_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]);
+/**
+ * \brief                               Allocate new measurement-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           child: Quantity to be measured
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated measurement-node or `NULL` upon failure
+ */
+node_t *new_measure_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new break-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated break-node or `NULL` upon failure
+ */
 node_t *new_break_node(char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Allocate new continue-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated continue-node or `NULL` upon failure
+ */
 node_t *new_continue_node(char error_msg[ERROR_MSG_LENGTH]);
 
-node_t *new_return_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]);
+/**
+ * \brief                               Allocate new return-node and return pointer to it
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           return_value: Returned quantity
+ * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
+ * \return                              Pointer to newly allocated return-node or `NULL` upon failure
+ */
+node_t *new_return_node(node_t *return_value, char error_msg[ERROR_MSG_LENGTH]);
 
-bool copy_return_type_info_of_node(type_info_t *type_info, const node_t *node);
+/**
+ * \brief                               Recursively free the tree emerging from a root node
+ * \param[in]                           root: Root node of the tree to be freed
+ */
+void free_tree(node_t *root);
 
-return_style_t get_return_style(const node_t *node);
-
-bool is_quantizable(const node_t *node);
-
-bool is_unitary(const node_t *node);
-
-void copy_type_info_of_entry(type_info_t *type_info, const entry_t *entry);
-
-bool copy_type_info_of_node(type_info_t *type_info, const node_t *node);
-
-bool are_matching_types(type_t type_1, type_t type_2);
-
+/**
+ * \brief                               Write node information to output file
+ * \param[out]                          output_file: Output file for node information
+ * \param[in]                           node: Node whose information is to be written
+ */
 void fprint_node(FILE *output_file, const node_t *node);
 
-void fprint_tree(FILE *output_file, const node_t *node);
-
-void free_node(node_t *node);
+/**
+ * \brief                               Write tree information to output file
+ * \param[out]                          output_file: Output file for tree information
+ * \param[in]                           root: Root node of the tree whose information is to be written
+ */
+void fprint_tree(FILE *output_file, const node_t *root);
 
 
 /*

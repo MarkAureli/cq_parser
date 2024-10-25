@@ -234,7 +234,7 @@ bool set_func_info(entry_t *entry, bool is_unitary, bool is_quantizable, type_in
                    unsigned num_of_pars, char error_msg[ERROR_MSG_LENGTH]);
 
 /**
- * \brief                               Dump symbol table content to output file
+ * \brief                               Write symbol table content to output file
  * \param[out]                          output_file: Output file for symbol table
  */
 void fprint_symbol_table(FILE *output_file);

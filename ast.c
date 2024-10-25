@@ -1,31 +1,56 @@
+/**
+ * \file                                ast.h
+ * \brief                               AST include file
+ */
+
+/*
+ * Copyright (c) 2024 Lennart BINKOWSKI
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without restriction,
+ * including without limitation the rights to use, copy, modify, merge,
+ * publish, distribute, sublicense, and/or sell copies of the Software,
+ * and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE
+ * AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * This file is part of cq_compiler.
+ *
+ * Author:          Lennart BINKOWSKI <lennart.binkowski@itp.uni-hannover.de>
+ */
+
+
+/*
+ * =====================================================================================================================
+ *                                                includes
+ * =====================================================================================================================
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "ast.h"
 
-char *op_type_to_string(op_type_t op_type) {
-    switch (op_type) {
-        case LOGICAL_OP: {
-            return "LOGICAL_OP";
-        }
-        case COMPARISON_OP: {
-            return "COMPARISON_OP";
-        }
-        case EQUALITY_OP: {
-            return "EQUALITY_OP";
-        }
-        case NOT_OP: {
-            return "NOT_OP";
-        }
-        case INTEGER_OP: {
-            return "INTEGER_OP";
-        }
-        case INVERT_OP: {
-            return "INVERT_OP";
-        }
-    }
-}
 
+/*
+ * =====================================================================================================================
+ *                                                function definitions
+ * =====================================================================================================================
+ */
+
+/* See header for documentation */
 char *logical_op_to_str(logical_op_t logical_op) {
     switch (logical_op) {
         case LAND_OP: {
@@ -40,6 +65,7 @@ char *logical_op_to_str(logical_op_t logical_op) {
     }
 }
 
+/* See header for documentation */
 char *comparison_op_to_str(comparison_op_t comparison_op) {
     switch (comparison_op) {
         case GE_OP: {
@@ -57,6 +83,7 @@ char *comparison_op_to_str(comparison_op_t comparison_op) {
     }
 }
 
+/* See header for documentation */
 char *equality_op_to_str(equality_op_t equality_op) {
     switch (equality_op) {
         case EQ_OP: {
@@ -68,6 +95,7 @@ char *equality_op_to_str(equality_op_t equality_op) {
     }
 }
 
+/* See header for documentation */
 char *integer_op_to_str(integer_op_t integer_op) {
     switch (integer_op) {
         case ADD_OP: {
@@ -97,6 +125,7 @@ char *integer_op_to_str(integer_op_t integer_op) {
     }
 }
 
+/* See header for documentation */
 char *assign_op_to_str(assign_op_t assign_op) {
     switch (assign_op) {
         case ASSIGN_OP: {
@@ -129,13 +158,7 @@ char *assign_op_to_str(assign_op_t assign_op) {
     }
 }
 
-bool is_sp(const entry_t *entry) {
-    return (entry->is_quantizable && entry->qualifier == NONE_T && entry->type == BOOL_T && entry->depth == 0
-            && entry->num_of_pars == 1 && entry->pars_type_info[0].qualifier == NONE_T
-            && entry->pars_type_info[0].depth == 0);
-}
-
-void logical_op_application(logical_op_t op, value_t *out, value_t in_1, value_t in_2) {
+void apply_logical_op(logical_op_t op, value_t *out, value_t in_1, value_t in_2) {
     switch (op) {
         case LOR_OP: {
             out->b_val = in_1.b_val || in_2.b_val;
@@ -152,8 +175,8 @@ void logical_op_application(logical_op_t op, value_t *out, value_t in_1, value_t
     }
 }
 
-void comparison_op_application(comparison_op_t op, value_t *out, type_t in_type_1,
-                               value_t in_value_1, type_t in_type_2, value_t in_value_2) {
+void apply_comparison_op(comparison_op_t op, value_t *out, type_t in_type_1,
+                         value_t in_value_1, type_t in_type_2, value_t in_value_2) {
     switch (op) {
         case GE_OP: {
             if (in_type_1 == INT_T && in_type_2 == INT_T) {
@@ -213,8 +236,8 @@ void apply_equality_op(equality_op_t op, value_t *out, type_t in_type_1,
     }
 }
 
-int integer_op_application(integer_op_t op, value_t *out, type_t in_type_1,
-                           value_t in_value_1, type_t in_type_2, value_t in_value_2) {
+int apply_integer_op(integer_op_t op, value_t *out, type_t in_type_1,
+                     value_t in_value_1, type_t in_type_2, value_t in_value_2) {
     if (in_type_1 == INT_T && in_type_2 == INT_T) {
         switch (op) {
             case ADD_OP: {
@@ -301,6 +324,12 @@ int integer_op_application(integer_op_t op, value_t *out, type_t in_type_1,
     return 0;
 }
 
+bool is_sp(const entry_t *entry) {
+    return (entry->is_quantizable && entry->qualifier == NONE_T && entry->type == BOOL_T && entry->depth == 0
+            && entry->num_of_pars == 1 && entry->pars_type_info[0].qualifier == NONE_T
+            && entry->pars_type_info[0].depth == 0);
+}
+
 unsigned get_length_of_array(const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth) {
     unsigned result = 1;
     for (unsigned i = 0; i < depth; ++i) {
@@ -330,180 +359,9 @@ value_t *get_reduced_array(const value_t *values, const unsigned sizes[MAX_ARRAY
     return output;
 }
 
-void free_node(node_t *node) {
-    if (node == NULL) {
-        return;
-    }
-
-    switch (node->node_type) {
-        case BASIC_NODE_T: {
-            free_node(node->left);
-            free_node(node->right);
-            free(node);
-            return;
-        }
-        case STMT_LIST_NODE_T: {
-            for (unsigned i = 0; i < ((stmt_list_node_t *) node)->num_of_stmts; ++i) {
-                free_node(((stmt_list_node_t *) node)->stmt_list[i]);
-            }
-            free(((stmt_list_node_t *) node)->stmt_list);
-            free((stmt_list_node_t *) node);
-            return;
-        }
-        case FUNC_DEF_NODE_T: {
-            free_node(((func_def_node_t *) node)->func_tail);
-            free((func_def_node_t *) node);
-            return;
-        }
-        case VAR_DECL_NODE_T: {
-            free((var_decl_node_t *) node);
-            return;
-        }
-        case VAR_DEF_NODE_T: {
-            if (((var_def_node_t *) node)->is_init_list) {
-                free(((var_def_node_t *) node)->q_types);
-                free(((var_def_node_t *) node)->values);
-            } else {
-                free_node(((var_def_node_t *) node)->node);
-            }
-            free((var_def_node_t *) node);
-            return;
-        }
-        case CONST_NODE_T: {
-            free(((const_node_t *) node)->values);
-            free((const_node_t *) node);
-            return;
-        }
-        case REFERENCE_NODE_T: {
-            free((reference_node_t *) node);
-            return;
-        }
-        case FUNC_CALL_NODE_T: {
-            for (unsigned i = 0; i < ((func_call_node_t *) node)->num_of_pars; ++i) {
-                free_node(((func_call_node_t *) node)->pars[i]);
-            }
-            free(((func_call_node_t *) node)->pars);
-            free((func_call_node_t *) node);
-            return;
-        }
-        case FUNC_SP_NODE_T: {
-            free((func_sp_node_t *) node);
-            return;
-        }
-        case LOGICAL_OP_NODE_T: {
-            free_node(((logical_op_node_t *) node)->left);
-            free_node(((logical_op_node_t *) node)->right);
-            free((logical_op_node_t *) node);
-            return;
-        }
-        case COMPARISON_OP_NODE_T: {
-            free_node(((comparison_op_node_t *) node)->left);
-            free_node(((comparison_op_node_t *) node)->right);
-            free((comparison_op_node_t *) node);
-            return;
-        }
-        case EQUALITY_OP_NODE_T: {
-            free_node(((equality_op_node_t *) node)->left);
-            free_node(((equality_op_node_t *) node)->right);
-            free((equality_op_node_t *) node);
-            return;
-        }
-        case NOT_OP_NODE_T: {
-            free_node(((not_op_node_t *) node)->child);
-            free((not_op_node_t *) node);
-            return;
-        }
-        case INTEGER_OP_NODE_T: {
-            free_node(((integer_op_node_t *) node)->left);
-            free_node(((integer_op_node_t *) node)->right);
-            free((integer_op_node_t *) node);
-            return;
-        }
-        case INVERT_OP_NODE_T: {
-            free_node(((invert_op_node_t *) node)->child);
-            free((invert_op_node_t *) node);
-            return;
-        }
-        case IF_NODE_T: {
-            free_node(((if_node_t *) node)->condition);
-            free_node(((if_node_t *) node)->if_branch);
-            for (unsigned i = 0; i < ((if_node_t *) node)->num_of_else_ifs; ++i) {
-                free_node(((if_node_t *) node)->else_ifs[i]);
-            }
-            free_node(((if_node_t *) node)->else_branch);
-            free((if_node_t *) node);
-            return;
-        }
-        case ELSE_IF_NODE_T: {
-            free_node(((else_if_node_t *) node)->condition);
-            free_node(((else_if_node_t *) node)->else_if_branch);
-            free((else_if_node_t *) node);
-            return;
-        }
-        case SWITCH_NODE_T: {
-            free_node(((switch_node_t *) node)->expression);
-            for (unsigned i = 0; i < ((switch_node_t *) node)->num_of_cases; ++i) {
-                free_node(((switch_node_t *) node)->cases[i]);
-            }
-            free((switch_node_t *) node);
-            return;
-        }
-        case CASE_NODE_T: {
-            free_node(((case_node_t *) node)->case_branch);
-            free((case_node_t *) node);
-            return;
-        }
-        case FOR_NODE_T: {
-            free_node(((for_node_t *) node)->initialize);
-            free_node(((for_node_t *) node)->condition);
-            free_node(((for_node_t *) node)->increment);
-            free_node(((for_node_t *) node)->for_branch);
-            free((for_node_t *) node);
-            return;
-        }
-        case DO_NODE_T: {
-            free_node(((do_node_t *) node)->do_branch);
-            free_node(((do_node_t *) node)->condition);
-            free((do_node_t *) node);
-            return;
-        }
-        case WHILE_NODE_T: {
-            free_node(((while_node_t *) node)->condition);
-            free_node(((while_node_t *) node)->while_branch);
-            free((while_node_t *) node);
-            return;
-        }
-        case ASSIGN_NODE_T: {
-            free_node(((assign_node_t *) node)->left);
-            free_node(((assign_node_t *) node)->right);
-            free((assign_node_t *) node);
-            return;
-        }
-        case PHASE_NODE_T: {
-            free_node(((phase_node_t *) node)->left);
-            free_node(((phase_node_t *) node)->right);
-            free((phase_node_t *) node);
-            return;
-        }
-        case MEASURE_NODE_T: {
-            free_node(((measure_node_t *) node)->child);
-            free((measure_node_t *) node);
-            return;
-        }
-        case BREAK_NODE_T: {
-            free((break_node_t *) node);
-            return;
-        }
-        case CONTINUE_NODE_T: {
-            free((continue_node_t *) node);
-            return;
-        }
-        case RETURN_NODE_T: {
-            free_node(((return_node_t *) node)->return_value);
-            free((return_node_t *) node);
-            return;
-        }
-    }
+bool are_matching_qualifier(qualifier_t qualifier_1, qualifier_t qualifier_2) {
+    return (qualifier_1 == QUANTUM_T && qualifier_2 == QUANTUM_T)
+            || (qualifier_1 != QUANTUM_T && qualifier_2 != QUANTUM_T);
 }
 
 qualifier_t propagate_qualifier(qualifier_t qualifier_1, qualifier_t qualifier_2) {
@@ -514,6 +372,33 @@ qualifier_t propagate_qualifier(qualifier_t qualifier_1, qualifier_t qualifier_2
     } else {
         return NONE_T;
     }
+}
+
+bool are_matching_types(type_t type_1, type_t type_2) {
+    switch (type_1) {
+        case VOID_T: {
+            return false;
+        }
+        case BOOL_T: {
+            if (type_2 != BOOL_T) {
+                return false;
+            }
+            break;
+        }
+        case INT_T: {
+            if (type_2 != INT_T) {
+                return false;
+            }
+            break;
+        }
+        case UNSIGNED_T: {
+            if (type_2 != INT_T && type_2 != UNSIGNED_T) {
+                return false;
+            }
+            break;
+        }
+    }
+    return true;
 }
 
 type_t propagate_type(op_type_t op_type, type_t type_1, type_t type_2) {
@@ -604,6 +489,313 @@ type_t propagate_type(op_type_t op_type, type_t type_1, type_t type_2) {
     }
 }
 
+return_style_t get_return_style(const node_t *node) {
+    if (node == NULL) {
+        return NONE_ST;
+    }
+
+    switch (node->node_type) {
+        case STMT_LIST_NODE_T: {
+            return ((stmt_list_node_t *) node)->return_style;
+        }
+        case IF_NODE_T: {
+            return ((if_node_t *) node)->return_style;
+        }
+        case ELSE_IF_NODE_T: {
+            return ((else_if_node_t *) node)->return_style;
+        }
+        case SWITCH_NODE_T: {
+            return ((switch_node_t *) node)->return_style;
+        }
+        case CASE_NODE_T: {
+            return ((case_node_t *) node)->return_style;
+        }
+        case RETURN_NODE_T: {
+            return DEFINITE_ST;
+        }
+        default: {
+            return NONE_ST;
+        }
+    }
+}
+
+/* See header for documentation */
+bool is_quantizable(const node_t *node) {
+    if (node == NULL) {
+        return false;
+    }
+
+    switch (node->node_type) {
+        case STMT_LIST_NODE_T: {
+            return ((stmt_list_node_t *) node)->is_quantizable;
+        }
+        case FUNC_SP_NODE_T: {
+            return true;
+        }
+        case VAR_DECL_NODE_T: {
+            return ((var_decl_node_t *) node)->entry->qualifier != QUANTUM_T;
+        }
+        case VAR_DEF_NODE_T: {
+            return ((var_def_node_t *) node)->is_quantizable;
+        }
+        case CONST_NODE_T: {
+            return true;
+        }
+        case REFERENCE_NODE_T: {
+            return ((reference_node_t *) node)->is_quantizable;
+        }
+        case FUNC_CALL_NODE_T: {
+            return ((func_call_node_t *) node)->is_quantizable;
+        }
+        case LOGICAL_OP_NODE_T: {
+            return ((logical_op_node_t *) node)->is_quantizable;
+        }
+        case COMPARISON_OP_NODE_T: {
+            return ((comparison_op_node_t *) node)->is_quantizable;
+        }
+        case EQUALITY_OP_NODE_T: {
+            return ((equality_op_node_t *) node)->is_quantizable;
+        }
+        case NOT_OP_NODE_T: {
+            return ((not_op_node_t *) node)->is_quantizable;
+        }
+        case INTEGER_OP_NODE_T: {
+            return ((integer_op_node_t *) node)->is_quantizable;
+        }
+        case INVERT_OP_NODE_T: {
+            return ((invert_op_node_t *) node)->is_quantizable;
+        }
+        case IF_NODE_T: {
+            return ((if_node_t *) node)->is_quantizable;
+        }
+        case ELSE_IF_NODE_T: {
+            return ((else_if_node_t *) node)->is_quantizable;
+        }
+        case SWITCH_NODE_T: {
+            return ((switch_node_t *) node)->is_quantizable;
+        }
+        case CASE_NODE_T: {
+            return ((case_node_t *) node)->is_quantizable;
+        }
+        case ASSIGN_NODE_T: {
+            return ((assign_node_t *) node)->is_quantizable;
+        }
+        case PHASE_NODE_T: {
+            return false;
+        }
+        case RETURN_NODE_T: {
+            return ((return_node_t *) node)->is_quantizable;
+        }
+        default: {
+            return false;
+        }
+    }
+}
+
+/* See header for documentation */
+bool is_unitary(const node_t *node) {
+    if (node == NULL) {
+        return false;
+    }
+
+    switch (node->node_type) {
+        case STMT_LIST_NODE_T: {
+            return ((stmt_list_node_t *) node)->is_unitary;
+        }
+        case VAR_DECL_NODE_T: {
+            return ((var_decl_node_t *) node)->entry->qualifier == QUANTUM_T;
+        }
+        case VAR_DEF_NODE_T: {
+            return ((var_def_node_t *) node)->is_unitary;
+        }
+        case CONST_NODE_T: {
+            return true;
+        }
+        case REFERENCE_NODE_T: {
+            return ((reference_node_t *) node)->is_unitary;
+        }
+        case FUNC_CALL_NODE_T: {
+            return ((func_call_node_t *) node)->is_unitary;
+        }
+        case FUNC_SP_NODE_T: {
+            return true;
+        }
+        case LOGICAL_OP_NODE_T: {
+            return ((logical_op_node_t *) node)->is_unitary;
+        }
+        case COMPARISON_OP_NODE_T: {
+            return ((comparison_op_node_t *) node)->is_unitary;
+        }
+        case EQUALITY_OP_NODE_T: {
+            return ((equality_op_node_t *) node)->is_unitary;
+        }
+        case NOT_OP_NODE_T: {
+            return ((not_op_node_t *) node)->is_unitary;
+        }
+        case INTEGER_OP_NODE_T: {
+            return ((integer_op_node_t *) node)->is_unitary;
+        }
+        case INVERT_OP_NODE_T: {
+            return ((invert_op_node_t *) node)->is_unitary;
+        }
+        case IF_NODE_T: {
+            return ((if_node_t *) node)->is_unitary;
+        }
+        case ELSE_IF_NODE_T: {
+            return ((else_if_node_t *) node)->is_unitary;
+        }
+        case SWITCH_NODE_T: {
+            return ((switch_node_t *) node)->is_unitary;
+        }
+        case CASE_NODE_T: {
+            return ((case_node_t *) node)->is_unitary;
+        }
+        case ASSIGN_NODE_T: {
+            return ((assign_node_t *) node)->is_unitary;
+        }
+        case PHASE_NODE_T: {
+            return ((phase_node_t *) node)->is_unitary;
+        }
+        case RETURN_NODE_T: {
+            return ((return_node_t *) node)->is_unitary;
+        }
+        default: {
+            return false;
+        }
+    }
+}
+
+bool copy_type_info_of_entry(type_info_t *type_info, const entry_t *entry) {
+    if (type_info == NULL || entry == NULL) {
+        return false;
+    }
+
+    type_info->qualifier = entry->qualifier;
+    type_info->type = entry->type;
+    memcpy(type_info->sizes, entry->sizes, sizeof (entry->sizes));
+    type_info->depth = entry->depth;
+    return true;
+}
+
+/* See header for documentation */
+bool copy_type_info_of_node(type_info_t *type_info, const node_t *node) {
+    if (type_info == NULL || node == NULL) {
+        return false;
+    }
+
+    switch (node->node_type) {
+        case VAR_DECL_NODE_T: {
+            copy_type_info_of_entry(type_info, ((var_decl_node_t *) node)->entry);
+            return true;
+        }
+        case VAR_DEF_NODE_T: {
+            copy_type_info_of_entry(type_info, ((var_def_node_t *) node)->entry);
+            return true;
+        }
+        case CONST_NODE_T: {
+            memcpy(type_info, &(((const_node_t *) node)->type_info), sizeof (type_info_t));
+            return true;
+        }
+        case REFERENCE_NODE_T: {
+            memcpy(type_info, &(((reference_node_t *) node)->type_info), sizeof (type_info_t));
+            return true;
+        }
+        case FUNC_CALL_NODE_T: {
+            copy_type_info_of_entry(type_info, ((func_call_node_t *) node)->entry);
+            return true;
+        }
+        case FUNC_SP_NODE_T: {
+            copy_type_info_of_entry(type_info, ((func_sp_node_t *) node)->entry);
+            return true;
+        }
+        case LOGICAL_OP_NODE_T: {
+            memcpy(type_info, &(((logical_op_node_t *) node)->type_info), sizeof (type_info_t));
+            return true;
+        }
+        case COMPARISON_OP_NODE_T: {
+            memcpy(type_info, &(((comparison_op_node_t *) node)->type_info), sizeof (type_info_t));
+            return true;
+        }
+        case EQUALITY_OP_NODE_T: {
+            memcpy(type_info, &(((equality_op_node_t *) node)->type_info), sizeof (type_info_t));
+            return true;
+        }
+        case NOT_OP_NODE_T: {
+            memcpy(type_info, &(((not_op_node_t *) node)->type_info), sizeof (type_info_t));
+            return true;
+        }
+        case INTEGER_OP_NODE_T: {
+            memcpy(type_info, &(((integer_op_node_t *) node)->type_info), sizeof (type_info_t));
+            return true;
+        }
+        case INVERT_OP_NODE_T: {
+            memcpy(type_info, &(((invert_op_node_t *) node)->type_info), sizeof (type_info_t));
+            return true;
+        }
+        case ASSIGN_NODE_T: {
+            switch (((assign_node_t *) node)->left->node_type) {
+                case CONST_NODE_T: {
+                    memcpy(type_info, &(((const_node_t *) ((assign_node_t *) node)->left)->type_info),
+                           sizeof (type_info_t));
+                    return true;
+                }
+                case REFERENCE_NODE_T: {
+                    memcpy(type_info, &(((reference_node_t *) ((assign_node_t *) node)->left)->type_info),
+                           sizeof (type_info_t));
+                    return true;
+                }
+                default: {
+                    return false;
+                }
+            }
+        }
+        case MEASURE_NODE_T: {
+            memcpy(type_info, &(((measure_node_t *) node)->type_info), sizeof (type_info_t));
+            return true;
+        }
+        default: {
+            return false;
+        }
+    }
+}
+
+bool copy_return_type_info_of_node(type_info_t *type_info, const node_t *node) {
+    if (node == NULL) {
+        return false;
+    }
+
+    switch (node->node_type) {
+        case STMT_LIST_NODE_T: {
+            memcpy(type_info, &(((stmt_list_node_t *) node)->return_type_info), sizeof (type_info_t));
+            return true;
+        }
+        case IF_NODE_T: {
+            memcpy(type_info, &(((if_node_t *) node)->return_type_info), sizeof (type_info_t));
+            return true;
+        }
+        case ELSE_IF_NODE_T: {
+            memcpy(type_info, &(((else_if_node_t *) node)->return_type_info), sizeof (type_info_t));
+            return true;
+        }
+        case SWITCH_NODE_T: {
+            memcpy(type_info, &(((switch_node_t *) node)->return_type_info), sizeof (type_info_t));
+            return true;
+        }
+        case CASE_NODE_T: {
+            memcpy(type_info, &(((case_node_t *) node)->return_type_info), sizeof (type_info_t));
+            return true;
+        }
+        case RETURN_NODE_T: {
+            memcpy(type_info, &(((return_node_t *) node)->type_info), sizeof (type_info_t));
+            return true;
+        }
+        default: {
+            return false;
+        }
+    }
+}
+
+/* See header for documentation */
 node_t *new_stmt_list_node(bool is_quantizable, bool is_unitary, node_t **stmt_list, unsigned num_of_stmts,
                            char error_msg[ERROR_MSG_LENGTH]) {
     return_style_t result_return_style = NONE_ST;
@@ -613,14 +805,14 @@ node_t *new_stmt_list_node(bool is_quantizable, bool is_unitary, node_t **stmt_l
         if ((stmt_list[i]->node_type == BREAK_NODE_T || stmt_list[i]->node_type == CONTINUE_NODE_T
             || current_return_style == DEFINITE_ST) && i < num_of_stmts - 1) {
             for (unsigned j = i + 1; j < num_of_stmts; ++j) {
-                free_node(stmt_list[j]);
+                free_tree(stmt_list[j]);
             }
             num_of_stmts = i + 1;
             node_t **temp = realloc(stmt_list, num_of_stmts * sizeof (node_t *));
             if (temp == NULL) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Reallocating memory for statement list node failed");
                 for (unsigned j = 0; j < num_of_stmts; ++j) {
-                    free_node(stmt_list[j]);
+                    free_tree(stmt_list[j]);
                 }
                 free(stmt_list);
                 free_symbol_table();
@@ -666,7 +858,7 @@ node_t *new_stmt_list_node(bool is_quantizable, bool is_unitary, node_t **stmt_l
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for statement list node failed");
         for (unsigned j = 0; j < num_of_stmts; ++j) {
-            free_node(stmt_list[j]);
+            free_tree(stmt_list[j]);
         }
         free(stmt_list);
         free_symbol_table();
@@ -685,77 +877,7 @@ node_t *new_stmt_list_node(bool is_quantizable, bool is_unitary, node_t **stmt_l
     return (node_t *) new_node;
 }
 
-node_t *new_func_def_node(entry_t *entry, node_t *func_tail, char error_msg[ERROR_MSG_LENGTH]) {
-    if (!entry->is_function) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not a function", entry->name);
-        free_node(func_tail);
-        free_symbol_table();
-        return NULL;
-    }
-
-    return_style_t func_tail_return_style = get_return_style(func_tail);
-    type_info_t func_tail_return_type_info;
-    if (func_tail_return_style != NONE_ST) {
-        copy_return_type_info_of_node(&func_tail_return_type_info, func_tail);
-    }
-    if (entry->type == VOID_T) {
-        if (func_tail_return_style != NONE_ST && func_tail_return_type_info.type != VOID_T) {
-            snprintf(error_msg, ERROR_MSG_LENGTH,
-                     "Function %s is declared to return void, but has non-void return statement", entry->name);
-            return NULL;
-        }
-    } else {
-        if (func_tail_return_style == NONE_ST) {
-            snprintf(error_msg, ERROR_MSG_LENGTH, "Non-void function %s has no return statement", entry->name);
-            return NULL;
-        } else if (func_tail_return_style == CONDITIONAL_ST) {
-            snprintf(error_msg, ERROR_MSG_LENGTH, "Non-void function %s does not return in all branches", entry->name);
-            return NULL;
-        } else {
-            if (entry->qualifier == QUANTUM_T && func_tail_return_type_info.qualifier != QUANTUM_T
-                || entry->qualifier == NONE_T && func_tail_return_type_info.qualifier == QUANTUM_T) {
-                snprintf(error_msg, ERROR_MSG_LENGTH,
-                         "Declared return qualifier of function %s does not match the actually returned qualifier",
-                         entry->name);
-                return NULL;
-            } else if (entry->type != func_tail_return_type_info.type) {
-                snprintf(error_msg, ERROR_MSG_LENGTH,
-                         "Declared return type %s of function %s does not match the actually returned type %s",
-                         type_to_str(entry->type), entry->name, type_to_str(func_tail_return_type_info.type));
-                return NULL;
-            } else if (entry->depth != func_tail_return_type_info.depth) {
-                snprintf(error_msg, ERROR_MSG_LENGTH,
-                         "Declared return depth %u of function %s does not match the actually returned depth %u",
-                         entry->depth, entry->name, func_tail_return_type_info.depth);
-                return NULL;
-            }
-
-            for (unsigned j = 0; j < entry->depth; ++j) {
-                if (entry->sizes[j] != func_tail_return_type_info.sizes[j]) {
-                    snprintf(error_msg, ERROR_MSG_LENGTH,
-                             "Declared return size of %u in depth %u of function %s does not match the actually "
-                             "returned size of %u",
-                             entry->sizes[j], j, entry->name, func_tail_return_type_info.sizes[j]);
-                    return NULL;
-                }
-            }
-        }
-    }
-
-    func_def_node_t *new_node = malloc(sizeof (func_def_node_t));
-    if (new_node == NULL) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for function declaration node failed");
-        free_node(func_tail);
-        free_symbol_table();
-        return NULL;
-    }
-
-    new_node->node_type = FUNC_DEF_NODE_T;
-    new_node->entry = entry;
-    new_node->func_tail = func_tail;
-    return (node_t *) new_node;
-}
-
+/* See header for documentation */
 node_t *new_var_decl_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
     if (entry->is_function) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "%s is a function", entry->name);
@@ -775,6 +897,7 @@ node_t *new_var_decl_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
     return (node_t *) new_node;
 }
 
+/* See header for documentation */
 node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type_t *qualified_types,
                          array_value_t *values, unsigned length, char error_msg[ERROR_MSG_LENGTH]) {
     bool result_is_quantizable = true;
@@ -782,7 +905,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
     if (is_init_list) {
         if (entry->depth == 0) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not an array, but is initialized as such", entry->name);
-            free_node(node);
+            free_tree(node);
             free(qualified_types);
             free(values);
             free_symbol_table();
@@ -791,7 +914,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
             snprintf(error_msg, ERROR_MSG_LENGTH,
                      "Too many (%u) elements initialized for array %s of total length %u",
                      length, entry->name, entry->length);
-            free_node(node);
+            free_tree(node);
             free(qualified_types);
             free(values);
             free_symbol_table();
@@ -809,7 +932,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                              "Element %u: Quantizable function %s takes %s instead of %s",
                              i, current_entry->name, type_to_str(current_entry->pars_type_info[0].type),
                              type_to_str(entry->type));
-                    free_node(node);
+                    free_tree(node);
                     free(qualified_types);
                     free(values);
                     free_symbol_table();
@@ -821,7 +944,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Element %u in initialization of classical array %s is a superposition instruction",
                          i, entry->name);
-                free_node(node);
+                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -830,7 +953,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                        && qualified_types[i].qualifier == QUANTUM_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Element %u in initialization of classical array %s is quantum",
                          i, entry->name);
-                free_node(node);
+                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -839,7 +962,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                        && qualified_types[i].qualifier != CONST_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Element %u in initialization of constant array %s is not constant", i, entry->name);
-                free_node(node);
+                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -849,7 +972,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                          "Element %u in initialization of %s-array %s is of type %s",
                          i, type_to_str(entry->type), entry->name,
                          type_to_str(qualified_types[i].type));
-                free_node(node);
+                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -866,7 +989,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
         if (!copy_type_info_of_node(&type_info, node)) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Right-hand side in initialization of %s is not an expression",
                      entry->name);
-            free_node(node);
+            free_tree(node);
             free(qualified_types);
             free(values);
             free_symbol_table();
@@ -876,7 +999,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
             if (current_entry->num_of_pars != 1) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Quantizable function %s must take exactly 1 parameter",
                          ((func_sp_node_t *) node)->entry->name);
-                free_node(node);
+                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -884,7 +1007,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
             } else if (current_entry->pars_type_info[0].qualifier != NONE_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Quantizable function %s must take a classical parameter",
                          ((func_sp_node_t *) node)->entry->name);
-                free_node(node);
+                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -893,7 +1016,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Quantizable function %s takes %s instead of %s",
                          ((func_sp_node_t *) node)->entry->name,
                          type_to_str(current_entry->pars_type_info[0].type), type_to_str(entry->type));
-                free_node(node);
+                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -902,7 +1025,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Quantizable function %s takes an array of depth %u instead of a scalar",
                          ((func_sp_node_t *) node)->entry->name, current_entry->pars_type_info[0].depth);
-                free_node(node);
+                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -911,14 +1034,14 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
         } else if (entry->qualifier != QUANTUM_T && node->node_type == FUNC_SP_NODE_T) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Classical variable %s cannot be initialized in superposition",
                      entry->name);
-            free_node(node);
+            free_tree(node);
             free(qualified_types);
             free(values);
             free_symbol_table();
             return NULL;
         } else if (entry->depth == 0 && type_info.depth != 0) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not an array, but is initialized as such", entry->name);
-            free_node(node);
+            free_tree(node);
             free(qualified_types);
             free(values);
             free_symbol_table();
@@ -926,7 +1049,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
         } else if (entry->depth != type_info.depth) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Non-matching depths in array initialization of %s (%u != %u)",
                      entry->name, entry->depth, type_info.depth);
-            free_node(node);
+            free_tree(node);
             free(qualified_types);
             free(values);
             free_symbol_table();
@@ -938,7 +1061,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Non-matching sizes at position %u in array initialization of %s (%u != %u)",
                          i, entry->name, entry->sizes[i], type_info.sizes[i]);
-                free_node(node);
+                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -950,7 +1073,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
             if (entry->depth == 0) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Initialization of classical scalar %s with quantum value",
                          entry->name);
-                free_node(node);
+                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -958,7 +1081,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
             } else {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Initialization of classical array %s with quantum array",
                          entry->name);
-                free_node(node);
+                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -968,7 +1091,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
             if (entry->depth == 0) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Initialization of constant scalar %s with non-constant value",
                          entry->name);
-                free_node(node);
+                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -976,7 +1099,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
             } else {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Initialization of constant array %s with non-constant array",
                          entry->name);
-                free_node(node);
+                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -987,7 +1110,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
             if (entry->depth == 0) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Initialization of scalar %s of type %s with value of type %s",
                          entry->name, type_to_str(entry->type), type_to_str(type_info.type));
-                free_node(node);
+                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -995,7 +1118,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
             } else {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Initialization of %s-array %s with %s-array",
                          type_to_str(entry->type), entry->name, type_to_str(type_info.type));
-                free_node(node);
+                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -1010,7 +1133,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
     var_def_node_t *new_node = malloc(sizeof (var_def_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for variable declaration node failed");
-        free_node(node);
+        free_tree(node);
         free(qualified_types);
         free(values);
         free_symbol_table();
@@ -1044,6 +1167,78 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
     return (node_t *) new_node;
 }
 
+/* See header for documentation */
+node_t *new_func_def_node(entry_t *entry, node_t *func_tail, char error_msg[ERROR_MSG_LENGTH]) {
+    if (!entry->is_function) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not a function", entry->name);
+        free_tree(func_tail);
+        free_symbol_table();
+        return NULL;
+    }
+
+    return_style_t func_tail_return_style = get_return_style(func_tail);
+    type_info_t func_tail_return_type_info;
+    if (func_tail_return_style != NONE_ST) {
+        copy_return_type_info_of_node(&func_tail_return_type_info, func_tail);
+    }
+    if (entry->type == VOID_T) {
+        if (func_tail_return_style != NONE_ST && func_tail_return_type_info.type != VOID_T) {
+            snprintf(error_msg, ERROR_MSG_LENGTH,
+                     "Function %s is declared to return void, but has non-void return statement", entry->name);
+            return NULL;
+        }
+    } else {
+        if (func_tail_return_style == NONE_ST) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Non-void function %s has no return statement", entry->name);
+            return NULL;
+        } else if (func_tail_return_style == CONDITIONAL_ST) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Non-void function %s does not return in all branches", entry->name);
+            return NULL;
+        } else {
+            if (!are_matching_qualifier(entry->qualifier, func_tail_return_type_info.qualifier)) {
+                snprintf(error_msg, ERROR_MSG_LENGTH,
+                         "Declared return qualifier of function %s does not match the actually returned qualifier",
+                         entry->name);
+                return NULL;
+            } else if (entry->type != func_tail_return_type_info.type) {
+                snprintf(error_msg, ERROR_MSG_LENGTH,
+                         "Declared return type %s of function %s does not match the actually returned type %s",
+                         type_to_str(entry->type), entry->name, type_to_str(func_tail_return_type_info.type));
+                return NULL;
+            } else if (entry->depth != func_tail_return_type_info.depth) {
+                snprintf(error_msg, ERROR_MSG_LENGTH,
+                         "Declared return depth %u of function %s does not match the actually returned depth %u",
+                         entry->depth, entry->name, func_tail_return_type_info.depth);
+                return NULL;
+            }
+
+            for (unsigned j = 0; j < entry->depth; ++j) {
+                if (entry->sizes[j] != func_tail_return_type_info.sizes[j]) {
+                    snprintf(error_msg, ERROR_MSG_LENGTH,
+                             "Declared return size of %u in depth %u of function %s does not match the actually "
+                             "returned size of %u",
+                             entry->sizes[j], j, entry->name, func_tail_return_type_info.sizes[j]);
+                    return NULL;
+                }
+            }
+        }
+    }
+
+    func_def_node_t *new_node = malloc(sizeof (func_def_node_t));
+    if (new_node == NULL) {
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for function declaration node failed");
+        free_tree(func_tail);
+        free_symbol_table();
+        return NULL;
+    }
+
+    new_node->node_type = FUNC_DEF_NODE_T;
+    new_node->entry = entry;
+    new_node->func_tail = func_tail;
+    return (node_t *) new_node;
+}
+
+/* See header for documentation */
 node_t *new_const_node(type_t type, value_t value, char error_msg[ERROR_MSG_LENGTH]) {
     const_node_t *new_node = malloc(sizeof (const_node_t));
     if (new_node == NULL) {
@@ -1067,6 +1262,7 @@ node_t *new_const_node(type_t type, value_t value, char error_msg[ERROR_MSG_LENG
     return (node_t *) new_node;
 }
 
+/* See header for documentation */
 node_t *new_reference_node(entry_t *entry, const bool index_is_const[MAX_ARRAY_DEPTH],
                            const index_t indices[MAX_ARRAY_DEPTH], unsigned index_depth,
                            char error_msg[ERROR_MSG_LENGTH]) {
@@ -1131,12 +1327,13 @@ node_t *new_reference_node(entry_t *entry, const bool index_is_const[MAX_ARRAY_D
     }
 }
 
+/* See header for documentation */
 node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_of_pars,
                            char error_msg[ERROR_MSG_LENGTH]) {
     if (!entry->is_function) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to call non-function %s", entry->name);
         for (unsigned i = 0; i < num_of_pars; ++i) {
-            free_node(pars[i]);
+            free_tree(pars[i]);
         }
         free(pars);
         free_symbol_table();
@@ -1146,7 +1343,7 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
                  entry->name, entry->num_of_pars, (entry->num_of_pars == 1) ? "" : "s",
                  num_of_pars, (num_of_pars == 1) ? "" : "s");
         for (unsigned i = 0; i < num_of_pars; ++i) {
-            free_node(pars[i]);
+            free_tree(pars[i]);
         }
         free(pars);
         free_symbol_table();
@@ -1158,7 +1355,7 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
         if (!is_sp(entry)) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Function %s cannot be used to create a superposition", entry->name);
             for (unsigned i = 0; i < num_of_pars; ++i) {
-                free_node(pars[i]);
+                free_tree(pars[i]);
             }
             free(pars);
             free_symbol_table();
@@ -1167,7 +1364,7 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
             snprintf(error_msg, ERROR_MSG_LENGTH, "Parameter in call to function %s is not a quantum variable",
                      entry->name);
             for (unsigned i = 0; i < num_of_pars; ++i) {
-                free_node(pars[i]);
+                free_tree(pars[i]);
             }
             free(pars);
             free_symbol_table();
@@ -1179,7 +1376,7 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
             snprintf(error_msg, ERROR_MSG_LENGTH, "Parameter in call to function %s is not a quantum variable",
                      entry->name);
             for (unsigned i = 0; i < num_of_pars; ++i) {
-                free_node(pars[i]);
+                free_tree(pars[i]);
             }
             free(pars);
             free_symbol_table();
@@ -1189,7 +1386,7 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
                      entry->name, type_to_str(reference_node_view->type_info.type),
                      type_to_str(entry->pars_type_info[0].type));
             for (unsigned i = 0; i < num_of_pars; ++i) {
-                free_node(pars[i]);
+                free_tree(pars[i]);
             }
             free(pars);
             free_symbol_table();
@@ -1202,7 +1399,7 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Parameter %u in call to function %s is not an expression",
                          i + 1, entry->name);
                 for (unsigned j = 0; j < num_of_pars; ++j) {
-                    free_node(pars[j]);
+                    free_tree(pars[j]);
                 }
                 free(pars);
                 free_symbol_table();
@@ -1215,7 +1412,7 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
                              "Parameter %u in call to function %s is required to be classical, but is quantum",
                              i + 1, entry->name);
                     for (unsigned j = 0; j < num_of_pars; ++j) {
-                        free_node(pars[j]);
+                        free_tree(pars[j]);
                     }
                     free(pars);
                     free_symbol_table();
@@ -1231,7 +1428,7 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
                          i + 1, entry->name, type_to_str(entry->pars_type_info[i].type),
                          type_to_str(type_info_of_par.type));
                 for (unsigned j = 0; j < num_of_pars; ++j) {
-                    free_node(pars[j]);
+                    free_tree(pars[j]);
                 }
                 free(pars);
                 free_symbol_table();
@@ -1242,7 +1439,7 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
                              "Parameter %u in call to function %s is required to be a scalar, but is a depth-%u array",
                              i + 1, entry->name, type_info_of_par.depth);
                     for (unsigned j = 0; j < num_of_pars; ++j) {
-                        free_node(pars[j]);
+                        free_tree(pars[j]);
                     }
                     free(pars);
                     free_symbol_table();
@@ -1252,7 +1449,7 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
                              "Parameter %u in call to function %s is required to be a depth-%u array, but is a scalar",
                              i + 1, entry->name, entry->pars_type_info[i].depth);
                     for (unsigned j = 0; j < num_of_pars; ++j) {
-                        free_node(pars[j]);
+                        free_tree(pars[j]);
                     }
                     free(pars);
                     free_symbol_table();
@@ -1262,7 +1459,7 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
                              "Parameter %u in call to function %s is required to be a depth-%u array, but has depth %u",
                              i + 1, entry->name, entry->pars_type_info[i].depth, type_info_of_par.depth);
                     for (unsigned j = 0; j < num_of_pars; ++j) {
-                        free_node(pars[j]);
+                        free_tree(pars[j]);
                     }
                     free(pars);
                     free_symbol_table();
@@ -1275,7 +1472,7 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
                              "Parameter %u in call to function %s has size %u instead of %u in dimension %u",
                              i + 1, entry->name, entry->pars_type_info[i].sizes[j], type_info_of_par.sizes[j], j + 1);
                     for (unsigned k = 0; k < num_of_pars; ++k) {
-                        free_node(pars[k]);
+                        free_tree(pars[k]);
                     }
                     free(pars);
                     free_symbol_table();
@@ -1289,7 +1486,7 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for reference node failed");
         for (unsigned i = 0; i < num_of_pars; ++i) {
-            free_node(pars[i]);
+            free_tree(pars[i]);
         }
         free(pars);
         free_symbol_table();
@@ -1306,7 +1503,17 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
     } else if (is_quantized) {
         new_node->is_quantizable = false;
         new_node->is_unitary = true;
-        copy_type_info_of_entry(&new_node->type_info, entry);
+        if (!copy_type_info_of_entry(&new_node->type_info, entry)) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Copying type information for reference node failed");
+            for (unsigned i = 0; i < num_of_pars; ++i) {
+                free_tree(pars[i]);
+            }
+            free(pars);
+            free(new_node);
+            free_symbol_table();
+            return NULL;
+        }
+
         new_node->type_info.qualifier = QUANTUM_T;
     } else {
         new_node->is_quantizable = entry->is_quantizable;
@@ -1321,6 +1528,7 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
     return (node_t *) new_node;
 }
 
+/* See header for documentation */
 node_t *new_func_sp_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
     if (!entry->is_function) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not a function", entry->name);
@@ -1344,7 +1552,7 @@ node_t *new_func_sp_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
     return (node_t *) new_node;
 }
 
-
+/* See header for documentation */
 node_t *new_logical_op_node(node_t *left, logical_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t left_type_info;
     type_info_t right_type_info;
@@ -1398,8 +1606,8 @@ node_t *new_logical_op_node(node_t *left, logical_op_t op, node_t *right, char e
         const_node_view_left->type_info.type = BOOL_T;
 
         for (unsigned i = 0; i < length; ++i) {
-            logical_op_application(op, const_node_view_left->values + i, const_node_view_left->values[i],
-                                   const_node_view_right->values[i]);
+            apply_logical_op(op, const_node_view_left->values + i, const_node_view_left->values[i],
+                             const_node_view_right->values[i]);
         }
         free(const_node_view_right->values);
         free(const_node_view_right);
@@ -1425,6 +1633,7 @@ node_t *new_logical_op_node(node_t *left, logical_op_t op, node_t *right, char e
     }
 }
 
+/* See header for documentation */
 node_t *new_comparison_op_node(node_t *left, comparison_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t left_type_info;
     type_info_t right_type_info;
@@ -1477,9 +1686,9 @@ node_t *new_comparison_op_node(node_t *left, comparison_op_t op, node_t *right, 
         const_node_view_left->type_info.type = BOOL_T;
 
         for (unsigned i = 0; i < length; ++i) {
-            comparison_op_application(op, const_node_view_left->values + i, left_type_info.type,
-                                      const_node_view_left->values[i], right_type_info.type,
-                                      const_node_view_right->values[i]);
+            apply_comparison_op(op, const_node_view_left->values + i, left_type_info.type,
+                                const_node_view_left->values[i], right_type_info.type,
+                                const_node_view_right->values[i]);
         }
         free(const_node_view_right->values);
         free(const_node_view_right);
@@ -1505,6 +1714,7 @@ node_t *new_comparison_op_node(node_t *left, comparison_op_t op, node_t *right, 
     }
 }
 
+/* See header for documentation */
 node_t *new_equality_op_node(node_t *left, equality_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t left_type_info;
     type_info_t right_type_info;
@@ -1588,6 +1798,7 @@ node_t *new_equality_op_node(node_t *left, equality_op_t op, node_t *right, char
     }
 }
 
+/* See header for documentation */
 node_t *new_not_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t child_type_info;
     if (!copy_type_info_of_node(&child_type_info, child)) {
@@ -1633,6 +1844,7 @@ node_t *new_not_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
     }
 }
 
+/* See header for documentation */
 node_t *new_integer_op_node(node_t *left, integer_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t left_type_info;
     type_info_t right_type_info;
@@ -1687,12 +1899,12 @@ node_t *new_integer_op_node(node_t *left, integer_op_t op, node_t *right, char e
         const_node_view_left->type_info.type = INT_T;
 
         for (unsigned i = 0; i < length; ++i) {
-            int validity_check = integer_op_application(op,
-                                                        const_node_view_left->values + i,
-                                                        left_type_info.type,
-                                                        const_node_view_left->values[i],
-                                                        right_type_info.type,
-                                                        const_node_view_right->values[i]);
+            int validity_check = apply_integer_op(op,
+                                                  const_node_view_left->values + i,
+                                                  left_type_info.type,
+                                                  const_node_view_left->values[i],
+                                                  right_type_info.type,
+                                                  const_node_view_right->values[i]);
             if (validity_check == 1) {
                 free(const_node_view_left->values);
                 free(const_node_view_left);
@@ -1733,6 +1945,7 @@ node_t *new_integer_op_node(node_t *left, integer_op_t op, node_t *right, char e
     }
 }
 
+/* See header for documentation */
 node_t *new_invert_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t child_type_info;
     if (!copy_type_info_of_node(&child_type_info, child)) {
@@ -1784,7 +1997,8 @@ node_t *new_invert_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
     }
 }
 
-node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branches, unsigned num_of_else_ifs,
+/* See header for documentation */
+node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_ifs, unsigned num_of_else_ifs,
                     node_t *else_branch, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t if_condition_type_info;
     return_style_t if_return_style = get_return_style(if_branch);
@@ -1796,62 +2010,62 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
     bool result_is_unitary = is_unitary(condition);
     if (!copy_type_info_of_node(&if_condition_type_info, condition)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "If-condition is not an expression");
-        free_node(condition);
-        free_node(if_branch);
+        free_tree(condition);
+        free_tree(if_branch);
         for (unsigned i = 0; i < num_of_else_ifs; ++i) {
-            free_node(else_if_branches[i]);
+            free_tree(else_ifs[i]);
         }
-        free(else_if_branches);
-        free_node(else_branch);
+        free(else_ifs);
+        free_tree(else_branch);
         free_symbol_table();
         return NULL;
     } else if (if_condition_type_info.type != BOOL_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "If-condition must be of type bool, but is of type %s",
                  type_to_str(if_condition_type_info.type));
-        free_node(condition);
-        free_node(if_branch);
+        free_tree(condition);
+        free_tree(if_branch);
         for (unsigned i = 0; i < num_of_else_ifs; ++i) {
-            free_node(else_if_branches[i]);
+            free_tree(else_ifs[i]);
         }
-        free(else_if_branches);
-        free_node(else_branch);
+        free(else_ifs);
+        free_tree(else_branch);
         free_symbol_table();
         return NULL;
     } else if (if_condition_type_info.depth != 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "If-condition must be a single bool, but is an array of depth %u",
                  if_condition_type_info.depth);
-        free_node(condition);
-        free_node(if_branch);
+        free_tree(condition);
+        free_tree(if_branch);
         for (unsigned i = 0; i < num_of_else_ifs; ++i) {
-            free_node(else_if_branches[i]);
+            free_tree(else_ifs[i]);
         }
-        free(else_if_branches);
-        free_node(else_branch);
+        free(else_ifs);
+        free_tree(else_branch);
         free_symbol_table();
         return NULL;
     } else if (if_condition_type_info.qualifier == QUANTUM_T) {
         if (!is_unitary(if_branch) || if_return_style != NONE_ST) {
             snprintf(error_msg, ERROR_MSG_LENGTH,
                      "If-condition is quantum, but statements in if-branch are not unitary");
-            free_node(condition);
-            free_node(if_branch);
+            free_tree(condition);
+            free_tree(if_branch);
             for (unsigned i = 0; i < num_of_else_ifs; ++i) {
-                free_node(else_if_branches[i]);
+                free_tree(else_ifs[i]);
             }
-            free(else_if_branches);
-            free_node(else_branch);
+            free(else_ifs);
+            free_tree(else_branch);
             free_symbol_table();
             return NULL;
         } else if (else_branch != NULL && (!is_unitary(else_branch) || else_return_style != NONE_ST)) {
             snprintf(error_msg, ERROR_MSG_LENGTH,
                      "If-condition is quantum, but statements in else-branch are not unitary");
-            free_node(condition);
-            free_node(if_branch);
+            free_tree(condition);
+            free_tree(if_branch);
             for (unsigned i = 0; i < num_of_else_ifs; ++i) {
-                free_node(else_if_branches[i]);
+                free_tree(else_ifs[i]);
             }
-            free(else_if_branches);
-            free_node(else_branch);
+            free(else_ifs);
+            free_tree(else_branch);
             free_symbol_table();
             return NULL;
         }
@@ -1864,35 +2078,35 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
 
     type_info_t else_if_condition_type_info;
     for (unsigned i = 0; i < num_of_else_ifs; ++i) {
-        return_style_t current_return_style = get_return_style(else_if_branches[i]);
-        else_if_node_t *else_if_node_view = (else_if_node_t *) (else_if_node_t *) else_if_branches[i];
+        return_style_t current_return_style = get_return_style(else_ifs[i]);
+        else_if_node_t *else_if_node_view = (else_if_node_t *) (else_if_node_t *) else_ifs[i];
         copy_type_info_of_node(&else_if_condition_type_info, else_if_node_view->condition);
 
-        if (else_if_condition_type_info.qualifier == QUANTUM_T && if_condition_type_info.qualifier != QUANTUM_T
-            || else_if_condition_type_info.qualifier != QUANTUM_T && if_condition_type_info.qualifier == QUANTUM_T) {
+        if (!are_matching_qualifier(else_if_condition_type_info.qualifier,
+                                    if_condition_type_info.qualifier)) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if-condition %u is %s while if-condition is %s",
                      i + 1, (else_if_condition_type_info.qualifier  == QUANTUM_T) ? "quantum" : "classical",
                      (if_condition_type_info.qualifier == QUANTUM_T) ? "quantum" : "classical");
-            free_node(condition);
-            free_node(if_branch);
+            free_tree(condition);
+            free_tree(if_branch);
             for (unsigned j = 0; j < num_of_else_ifs; ++j) {
-                free_node(else_if_branches[j]);
+                free_tree(else_ifs[j]);
             }
-            free(else_if_branches);
-            free_node(else_branch);
+            free(else_ifs);
+            free_tree(else_branch);
             free_symbol_table();
             return NULL;
         }
 
-        result_is_quantizable = result_is_quantizable && is_quantizable(else_if_branches[i]);
-        result_is_unitary = result_is_unitary && is_unitary(else_if_branches[i]);
+        result_is_quantizable = result_is_quantizable && is_quantizable(else_ifs[i]);
+        result_is_unitary = result_is_unitary && is_unitary(else_ifs[i]);
 
         if (current_return_style != NONE_ST) {
             type_info_t elif_return_type_info;
-            copy_return_type_info_of_node(&elif_return_type_info, else_if_branches[i]);
+            copy_return_type_info_of_node(&elif_return_type_info, else_ifs[i]);
             if (result_return_style != NONE_ST) {
-                if (result_return_type_info.qualifier == QUANTUM_T && elif_return_type_info.qualifier != QUANTUM_T
-                    || result_return_type_info.qualifier != QUANTUM_T && elif_return_type_info.qualifier == QUANTUM_T) {
+                if (!are_matching_qualifier(result_return_type_info.qualifier,
+                                            elif_return_type_info.qualifier)) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Non-matching qualifiers in return statements in if-branch and else-if-branch %u", i + 1);
                     return NULL;
@@ -1930,8 +2144,8 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
         if (else_branch != NULL && else_return_style != NONE_ST) {
             type_info_t else_return_type_info;
             copy_return_type_info_of_node(&else_return_type_info, else_branch);
-            if (result_return_type_info.qualifier == QUANTUM_T && else_return_type_info.qualifier != QUANTUM_T
-                || result_return_type_info.qualifier != QUANTUM_T && else_return_type_info.qualifier == QUANTUM_T) {
+            if (!are_matching_qualifier(result_return_type_info.qualifier,
+                                        else_return_type_info.qualifier)) {
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Non-matching qualifiers in return statements in if-branch and else-branch");
                 return NULL;
@@ -1970,13 +2184,13 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
     if_node_t *new_node = malloc(sizeof (if_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for if node failed");
-        free_node(condition);
-        free_node(if_branch);
+        free_tree(condition);
+        free_tree(if_branch);
         for (unsigned i = 0; i < num_of_else_ifs; ++i) {
-            free_node(else_if_branches[i]);
+            free_tree(else_ifs[i]);
         }
-        free(else_if_branches);
-        free_node(else_branch);
+        free(else_ifs);
+        free_tree(else_branch);
         free_symbol_table();
         return NULL;
     }
@@ -1986,7 +2200,7 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
     new_node->is_unitary = result_is_unitary;
     new_node->condition = condition;
     new_node->if_branch = if_branch;
-    new_node->else_ifs = else_if_branches;
+    new_node->else_ifs = else_ifs;
     new_node->num_of_else_ifs = num_of_else_ifs;
     new_node->else_branch = else_branch;
     new_node->return_style = result_return_style;
@@ -1996,34 +2210,35 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_if_branc
     return (node_t *) new_node;
 }
 
+/* See header for documentation */
 node_t *new_else_if_node(node_t *condition, node_t *else_if_branch, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t condition_type_info;
     return_style_t else_if_return_style = get_return_style(else_if_branch);
     if (!copy_type_info_of_node(&condition_type_info, condition)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if-condition is not an expression");
-        free_node(condition);
-        free_node(else_if_branch);
+        free_tree(condition);
+        free_tree(else_if_branch);
         free_symbol_table();
         return NULL;
     } else if (condition_type_info.type != BOOL_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if-condition must be of type bool, but is of type %s",
                  type_to_str(condition_type_info.type));
-        free_node(condition);
-        free_node(else_if_branch);
+        free_tree(condition);
+        free_tree(else_if_branch);
         free_symbol_table();
         return NULL;
     } else if (condition_type_info.depth != 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if-condition must be a single bool, but is an array of depth %u",
                  condition_type_info.depth);
-        free_node(condition);
-        free_node(else_if_branch);
+        free_tree(condition);
+        free_tree(else_if_branch);
         free_symbol_table();
         return NULL;
     } else if (condition_type_info.qualifier == QUANTUM_T && (!(((stmt_list_node_t *) else_if_branch)->is_unitary)
                 || else_if_return_style != NONE_ST)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Else-if-condition is quantum, but statements are not unitary");
-        free_node(condition);
-        free_node(else_if_branch);
+        free_tree(condition);
+        free_tree(else_if_branch);
         free_symbol_table();
         return NULL;
     }
@@ -2031,8 +2246,8 @@ node_t *new_else_if_node(node_t *condition, node_t *else_if_branch, char error_m
     else_if_node_t *new_node = malloc(sizeof (else_if_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for else-if node failed");
-        free_node(condition);
-        free_node(else_if_branch);
+        free_tree(condition);
+        free_tree(else_if_branch);
         free_symbol_table();
         return NULL;
     }
@@ -2052,8 +2267,8 @@ node_t *new_else_if_node(node_t *condition, node_t *else_if_branch, char error_m
     return (node_t *) new_node;
 }
 
-node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num_of_cases,
-                        char error_msg[ERROR_MSG_LENGTH]) {
+/* See header for documentation */
+node_t *new_switch_node(node_t *expression, node_t **cases, unsigned num_of_cases, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t expression_type_info;
     return_style_t result_return_style = NONE_ST;
     type_info_t result_return_type_info;
@@ -2061,58 +2276,58 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
     bool result_is_unitary = is_unitary(expression);
     if (!copy_type_info_of_node(&expression_type_info, expression)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "No valid switch-expression");
-        free_node(expression);
+        free_tree(expression);
         for (unsigned i = 0; i < num_of_cases; ++i) {
-            free_node(case_branches[i]);
+            free_tree(cases[i]);
         }
-        free(case_branches);
+        free(cases);
         free_symbol_table();
         return NULL;
     } else if (expression_type_info.depth != 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Switch-expression must be a scalar, but is an array of depth %u",
                  expression_type_info.depth);
-        free_node(expression);
+        free_tree(expression);
         for (unsigned i = 0; i < num_of_cases; ++i) {
-            free_node(case_branches[i]);
+            free_tree(cases[i]);
         }
-        free(case_branches);
+        free(cases);
         free_symbol_table();
         return NULL;
     }
     bool has_default_case = false;
     for (unsigned i = 0; i < num_of_cases; ++i) {
-        return_style_t current_return_style = get_return_style(case_branches[i]);
-        case_node_t *case_node_view = (case_node_t *) case_branches[i];
+        return_style_t current_return_style = get_return_style(cases[i]);
+        case_node_t *case_node_view = (case_node_t *) cases[i];
         stmt_list_node_t *case_branch_view = (stmt_list_node_t *) case_node_view->case_branch;
         if (case_node_view->case_const_type != VOID_T
             && !are_matching_types(expression_type_info.type, case_node_view->case_const_type)) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Case %u is of type %s while switch-expression is of type %s",
                      i + 1, type_to_str(case_node_view->case_const_type), type_to_str(expression_type_info.type));
-            free_node(expression);
+            free_tree(expression);
             for (unsigned j = 0; j < num_of_cases; ++j) {
-                free_node(case_branches[j]);
+                free_tree(cases[j]);
             }
-            free(case_branches);
+            free(cases);
             free_symbol_table();
             return NULL;
         } else if (expression_type_info.qualifier == QUANTUM_T && !(case_node_view->is_unitary)) {
             snprintf(error_msg, ERROR_MSG_LENGTH,
                      "Switch-expression is quantum, but statements in case %u are not unitary", i + 1);
-            free_node(expression);
+            free_tree(expression);
             for (unsigned j = 0; j < num_of_cases; ++j) {
-                free_node(case_branches[j]);
+                free_tree(cases[j]);
             }
-            free(case_branches);
+            free(cases);
             free_symbol_table();
             return NULL;
         }
 
         if (current_return_style != NONE_ST) {
             type_info_t case_return_type_info;
-            copy_return_type_info_of_node(&case_return_type_info, case_branches[i]);
+            copy_return_type_info_of_node(&case_return_type_info, cases[i]);
             if (result_return_style != NONE_ST) {
-                if (result_return_type_info.qualifier == QUANTUM_T && case_return_type_info.qualifier != QUANTUM_T
-                    || result_return_type_info.qualifier != QUANTUM_T && case_return_type_info.qualifier == QUANTUM_T) {
+                if (!are_matching_qualifier(result_return_type_info.qualifier,
+                                            case_return_type_info.qualifier)) {
                     snprintf(error_msg, ERROR_MSG_LENGTH,
                              "Non-matching qualifiers in return statements in case-branches");
                     return NULL;
@@ -2148,37 +2363,37 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
             has_default_case = true;
             if (i < num_of_cases - 1) { /* default statement reached */
                 for (unsigned j = i + 1; j < num_of_cases; ++j) {
-                    free_node(case_branches[j]);
+                    free_tree(cases[j]);
                 }
                 num_of_cases = i + 1;
-                node_t **temp = realloc(case_branches, num_of_cases * sizeof(node_t *));
+                node_t **temp = realloc(cases, num_of_cases * sizeof(node_t *));
                 if (temp == NULL) {
                     snprintf(error_msg, ERROR_MSG_LENGTH, "Reallocating case list in switch node failed");
-                    free_node(expression);
+                    free_tree(expression);
                     for (unsigned j = 0; j < num_of_cases; ++j) {
-                        free_node(case_branches[j]);
+                        free_tree(cases[j]);
                     }
-                    free(case_branches);
+                    free(cases);
                     free_symbol_table();
                     return NULL;
                 }
-                case_branches = temp;
+                cases = temp;
                 break;
             }
         }
 
         for (unsigned j = 0; j < i; ++j) {
-            case_node_t *prior_case_node_view = (case_node_t *) case_branches[j];
+            case_node_t *prior_case_node_view = (case_node_t *) cases[j];
             if ((case_node_view->case_const_type == BOOL_T
                  && case_node_view->case_const_value.b_val == prior_case_node_view->case_const_value.b_val)
                 || (case_node_view->case_const_type == INT_T
                     && case_node_view->case_const_value.i_val == prior_case_node_view->case_const_value.i_val)) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Cases %u and %u have the same value", j + 1, i + 1);
-                free_node(expression);
+                free_tree(expression);
                 for (unsigned k = 0; k < num_of_cases; ++k) {
-                    free_node(case_branches[k]);
+                    free_tree(cases[k]);
                 }
-                free(case_branches);
+                free(cases);
                 free_symbol_table();
                 return NULL;
             }
@@ -2186,8 +2401,8 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
     }
 
     for (unsigned i = 0; i < num_of_cases; ++i) {
-        result_is_quantizable = result_is_quantizable && is_quantizable(case_branches[i]);
-        result_is_unitary = result_is_unitary && is_unitary(case_branches[i]);
+        result_is_quantizable = result_is_quantizable && is_quantizable(cases[i]);
+        result_is_unitary = result_is_unitary && is_unitary(cases[i]);
     }
     if (!has_default_case) {
         result_return_style = (result_return_style == NONE_ST) ? NONE_ST : CONDITIONAL_ST;
@@ -2195,11 +2410,11 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
     switch_node_t *new_node = malloc(sizeof (switch_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for switch node failed");
-        free_node(expression);
+        free_tree(expression);
         for (unsigned i = 0; i < num_of_cases; ++i) {
-            free_node(case_branches[i]);
+            free_tree(cases[i]);
         }
-        free(case_branches);
+        free(cases);
         free_symbol_table();
         return NULL;
     }
@@ -2208,7 +2423,7 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
     new_node->is_quantizable = result_is_quantizable;
     new_node->is_unitary = result_is_unitary;
     new_node->expression = expression;
-    new_node->cases = case_branches;
+    new_node->cases = cases;
     new_node->num_of_cases = num_of_cases;
     new_node->return_style = result_return_style;
     if (result_return_style != NONE_ST) {
@@ -2217,13 +2432,14 @@ node_t *new_switch_node(node_t *expression, node_t **case_branches, unsigned num
     return (node_t *) new_node;
 }
 
+/* See header for documentation */
 node_t *new_case_node(node_t *case_const, node_t *case_branch, char error_msg[ERROR_MSG_LENGTH]) {
     return_style_t case_return_style = get_return_style(case_branch);
     case_node_t *new_node = malloc(sizeof (case_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for case node failed");
-        free_node(case_const);
-        free_node(case_branch);
+        free_tree(case_const);
+        free_tree(case_branch);
         free_symbol_table();
         return NULL;
     }
@@ -2249,41 +2465,42 @@ node_t *new_case_node(node_t *case_const, node_t *case_branch, char error_msg[ER
     return (node_t *) new_node;
 }
 
+/* See header for documentation */
 node_t *new_for_node(node_t *initialize, node_t *condition, node_t *increment, node_t *for_branch,
                      char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t condition_type_info;
     if (!copy_type_info_of_node(&condition_type_info, condition)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "For-loop-condition is not an expression");
-        free_node(initialize);
-        free_node(condition);
-        free_node(increment);
-        free_node(for_branch);
+        free_tree(initialize);
+        free_tree(condition);
+        free_tree(increment);
+        free_tree(for_branch);
         free_symbol_table();
         return NULL;
     } else if (condition_type_info.qualifier == QUANTUM_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "For-loop condition cannot be quantum");
-        free_node(initialize);
-        free_node(condition);
-        free_node(increment);
-        free_node(for_branch);
+        free_tree(initialize);
+        free_tree(condition);
+        free_tree(increment);
+        free_tree(for_branch);
         free_symbol_table();
         return NULL;
     } else if (condition_type_info.type != BOOL_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "For-loop-condition must be of type bool, but is of type %s",
                  type_to_str(condition_type_info.type));
-        free_node(initialize);
-        free_node(condition);
-        free_node(increment);
-        free_node(for_branch);
+        free_tree(initialize);
+        free_tree(condition);
+        free_tree(increment);
+        free_tree(for_branch);
         free_symbol_table();
         return NULL;
     } else if (condition_type_info.depth != 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "For-loop-condition must be a single bool, but is an array of depth %u",
                  condition_type_info.depth);
-        free_node(initialize);
-        free_node(condition);
-        free_node(increment);
-        free_node(for_branch);
+        free_tree(initialize);
+        free_tree(condition);
+        free_tree(increment);
+        free_tree(for_branch);
         free_symbol_table();
         return NULL;
     }
@@ -2291,10 +2508,10 @@ node_t *new_for_node(node_t *initialize, node_t *condition, node_t *increment, n
     for_node_t *new_node = malloc(sizeof (for_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for for-loop node failed");
-        free_node(initialize);
-        free_node(condition);
-        free_node(increment);
-        free_node(for_branch);
+        free_tree(initialize);
+        free_tree(condition);
+        free_tree(increment);
+        free_tree(for_branch);
         free_symbol_table();
         return NULL;
     }
@@ -2307,33 +2524,34 @@ node_t *new_for_node(node_t *initialize, node_t *condition, node_t *increment, n
     return (node_t *) new_node;
 }
 
+/* See header for documentation */
 node_t *new_do_node(node_t *do_branch, node_t *condition, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t condition_type_info;
     if (!copy_type_info_of_node(&condition_type_info, condition)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Do-while-loop-condition is not an expression");
-        free_node(do_branch);
-        free_node(condition);
+        free_tree(do_branch);
+        free_tree(condition);
         free_symbol_table();
         return NULL;
     } else if (condition_type_info.qualifier == QUANTUM_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Do-while-loop-condition cannot be quantum");
-        free_node(do_branch);
-        free_node(condition);
+        free_tree(do_branch);
+        free_tree(condition);
         free_symbol_table();
         return NULL;
     } else if (condition_type_info.type != BOOL_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Do-while-loop-condition must be of type bool, but is of type %s",
                  type_to_str(condition_type_info.type));
-        free_node(do_branch);
-        free_node(condition);
+        free_tree(do_branch);
+        free_tree(condition);
         free_symbol_table();
         return NULL;
     } else if (condition_type_info.depth != 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH,
                  "Do-while-loop-condition must be a single bool, but is an array of depth %u",
                  condition_type_info.depth);
-        free_node(do_branch);
-        free_node(condition);
+        free_tree(do_branch);
+        free_tree(condition);
         free_symbol_table();
         return NULL;
     }
@@ -2341,8 +2559,8 @@ node_t *new_do_node(node_t *do_branch, node_t *condition, char error_msg[ERROR_M
     do_node_t *new_node = malloc(sizeof (do_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for do-while-loop node failed");
-        free_node(do_branch);
-        free_node(condition);
+        free_tree(do_branch);
+        free_tree(condition);
         free_symbol_table();
         return NULL;
     }
@@ -2353,32 +2571,33 @@ node_t *new_do_node(node_t *do_branch, node_t *condition, char error_msg[ERROR_M
     return (node_t *) new_node;
 }
 
+/* See header for documentation */
 node_t *new_while_node(node_t *condition, node_t *while_branch, char error_msg[ERROR_MSG_LENGTH]) {
     type_info_t condition_type_info;
     if (!copy_type_info_of_node(&condition_type_info, condition)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "While-loop-condition is not an expression");
-        free_node(condition);
-        free_node(while_branch);
+        free_tree(condition);
+        free_tree(while_branch);
         free_symbol_table();
         return NULL;
     } else if (condition_type_info.qualifier == QUANTUM_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "While-loop-condition cannot be quantum");
-        free_node(condition);
-        free_node(while_branch);
+        free_tree(condition);
+        free_tree(while_branch);
         free_symbol_table();
         return NULL;
     } else if (condition_type_info.type != BOOL_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "While-loop-condition must be of type bool, but is of type %s",
                  type_to_str(condition_type_info.type));
-        free_node(condition);
-        free_node(while_branch);
+        free_tree(condition);
+        free_tree(while_branch);
         free_symbol_table();
         return NULL;
     } else if (condition_type_info.depth != 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "While-loop-condition must be a single bool, but is an array of depth %u",
                  condition_type_info.depth);
-        free_node(condition);
-        free_node(while_branch);
+        free_tree(condition);
+        free_tree(while_branch);
         free_symbol_table();
         return NULL;
     }
@@ -2386,8 +2605,8 @@ node_t *new_while_node(node_t *condition, node_t *while_branch, char error_msg[E
     while_node_t *new_node = malloc(sizeof (while_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for while-loop node failed");
-        free_node(condition);
-        free_node(while_branch);
+        free_tree(condition);
+        free_tree(while_branch);
         free_symbol_table();
         return NULL;
     }
@@ -2398,17 +2617,18 @@ node_t *new_while_node(node_t *condition, node_t *while_branch, char error_msg[E
     return (node_t *) new_node;
 }
 
+/* See header for documentation */
 node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
     if (left->node_type == CONST_NODE_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to reassign constant value");
-        free_node(left);
-        free_node(right);
+        free_tree(left);
+        free_tree(right);
         free_symbol_table();
         return NULL;
     } else if (left->node_type != REFERENCE_NODE_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Left-hand side of assignment is not a variable");
-        free_node(left);
-        free_node(right);
+        free_tree(left);
+        free_tree(right);
         free_symbol_table();
         return NULL;
     }
@@ -2418,14 +2638,14 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
     type_info_t right_type_info;
     if (!copy_type_info_of_node(&right_type_info, right)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Right-hand side of assignment is not an expression");
-        free_node(left);
-        free_node(right);
+        free_tree(left);
+        free_tree(right);
         free_symbol_table();
         return NULL;
     } else if (left_type_info.qualifier != QUANTUM_T && right_type_info.qualifier == QUANTUM_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Classical left-hand side of assignment, but quantum right-hand side");
-        free_node(left);
-        free_node(right);
+        free_tree(left);
+        free_tree(right);
         free_symbol_table();
         return NULL;
     }
@@ -2435,8 +2655,8 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
             if (!are_matching_types(left_type_info.type, right_type_info.type)) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Assigning %s to %s",
                          type_to_str(right_type_info.type), type_to_str(left_type_info.type));
-                free_node(left);
-                free_node(right);
+                free_tree(left);
+                free_tree(right);
                 free_symbol_table();
                 return NULL;
             }
@@ -2447,8 +2667,8 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
                 snprintf(error_msg, ERROR_MSG_LENGTH, "%s Assigning %s to %s",
                          (left_type_info.type == BOOL_T) ? "Logically" : "Bitwisely", type_to_str(right_type_info.type),
                          type_to_str(left_type_info.type));
-                free_node(left);
-                free_node(right);
+                free_tree(left);
+                free_tree(right);
                 free_symbol_table();
                 return NULL;
             }
@@ -2457,21 +2677,21 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
         case ASSIGN_ADD_OP: case ASSIGN_SUB_OP: case ASSIGN_MUL_OP: case ASSIGN_DIV_OP: case ASSIGN_MOD_OP: {
             if (left_type_info.type == BOOL_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Arithmetically assigning to bool");
-                free_node(left);
-                free_node(right);
+                free_tree(left);
+                free_tree(right);
                 free_symbol_table();
                 return NULL;
             } else if (right_type_info.type == BOOL_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Arithmetically assigning bool to %s",
                          type_to_str(left_type_info.type));
-                free_node(left);
-                free_node(right);
+                free_tree(left);
+                free_tree(right);
                 free_symbol_table();
                 return NULL;
             } else if (left_type_info.type == INT_T && right_type_info.type == UNSIGNED_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Arithmetically assigning unsigned to int");
-                free_node(left);
-                free_node(right);
+                free_tree(left);
+                free_tree(right);
                 free_symbol_table();
                 return NULL;
             }
@@ -2483,24 +2703,24 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
         snprintf(error_msg, ERROR_MSG_LENGTH,
                  "Left-hand side of \"%s\" is a scalar, right-hand side is an array of depth %u)",
                  assign_op_to_str(op), right_type_info.depth);
-        free_node(left);
-        free_node(right);
+        free_tree(left);
+        free_tree(right);
         free_symbol_table();
         return NULL;
     } else if (left_type_info.depth != 0 && right_type_info.depth == 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH,
                  "Left-hand side of \"%s\" is an array of depth %u, right-hand side is a scalar)",
                  assign_op_to_str(op), left_type_info.depth);
-        free_node(left);
-        free_node(right);
+        free_tree(left);
+        free_tree(right);
         free_symbol_table();
         return NULL;
     } else if (left_type_info.depth != right_type_info.depth) {
         snprintf(error_msg, ERROR_MSG_LENGTH,
                  "Left-hand and right-hand side of \"%s\" are arrays of different depth (%u != %u)",
                  assign_op_to_str(op), left_type_info.depth, right_type_info.depth);
-        free_node(left);
-        free_node(right);
+        free_tree(left);
+        free_tree(right);
         free_symbol_table();
         return NULL;
     }
@@ -2511,8 +2731,8 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
             snprintf(error_msg, ERROR_MSG_LENGTH,
                      "Left-hand and right-hand side of \"%s\" are arrays of different sizes in dimension %u (%u != %u)",
                      assign_op_to_str(op), depth, left_type_info.sizes[i], right_type_info.sizes[i]);
-            free_node(left);
-            free_node(right);
+            free_tree(left);
+            free_tree(right);
             free_symbol_table();
             return NULL;
         }
@@ -2526,8 +2746,8 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
             for (unsigned i = 0; i < length; ++i) {
                 if (const_node_view_right->values[i].i_val == 0) {
                     snprintf(error_msg, ERROR_MSG_LENGTH, "Division by zero");
-                    free_node(left);
-                    free_node(right);
+                    free_tree(left);
+                    free_tree(right);
                     free_symbol_table();
                     return NULL;
                 }
@@ -2536,8 +2756,8 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
             for (unsigned i = 0; i < length; ++i) {
                 if (const_node_view_right->values[i].i_val == 0) {
                     snprintf(error_msg, ERROR_MSG_LENGTH, "Modulo by zero");
-                    free_node(left);
-                    free_node(right);
+                    free_tree(left);
+                    free_tree(right);
                     free_symbol_table();
                     return NULL;
                 }
@@ -2548,8 +2768,8 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
     assign_node_t *new_node = malloc(sizeof (assign_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for assignment node failed");
-        free_node(left);
-        free_node(right);
+        free_tree(left);
+        free_tree(right);
         free_symbol_table();
         return NULL;
     }
@@ -2563,17 +2783,18 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
     return (node_t *) new_node;
 }
 
+/* See header for documentation */
 node_t *new_phase_node(node_t *left, bool is_positive, node_t *right, char error_msg[ERROR_MSG_LENGTH]) {
     if (left->node_type == CONST_NODE_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to change the phase of a classical value");
-        free_node(left);
-        free_node(right);
+        free_tree(left);
+        free_tree(right);
         free_symbol_table();
         return NULL;
     } else if (left->node_type != REFERENCE_NODE_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Left-hand side of assignment is not a variable");
-        free_node(left);
-        free_node(right);
+        free_tree(left);
+        free_tree(right);
         free_symbol_table();
         return NULL;
     }
@@ -2582,8 +2803,8 @@ node_t *new_phase_node(node_t *left, bool is_positive, node_t *right, char error
     copy_type_info_of_node(&left_type_info, left);
     if (left_type_info.qualifier != QUANTUM_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to change the phase of a classical value");
-        free_node(left);
-        free_node(right);
+        free_tree(left);
+        free_tree(right);
         free_symbol_table();
         return NULL;
     }
@@ -2591,28 +2812,28 @@ node_t *new_phase_node(node_t *left, bool is_positive, node_t *right, char error
     type_info_t right_type_info;
     if (!copy_type_info_of_node(&right_type_info, right)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Right-hand side of phase change is not an expression");
-        free_node(left);
-        free_node(right);
+        free_tree(left);
+        free_tree(right);
         free_symbol_table();
         return NULL;
     } else if (right_type_info.qualifier == QUANTUM_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Cannot change the phase by a quantum value");
-        free_node(left);
-        free_node(right);
+        free_tree(left);
+        free_tree(right);
         free_symbol_table();
         return NULL;
     } else if (right_type_info.type == BOOL_T || right_type_info.type == VOID_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Cannot change the phase by a value of type %s",
                  type_to_str(right_type_info.type));
-        free_node(left);
-        free_node(right);
+        free_tree(left);
+        free_tree(right);
         free_symbol_table();
         return NULL;
     } else if (right_type_info.depth != 0) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Right-hand side of phase change is an array of depth %u",
                  right_type_info.depth);
-        free_node(left);
-        free_node(right);
+        free_tree(left);
+        free_tree(right);
         free_symbol_table();
         return NULL;
     }
@@ -2620,8 +2841,8 @@ node_t *new_phase_node(node_t *left, bool is_positive, node_t *right, char error
     phase_node_t *new_node = malloc(sizeof (phase_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for phase node failed");
-        free_node(left);
-        free_node(right);
+        free_tree(left);
+        free_tree(right);
         free_symbol_table();
         return NULL;
     }
@@ -2634,32 +2855,33 @@ node_t *new_phase_node(node_t *left, bool is_positive, node_t *right, char error
     return (node_t *) new_node;
 }
 
-node_t *new_measure_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
-    if (node->node_type == CONST_NODE_T) {
+/* See header for documentation */
+node_t *new_measure_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]) {
+    if (child->node_type == CONST_NODE_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to measure a classical variable");
-        free_node(node);
+        free_tree(child);
         free_symbol_table();
         return NULL;
-    } else if (node->node_type != REFERENCE_NODE_T) {
+    } else if (child->node_type != REFERENCE_NODE_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to measure a non-variable");
-        free_node(node);
+        free_tree(child);
         free_symbol_table();
         return NULL;
     }
 
     type_info_t type_info;
-    copy_type_info_of_node(&type_info, node);
+    copy_type_info_of_node(&type_info, child);
     if (type_info.qualifier != QUANTUM_T) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Trying to measure a classical variable");
-        free_node(node);
+        free_tree(child);
         free_symbol_table();
         return NULL;
     }
 
     measure_node_t *new_node = malloc(sizeof (measure_node_t));
     if (new_node == NULL) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for measure node failed");
-        free_node(node);
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for measure child failed");
+        free_tree(child);
         free_symbol_table();
         return NULL;
     }
@@ -2667,10 +2889,11 @@ node_t *new_measure_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
     new_node->node_type = MEASURE_NODE_T;
     new_node->type_info = type_info;
     new_node->type_info.qualifier = NONE_T;
-    new_node->child = node;
+    new_node->child = child;
     return (node_t *) new_node;
 }
 
+/* See header for documentation */
 node_t *new_break_node(char error_msg[ERROR_MSG_LENGTH]) {
     break_node_t *new_node = malloc(sizeof (break_node_t));
     if (new_node == NULL) {
@@ -2683,6 +2906,7 @@ node_t *new_break_node(char error_msg[ERROR_MSG_LENGTH]) {
     return (node_t *) new_node;
 }
 
+/* See header for documentation */
 node_t *new_continue_node(char error_msg[ERROR_MSG_LENGTH]) {
     continue_node_t *new_node = malloc(sizeof (continue_node_t));
     if (new_node == NULL) {
@@ -2695,22 +2919,23 @@ node_t *new_continue_node(char error_msg[ERROR_MSG_LENGTH]) {
     return (node_t *) new_node;
 }
 
-node_t *new_return_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
+/* See header for documentation */
+node_t *new_return_node(node_t *return_value, char error_msg[ERROR_MSG_LENGTH]) {
     return_node_t *new_node = malloc(sizeof (return_node_t));
     if (new_node == NULL) {
-        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for return node failed");
-        free_node(node);
+        snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for return return_value failed");
+        free_tree(return_value);
         free_symbol_table();
         return NULL;
     }
 
     new_node->node_type = RETURN_NODE_T;
-    if (node != NULL) {
-        new_node->is_quantizable = is_quantizable(node);
-        new_node->is_unitary = is_unitary(node);
-        if (!copy_type_info_of_node(&(new_node->type_info), node)) {
+    if (return_value != NULL) {
+        new_node->is_quantizable = is_quantizable(return_value);
+        new_node->is_unitary = is_unitary(return_value);
+        if (!copy_type_info_of_node(&(new_node->type_info), return_value)) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Return value is not an expression");
-            free_node(node);
+            free_tree(return_value);
             free_symbol_table();
             return NULL;
         }
@@ -2722,331 +2947,193 @@ node_t *new_return_node(node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
         new_node->type_info.type = VOID_T;
         new_node->type_info.depth = 0;
     }
-    new_node->return_value = node;
+    new_node->return_value = return_value;
     return (node_t *) new_node;
 }
 
-bool copy_return_type_info_of_node(type_info_t *type_info, const node_t *node) {
-    if (node == NULL) {
-        return false;
+/* See header for documentation */
+void free_tree(node_t *root) {
+    if (root == NULL) {
+        return;
     }
 
-    switch (node->node_type) {
+    switch (root->node_type) {
+        case BASIC_NODE_T: {
+            free_tree(root->left);
+            free_tree(root->right);
+            free(root);
+            return;
+        }
         case STMT_LIST_NODE_T: {
-            memcpy(type_info, &(((stmt_list_node_t *) node)->return_type_info), sizeof (type_info_t));
-            return true;
-        }
-        case IF_NODE_T: {
-            memcpy(type_info, &(((if_node_t *) node)->return_type_info), sizeof (type_info_t));
-            return true;
-        }
-        case ELSE_IF_NODE_T: {
-            memcpy(type_info, &(((else_if_node_t *) node)->return_type_info), sizeof (type_info_t));
-            return true;
-        }
-        case SWITCH_NODE_T: {
-            memcpy(type_info, &(((switch_node_t *) node)->return_type_info), sizeof (type_info_t));
-            return true;
-        }
-        case CASE_NODE_T: {
-            memcpy(type_info, &(((case_node_t *) node)->return_type_info), sizeof (type_info_t));
-            return true;
-        }
-        case RETURN_NODE_T: {
-            memcpy(type_info, &(((return_node_t *) node)->type_info), sizeof (type_info_t));
-            return true;
-        }
-        default: {
-            return false;
-        }
-    }
-}
-
-return_style_t get_return_style(const node_t *node) {
-    if (node == NULL) {
-        return NONE_ST;
-    }
-
-    switch (node->node_type) {
-        case STMT_LIST_NODE_T: {
-            return ((stmt_list_node_t *) node)->return_style;
-        }
-        case IF_NODE_T: {
-            return ((if_node_t *) node)->return_style;
-        }
-        case ELSE_IF_NODE_T: {
-            return ((else_if_node_t *) node)->return_style;
-        }
-        case SWITCH_NODE_T: {
-            return ((switch_node_t *) node)->return_style;
-        }
-        case CASE_NODE_T: {
-            return ((case_node_t *) node)->return_style;
-        }
-        case RETURN_NODE_T: {
-            return DEFINITE_ST;
-        }
-        default: {
-            return NONE_ST;
-        }
-    }
-}
-
-bool is_quantizable(const node_t *node) {
-    if (node == NULL) {
-        return false;
-    }
-
-    switch (node->node_type) {
-        case STMT_LIST_NODE_T: {
-            return ((stmt_list_node_t *) node)->is_quantizable;
-        }
-        case FUNC_SP_NODE_T: {
-            return true;
-        }
-        case VAR_DECL_NODE_T: {
-            return ((var_decl_node_t *) node)->entry->qualifier != QUANTUM_T;
-        }
-        case VAR_DEF_NODE_T: {
-            return ((var_def_node_t *) node)->is_quantizable;
-        }
-        case CONST_NODE_T: {
-            return true;
-        }
-        case REFERENCE_NODE_T: {
-            return ((reference_node_t *) node)->is_quantizable;
-        }
-        case FUNC_CALL_NODE_T: {
-            return ((func_call_node_t *) node)->is_quantizable;
-        }
-        case LOGICAL_OP_NODE_T: {
-            return ((logical_op_node_t *) node)->is_quantizable;
-        }
-        case COMPARISON_OP_NODE_T: {
-            return ((comparison_op_node_t *) node)->is_quantizable;
-        }
-        case EQUALITY_OP_NODE_T: {
-            return ((equality_op_node_t *) node)->is_quantizable;
-        }
-        case NOT_OP_NODE_T: {
-            return ((not_op_node_t *) node)->is_quantizable;
-        }
-        case INTEGER_OP_NODE_T: {
-            return ((integer_op_node_t *) node)->is_quantizable;
-        }
-        case INVERT_OP_NODE_T: {
-            return ((invert_op_node_t *) node)->is_quantizable;
-        }
-        case IF_NODE_T: {
-            return ((if_node_t *) node)->is_quantizable;
-        }
-        case ELSE_IF_NODE_T: {
-            return ((else_if_node_t *) node)->is_quantizable;
-        }
-        case SWITCH_NODE_T: {
-            return ((switch_node_t *) node)->is_quantizable;
-        }
-        case CASE_NODE_T: {
-            return ((case_node_t *) node)->is_quantizable;
-        }
-        case ASSIGN_NODE_T: {
-            return ((assign_node_t *) node)->is_quantizable;
-        }
-        case PHASE_NODE_T: {
-            return false;
-        }
-        case RETURN_NODE_T: {
-            return ((return_node_t *) node)->is_quantizable;
-        }
-        default: {
-            return false;
-        }
-    }
-}
-
-bool is_unitary(const node_t *node) {
-    if (node == NULL) {
-        return false;
-    }
-
-    switch (node->node_type) {
-        case STMT_LIST_NODE_T: {
-            return ((stmt_list_node_t *) node)->is_unitary;
-        }
-        case VAR_DECL_NODE_T: {
-            return ((var_decl_node_t *) node)->entry->qualifier == QUANTUM_T;
-        }
-        case VAR_DEF_NODE_T: {
-            return ((var_def_node_t *) node)->is_unitary;
-        }
-        case CONST_NODE_T: {
-            return true;
-        }
-        case REFERENCE_NODE_T: {
-            return ((reference_node_t *) node)->is_unitary;
-        }
-        case FUNC_CALL_NODE_T: {
-            return ((func_call_node_t *) node)->is_unitary;
-        }
-        case FUNC_SP_NODE_T: {
-            return true;
-        }
-        case LOGICAL_OP_NODE_T: {
-            return ((logical_op_node_t *) node)->is_unitary;
-        }
-        case COMPARISON_OP_NODE_T: {
-            return ((comparison_op_node_t *) node)->is_unitary;
-        }
-        case EQUALITY_OP_NODE_T: {
-            return ((equality_op_node_t *) node)->is_unitary;
-        }
-        case NOT_OP_NODE_T: {
-            return ((not_op_node_t *) node)->is_unitary;
-        }
-        case INTEGER_OP_NODE_T: {
-            return ((integer_op_node_t *) node)->is_unitary;
-        }
-        case INVERT_OP_NODE_T: {
-            return ((invert_op_node_t *) node)->is_unitary;
-        }
-        case IF_NODE_T: {
-            return ((if_node_t *) node)->is_unitary;
-        }
-        case ELSE_IF_NODE_T: {
-            return ((else_if_node_t *) node)->is_unitary;
-        }
-        case SWITCH_NODE_T: {
-            return ((switch_node_t *) node)->is_unitary;
-        }
-        case CASE_NODE_T: {
-            return ((case_node_t *) node)->is_unitary;
-        }
-        case ASSIGN_NODE_T: {
-            return ((assign_node_t *) node)->is_unitary;
-        }
-        case PHASE_NODE_T: {
-            return ((phase_node_t *) node)->is_unitary;
-        }
-        case RETURN_NODE_T: {
-            return ((return_node_t *) node)->is_unitary;
-        }
-        default: {
-            return false;
-        }
-    }
-}
-
-void copy_type_info_of_entry(type_info_t *type_info, const entry_t *entry) {
-    type_info->qualifier = entry->qualifier;
-    type_info->type = entry->type;
-    memcpy(type_info->sizes, entry->sizes, sizeof (entry->sizes));
-    type_info->depth = entry->depth;
-}
-
-bool copy_type_info_of_node(type_info_t *type_info, const node_t *node) {
-    switch (node->node_type) {
-        case VAR_DECL_NODE_T: {
-            copy_type_info_of_entry(type_info, ((var_decl_node_t *) node)->entry);
-            return true;
-        }
-        case VAR_DEF_NODE_T: {
-            copy_type_info_of_entry(type_info, ((var_def_node_t *) node)->entry);
-            return true;
-        }
-        case CONST_NODE_T: {
-            memcpy(type_info, &(((const_node_t *) node)->type_info), sizeof (type_info_t));
-            return true;
-        }
-        case REFERENCE_NODE_T: {
-            memcpy(type_info, &(((reference_node_t *) node)->type_info), sizeof (type_info_t));
-            return true;
-        }
-        case FUNC_CALL_NODE_T: {
-            copy_type_info_of_entry(type_info, ((func_call_node_t *) node)->entry);
-            return true;
-        }
-        case FUNC_SP_NODE_T: {
-            copy_type_info_of_entry(type_info, ((func_sp_node_t *) node)->entry);
-            return true;
-        }
-        case LOGICAL_OP_NODE_T: {
-            memcpy(type_info, &(((logical_op_node_t *) node)->type_info), sizeof (type_info_t));
-            return true;
-        }
-        case COMPARISON_OP_NODE_T: {
-            memcpy(type_info, &(((comparison_op_node_t *) node)->type_info), sizeof (type_info_t));
-            return true;
-        }
-        case EQUALITY_OP_NODE_T: {
-            memcpy(type_info, &(((equality_op_node_t *) node)->type_info), sizeof (type_info_t));
-            return true;
-        }
-        case NOT_OP_NODE_T: {
-            memcpy(type_info, &(((not_op_node_t *) node)->type_info), sizeof (type_info_t));
-            return true;
-        }
-        case INTEGER_OP_NODE_T: {
-            memcpy(type_info, &(((integer_op_node_t *) node)->type_info), sizeof (type_info_t));
-            return true;
-        }
-        case INVERT_OP_NODE_T: {
-            memcpy(type_info, &(((invert_op_node_t *) node)->type_info), sizeof (type_info_t));
-            return true;
-        }
-        case ASSIGN_NODE_T: {
-            switch (((assign_node_t *) node)->left->node_type) {
-                case CONST_NODE_T: {
-                    memcpy(type_info, &(((const_node_t *) ((assign_node_t *) node)->left)->type_info),
-                           sizeof (type_info_t));
-                    return true;
-                }
-                case REFERENCE_NODE_T: {
-                    memcpy(type_info, &(((reference_node_t *) ((assign_node_t *) node)->left)->type_info),
-                           sizeof (type_info_t));
-                    return true;
-                }
-                default: {
-                    return false;
-                }
+            for (unsigned i = 0; i < ((stmt_list_node_t *) root)->num_of_stmts; ++i) {
+                free_tree(((stmt_list_node_t *) root)->stmt_list[i]);
             }
+            free(((stmt_list_node_t *) root)->stmt_list);
+            free((stmt_list_node_t *) root);
+            return;
+        }
+        case FUNC_DEF_NODE_T: {
+            free_tree(((func_def_node_t *) root)->func_tail);
+            free((func_def_node_t *) root);
+            return;
+        }
+        case VAR_DECL_NODE_T: {
+            free((var_decl_node_t *) root);
+            return;
+        }
+        case VAR_DEF_NODE_T: {
+            if (((var_def_node_t *) root)->is_init_list) {
+                free(((var_def_node_t *) root)->q_types);
+                free(((var_def_node_t *) root)->values);
+            } else {
+                free_tree(((var_def_node_t *) root)->node);
+            }
+            free((var_def_node_t *) root);
+            return;
+        }
+        case CONST_NODE_T: {
+            free(((const_node_t *) root)->values);
+            free((const_node_t *) root);
+            return;
+        }
+        case REFERENCE_NODE_T: {
+            free((reference_node_t *) root);
+            return;
+        }
+        case FUNC_CALL_NODE_T: {
+            for (unsigned i = 0; i < ((func_call_node_t *) root)->num_of_pars; ++i) {
+                free_tree(((func_call_node_t *) root)->pars[i]);
+            }
+            free(((func_call_node_t *) root)->pars);
+            free((func_call_node_t *) root);
+            return;
+        }
+        case FUNC_SP_NODE_T: {
+            free((func_sp_node_t *) root);
+            return;
+        }
+        case LOGICAL_OP_NODE_T: {
+            free_tree(((logical_op_node_t *) root)->left);
+            free_tree(((logical_op_node_t *) root)->right);
+            free((logical_op_node_t *) root);
+            return;
+        }
+        case COMPARISON_OP_NODE_T: {
+            free_tree(((comparison_op_node_t *) root)->left);
+            free_tree(((comparison_op_node_t *) root)->right);
+            free((comparison_op_node_t *) root);
+            return;
+        }
+        case EQUALITY_OP_NODE_T: {
+            free_tree(((equality_op_node_t *) root)->left);
+            free_tree(((equality_op_node_t *) root)->right);
+            free((equality_op_node_t *) root);
+            return;
+        }
+        case NOT_OP_NODE_T: {
+            free_tree(((not_op_node_t *) root)->child);
+            free((not_op_node_t *) root);
+            return;
+        }
+        case INTEGER_OP_NODE_T: {
+            free_tree(((integer_op_node_t *) root)->left);
+            free_tree(((integer_op_node_t *) root)->right);
+            free((integer_op_node_t *) root);
+            return;
+        }
+        case INVERT_OP_NODE_T: {
+            free_tree(((invert_op_node_t *) root)->child);
+            free((invert_op_node_t *) root);
+            return;
+        }
+        case IF_NODE_T: {
+            free_tree(((if_node_t *) root)->condition);
+            free_tree(((if_node_t *) root)->if_branch);
+            for (unsigned i = 0; i < ((if_node_t *) root)->num_of_else_ifs; ++i) {
+                free_tree(((if_node_t *) root)->else_ifs[i]);
+            }
+            free_tree(((if_node_t *) root)->else_branch);
+            free((if_node_t *) root);
+            return;
+        }
+        case ELSE_IF_NODE_T: {
+            free_tree(((else_if_node_t *) root)->condition);
+            free_tree(((else_if_node_t *) root)->else_if_branch);
+            free((else_if_node_t *) root);
+            return;
+        }
+        case SWITCH_NODE_T: {
+            free_tree(((switch_node_t *) root)->expression);
+            for (unsigned i = 0; i < ((switch_node_t *) root)->num_of_cases; ++i) {
+                free_tree(((switch_node_t *) root)->cases[i]);
+            }
+            free((switch_node_t *) root);
+            return;
+        }
+        case CASE_NODE_T: {
+            free_tree(((case_node_t *) root)->case_branch);
+            free((case_node_t *) root);
+            return;
+        }
+        case FOR_NODE_T: {
+            free_tree(((for_node_t *) root)->initialize);
+            free_tree(((for_node_t *) root)->condition);
+            free_tree(((for_node_t *) root)->increment);
+            free_tree(((for_node_t *) root)->for_branch);
+            free((for_node_t *) root);
+            return;
+        }
+        case DO_NODE_T: {
+            free_tree(((do_node_t *) root)->do_branch);
+            free_tree(((do_node_t *) root)->condition);
+            free((do_node_t *) root);
+            return;
+        }
+        case WHILE_NODE_T: {
+            free_tree(((while_node_t *) root)->condition);
+            free_tree(((while_node_t *) root)->while_branch);
+            free((while_node_t *) root);
+            return;
+        }
+        case ASSIGN_NODE_T: {
+            free_tree(((assign_node_t *) root)->left);
+            free_tree(((assign_node_t *) root)->right);
+            free((assign_node_t *) root);
+            return;
+        }
+        case PHASE_NODE_T: {
+            free_tree(((phase_node_t *) root)->left);
+            free_tree(((phase_node_t *) root)->right);
+            free((phase_node_t *) root);
+            return;
         }
         case MEASURE_NODE_T: {
-            memcpy(type_info, &(((measure_node_t *) node)->type_info), sizeof (type_info_t));
-            return true;
+            free_tree(((measure_node_t *) root)->child);
+            free((measure_node_t *) root);
+            return;
         }
-        default: {
-            return false;
+        case BREAK_NODE_T: {
+            free((break_node_t *) root);
+            return;
+        }
+        case CONTINUE_NODE_T: {
+            free((continue_node_t *) root);
+            return;
+        }
+        case RETURN_NODE_T: {
+            free_tree(((return_node_t *) root)->return_value);
+            free((return_node_t *) root);
+            return;
         }
     }
 }
 
-bool are_matching_types(type_t type_1, type_t type_2) {
-    switch (type_1) {
-        case VOID_T: {
-            return false;
-        }
-        case BOOL_T: {
-            if (type_2 != BOOL_T) {
-                return false;
-            }
-            break;
-        }
-        case INT_T: {
-            if (type_2 != INT_T) {
-                return false;
-            }
-            break;
-        }
-        case UNSIGNED_T: {
-            if (type_2 != INT_T && type_2 != UNSIGNED_T) {
-                return false;
-            }
-            break;
-        }
-    }
-    return true;
-}
-
+/**
+ * \brief                               Write constant value to output file
+ * \param[out]                          output_file: Output file for constant value
+ * \param[in]                           type: Type of constant value to be written
+ * \param[in]                           value: Constant value to be written
+ */
 void fprint_const_value(FILE *output_file, type_t type, value_t value) {
     switch (type) {
         case VOID_T: {
@@ -3071,6 +3158,11 @@ void fprint_const_value(FILE *output_file, type_t type, value_t value) {
     }
 }
 
+/**
+ * \brief                               Write type information to output file
+ * \param[out]                          output_file: Output file for type information
+ * \param[in]                           type_info: Type information to be written
+ */
 void fprint_type_info(FILE *output_file, const type_info_t *type_info) {
     switch (type_info->qualifier) {
         case NONE_T: {
@@ -3091,6 +3183,7 @@ void fprint_type_info(FILE *output_file, const type_info_t *type_info) {
     }
 }
 
+/* See header for documentation */
 void fprint_node(FILE *output_file, const node_t *node) {
     type_info_t type_info;
     switch (node->node_type) {
@@ -3354,132 +3447,133 @@ void fprint_node(FILE *output_file, const node_t *node) {
     }
 }
 
-void fprint_tree(FILE *output_file, const node_t *node) {
-    if (node == NULL) {
+/* See header for documentation */
+void fprint_tree(FILE *output_file, const node_t *root) {
+    if (root == NULL) {
         return;
     }
-    fprint_node(output_file, node);
-    switch (node->node_type) {
+    fprint_node(output_file, root);
+    switch (root->node_type) {
         case BASIC_NODE_T: {
-            fprint_tree(output_file, node->left);
-            fprint_tree(output_file, node->right);
+            fprint_tree(output_file, root->left);
+            fprint_tree(output_file, root->right);
             break;
         }
         case STMT_LIST_NODE_T: {
-            for (unsigned i = 0; i < ((stmt_list_node_t *) node)->num_of_stmts; ++i) {
-                fprint_tree(output_file, ((stmt_list_node_t *) node)->stmt_list[i]);
+            for (unsigned i = 0; i < ((stmt_list_node_t *) root)->num_of_stmts; ++i) {
+                fprint_tree(output_file, ((stmt_list_node_t *) root)->stmt_list[i]);
             }
             break;
         }
         case FUNC_DEF_NODE_T: {
-            fprint_tree(output_file, ((func_def_node_t *) node)->func_tail);
+            fprint_tree(output_file, ((func_def_node_t *) root)->func_tail);
             break;
         }
         case VAR_DEF_NODE_T: {
-            if (((var_def_node_t *) node)->is_init_list) {
-                for (unsigned i = 0; i < get_length_of_array(((var_def_node_t *) node)->entry->sizes,
-                                                             ((var_def_node_t *) node)->entry->depth); ++i) {
-                    if ((((var_def_node_t *) node)->q_types[i].qualifier != CONST_T)) {
-                        fprint_tree(output_file, ((var_def_node_t *) node)->values[i].node_value);
+            if (((var_def_node_t *) root)->is_init_list) {
+                for (unsigned i = 0; i < get_length_of_array(((var_def_node_t *) root)->entry->sizes,
+                                                             ((var_def_node_t *) root)->entry->depth); ++i) {
+                    if ((((var_def_node_t *) root)->q_types[i].qualifier != CONST_T)) {
+                        fprint_tree(output_file, ((var_def_node_t *) root)->values[i].node_value);
                     }
                 }
             } else {
-                fprint_tree(output_file, ((var_def_node_t *) node)->node);
+                fprint_tree(output_file, ((var_def_node_t *) root)->node);
             }
             break;
         }
         case LOGICAL_OP_NODE_T: {
-            fprint_tree(output_file, ((logical_op_node_t *) node)->left);
-            fprint_tree(output_file, ((logical_op_node_t *) node)->right);
+            fprint_tree(output_file, ((logical_op_node_t *) root)->left);
+            fprint_tree(output_file, ((logical_op_node_t *) root)->right);
             break;
         }
         case COMPARISON_OP_NODE_T: {
-            fprint_tree(output_file, ((comparison_op_node_t *) node)->left);
-            fprint_tree(output_file, ((comparison_op_node_t *) node)->right);
+            fprint_tree(output_file, ((comparison_op_node_t *) root)->left);
+            fprint_tree(output_file, ((comparison_op_node_t *) root)->right);
             break;
         }
         case EQUALITY_OP_NODE_T: {
-            fprint_tree(output_file, ((equality_op_node_t *) node)->left);
-            fprint_tree(output_file, ((equality_op_node_t *) node)->right);
+            fprint_tree(output_file, ((equality_op_node_t *) root)->left);
+            fprint_tree(output_file, ((equality_op_node_t *) root)->right);
             break;
         }
         case NOT_OP_NODE_T: {
-            fprint_tree(output_file, ((not_op_node_t *) node)->child);
+            fprint_tree(output_file, ((not_op_node_t *) root)->child);
             break;
         }
         case INTEGER_OP_NODE_T: {
-            fprint_tree(output_file, ((integer_op_node_t *) node)->left);
-            fprint_tree(output_file, ((integer_op_node_t *) node)->right);
+            fprint_tree(output_file, ((integer_op_node_t *) root)->left);
+            fprint_tree(output_file, ((integer_op_node_t *) root)->right);
             break;
         }
         case INVERT_OP_NODE_T: {
-            fprint_tree(output_file, ((invert_op_node_t *) node)->child);
+            fprint_tree(output_file, ((invert_op_node_t *) root)->child);
             break;
         }
         case FUNC_CALL_NODE_T: {
-            for (unsigned i = 0; i < ((func_call_node_t *) node)->num_of_pars; ++i) {
-                fprint_tree(output_file, ((func_call_node_t *) node)->pars[i]);
+            for (unsigned i = 0; i < ((func_call_node_t *) root)->num_of_pars; ++i) {
+                fprint_tree(output_file, ((func_call_node_t *) root)->pars[i]);
             }
             break;
         }
         case IF_NODE_T: {
-            fprint_tree(output_file, ((if_node_t *) node)->condition);
-            fprint_tree(output_file, ((if_node_t *) node)->if_branch);
-            for (unsigned i = 0; i < ((if_node_t *) node)->num_of_else_ifs; ++i) {
-                fprint_tree(output_file, ((if_node_t *) node)->else_ifs[i]);
+            fprint_tree(output_file, ((if_node_t *) root)->condition);
+            fprint_tree(output_file, ((if_node_t *) root)->if_branch);
+            for (unsigned i = 0; i < ((if_node_t *) root)->num_of_else_ifs; ++i) {
+                fprint_tree(output_file, ((if_node_t *) root)->else_ifs[i]);
             }
-            fprint_tree(output_file, ((if_node_t *) node)->else_branch);
+            fprint_tree(output_file, ((if_node_t *) root)->else_branch);
             break;
         }
         case ELSE_IF_NODE_T: {
-            fprint_tree(output_file, ((else_if_node_t *) node)->condition);
-            fprint_tree(output_file, ((else_if_node_t *) node)->else_if_branch);
+            fprint_tree(output_file, ((else_if_node_t *) root)->condition);
+            fprint_tree(output_file, ((else_if_node_t *) root)->else_if_branch);
             break;
         }
         case SWITCH_NODE_T: {
-            fprint_tree(output_file, ((switch_node_t *) node)->expression);
-            for (unsigned i = 0; i < ((switch_node_t *) node)->num_of_cases; ++i) {
-                fprint_tree(output_file, ((switch_node_t *) node)->cases[i]);
+            fprint_tree(output_file, ((switch_node_t *) root)->expression);
+            for (unsigned i = 0; i < ((switch_node_t *) root)->num_of_cases; ++i) {
+                fprint_tree(output_file, ((switch_node_t *) root)->cases[i]);
             }
             break;
         }
         case CASE_NODE_T: {
-            fprint_tree(output_file, ((case_node_t *) node)->case_branch);
+            fprint_tree(output_file, ((case_node_t *) root)->case_branch);
             break;
         }
         case FOR_NODE_T: {
-            fprint_tree(output_file, ((for_node_t *) node)->initialize);
-            fprint_tree(output_file, ((for_node_t *) node)->condition);
-            fprint_tree(output_file, ((for_node_t *) node)->increment);
-            fprint_tree(output_file, ((for_node_t *) node)->for_branch);
+            fprint_tree(output_file, ((for_node_t *) root)->initialize);
+            fprint_tree(output_file, ((for_node_t *) root)->condition);
+            fprint_tree(output_file, ((for_node_t *) root)->increment);
+            fprint_tree(output_file, ((for_node_t *) root)->for_branch);
             break;
         }
         case DO_NODE_T: {
-            fprint_tree(output_file, ((do_node_t *) node)->do_branch);
-            fprint_tree(output_file, ((do_node_t *) node)->condition);
+            fprint_tree(output_file, ((do_node_t *) root)->do_branch);
+            fprint_tree(output_file, ((do_node_t *) root)->condition);
             break;
         }
         case WHILE_NODE_T: {
-            fprint_tree(output_file, ((while_node_t *) node)->condition);
-            fprint_tree(output_file, ((while_node_t *) node)->while_branch);
+            fprint_tree(output_file, ((while_node_t *) root)->condition);
+            fprint_tree(output_file, ((while_node_t *) root)->while_branch);
             break;
         }
         case ASSIGN_NODE_T: {
-            fprint_tree(output_file, ((assign_node_t *) node)->left);
-            fprint_tree(output_file, ((assign_node_t *) node)->right);
+            fprint_tree(output_file, ((assign_node_t *) root)->left);
+            fprint_tree(output_file, ((assign_node_t *) root)->right);
             break;
         }
         case PHASE_NODE_T: {
-            fprint_tree(output_file, ((phase_node_t *) node)->left);
-            fprint_tree(output_file, ((phase_node_t *) node)->right);
+            fprint_tree(output_file, ((phase_node_t *) root)->left);
+            fprint_tree(output_file, ((phase_node_t *) root)->right);
             break;
         }
         case MEASURE_NODE_T: {
-            fprint_tree(output_file, ((measure_node_t *) node)->child);
+            fprint_tree(output_file, ((measure_node_t *) root)->child);
             break;
         }
         case RETURN_NODE_T: {
-            fprint_tree(output_file, ((return_node_t *) node)->return_value);
+            fprint_tree(output_file, ((return_node_t *) root)->return_value);
             break;
         }
         default: {

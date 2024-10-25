@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ast.h"
-#include "parsing.h"
+#include "pars_utils.h"
 #include "symbol_table.h"
 #include "cq_parser.tab.h"
 extern int yylineno;

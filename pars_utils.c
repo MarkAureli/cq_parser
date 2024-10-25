@@ -1,6 +1,6 @@
 /**
- * \file                                parsing.c
- * \brief                               Parsing source file
+ * \file                                pars_utils.c
+ * \brief                               Parse utilities source file
  */
 
 /*
@@ -40,7 +40,7 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include "parsing.h"
+#include "pars_utils.h"
 
 
 /*
@@ -61,7 +61,7 @@ static unsigned nested_loop_counter;
  * =====================================================================================================================
  */
 
-bool setup_atomic_type_info(type_info_t *type_info, type_t type, char error_msg[ERROR_MSG_LENGTH]) {
+bool setup_type_info(type_info_t *type_info, type_t type, char error_msg[ERROR_MSG_LENGTH]) {
     if (type_info == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for type information failed");
         return false;

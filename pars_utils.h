@@ -1,6 +1,6 @@
 /**
- * \file                                parsing.h
- * \brief                               Parsing include file
+ * \file                                pars_utils.h
+ * \brief                               Parse utilities include file
  */
 
 /*
@@ -129,7 +129,7 @@ typedef struct arg_list {
  * =====================================================================================================================
  */
 
-bool setup_atomic_type_info(type_info_t *type_info, type_t type, char error_msg[ERROR_MSG_LENGTH]);
+bool setup_type_info(type_info_t *type_info, type_t type, char error_msg[ERROR_MSG_LENGTH]);
 
 bool append_to_type_info(type_info_t *type_info, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
