@@ -494,6 +494,13 @@ bool are_matching_types(type_t type_1, type_t type_2) {
     return true;
 }
 
+/**
+ * \brief                               Calculate the resulting type of operating on two types
+ * \param[in]                           op_type: Type of operation to be applied
+ * \param[in]                           type_1: First type
+ * \param[in]                           type_2: Second type
+ * \return                              Result type
+ */
 type_t propagate_type(op_type_t op_type, type_t type_1, type_t type_2) {
     switch (op_type) {
         case LOGICAL_OP: {
@@ -582,6 +589,11 @@ type_t propagate_type(op_type_t op_type, type_t type_1, type_t type_2) {
     }
 }
 
+/**
+ * \brief                               Get the result style of a node
+ * \param[in]                           node: Pointer to node
+ * \return                              Result style of node
+ */
 return_style_t get_return_style(const node_t *node) {
     if (node == NULL) {
         return NONE_ST;
@@ -758,6 +770,12 @@ bool is_unitary(const node_t *node) {
     }
 }
 
+/**
+ * \brief                               Copy type information of symbol table entry to given address
+ * \param[out]                          type_info: Address to copy the type information to
+ * \param[in]                           node: Symbol table entry whose type information is to be copied
+ * \return                              Whether copying type information was successful
+ */
 bool copy_type_info_of_entry(type_info_t *type_info, const entry_t *entry) {
     if (type_info == NULL || entry == NULL) {
         return false;
@@ -794,7 +812,7 @@ bool copy_type_info_of_node(type_info_t *type_info, const node_t *node) {
             return true;
         }
         case FUNC_CALL_NODE_T: {
-            copy_type_info_of_entry(type_info, ((func_call_node_t *) node)->entry);
+            memcpy(type_info, &(((func_call_node_t *) node)->type_info), sizeof (type_info_t));
             return true;
         }
         case FUNC_SP_NODE_T: {
@@ -852,6 +870,12 @@ bool copy_type_info_of_node(type_info_t *type_info, const node_t *node) {
     }
 }
 
+/**
+ * \brief                               Copy return type information from a node to given address
+ * \param[out]                          type_info: Address to copy the return type information to
+ * \param[in]                           node: Node whose return type information is to be copied
+ * \return                              Whether copying return type information was successful
+ */
 bool copy_return_type_info_of_node(type_info_t *type_info, const node_t *node) {
     if (node == NULL) {
         return false;
@@ -998,7 +1022,6 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
     if (is_init_list) {
         if (entry->depth == 0) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not an array, but is initialized as such", entry->name);
-            free_tree(node);
             free(qualified_types);
             free(values);
             free_symbol_table();
@@ -1007,7 +1030,6 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
             snprintf(error_msg, ERROR_MSG_LENGTH,
                      "Too many (%u) elements initialized for array %s of total length %u",
                      length, entry->name, entry->length);
-            free_tree(node);
             free(qualified_types);
             free(values);
             free_symbol_table();
@@ -1025,7 +1047,6 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                              "Element %u: Quantizable function %s takes %s instead of %s",
                              i, current_entry->name, type_to_str(current_entry->pars_type_info[0].type),
                              type_to_str(entry->type));
-                    free_tree(node);
                     free(qualified_types);
                     free(values);
                     free_symbol_table();
@@ -1037,7 +1058,6 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Element %u in initialization of classical array %s is a superposition instruction",
                          i, entry->name);
-                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -1046,7 +1066,6 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                        && qualified_types[i].qualifier == QUANTUM_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Element %u in initialization of classical array %s is quantum",
                          i, entry->name);
-                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -1055,7 +1074,6 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                        && qualified_types[i].qualifier != CONST_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH,
                          "Element %u in initialization of constant array %s is not constant", i, entry->name);
-                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -1065,7 +1083,6 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                          "Element %u in initialization of %s-array %s is of type %s",
                          i, type_to_str(entry->type), entry->name,
                          type_to_str(qualified_types[i].type));
-                free_tree(node);
                 free(qualified_types);
                 free(values);
                 free_symbol_table();
@@ -1083,8 +1100,6 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
             snprintf(error_msg, ERROR_MSG_LENGTH, "Right-hand side in initialization of %s is not an expression",
                      entry->name);
             free_tree(node);
-            free(qualified_types);
-            free(values);
             free_symbol_table();
             return NULL;
         } else if (entry->qualifier == QUANTUM_T && node->node_type == FUNC_SP_NODE_T) {
@@ -1093,16 +1108,12 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Quantizable function %s must take exactly 1 parameter",
                          ((func_sp_node_t *) node)->entry->name);
                 free_tree(node);
-                free(qualified_types);
-                free(values);
                 free_symbol_table();
                 return NULL;
             } else if (current_entry->pars_type_info[0].qualifier != NONE_T) {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Quantizable function %s must take a classical parameter",
                          ((func_sp_node_t *) node)->entry->name);
                 free_tree(node);
-                free(qualified_types);
-                free(values);
                 free_symbol_table();
                 return NULL;
             } else if (current_entry->pars_type_info[0].type != entry->type) {
@@ -1110,8 +1121,6 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                          ((func_sp_node_t *) node)->entry->name,
                          type_to_str(current_entry->pars_type_info[0].type), type_to_str(entry->type));
                 free_tree(node);
-                free(qualified_types);
-                free(values);
                 free_symbol_table();
                 return NULL;
             } else if (current_entry->pars_type_info[0].depth != 0) {
@@ -1119,8 +1128,6 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                          "Quantizable function %s takes an array of depth %u instead of a scalar",
                          ((func_sp_node_t *) node)->entry->name, current_entry->pars_type_info[0].depth);
                 free_tree(node);
-                free(qualified_types);
-                free(values);
                 free_symbol_table();
                 return NULL;
             }
@@ -1128,23 +1135,24 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
             snprintf(error_msg, ERROR_MSG_LENGTH, "Classical variable %s cannot be initialized in superposition",
                      entry->name);
             free_tree(node);
-            free(qualified_types);
-            free(values);
+            free_symbol_table();
+            return NULL;
+        } else if (!are_matching_types(entry->type, type_info.type)) {
+            snprintf(error_msg, ERROR_MSG_LENGTH, "Variable %s of type %s is initialized with value%s of type %s",
+                     type_to_str(entry->type), entry->name, (type_info.depth == 0) ? "" : "s",
+                     type_to_str(type_info.type));
+            free_tree(node);
             free_symbol_table();
             return NULL;
         } else if (entry->depth == 0 && type_info.depth != 0) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not an array, but is initialized as such", entry->name);
             free_tree(node);
-            free(qualified_types);
-            free(values);
             free_symbol_table();
             return NULL;
         } else if (entry->depth != type_info.depth) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Non-matching depths in array initialization of %s (%u != %u)",
                      entry->name, entry->depth, type_info.depth);
             free_tree(node);
-            free(qualified_types);
-            free(values);
             free_symbol_table();
             return NULL;
         }
@@ -1155,8 +1163,6 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                          "Non-matching sizes at position %u in array initialization of %s (%u != %u)",
                          i, entry->name, entry->sizes[i], type_info.sizes[i]);
                 free_tree(node);
-                free(qualified_types);
-                free(values);
                 free_symbol_table();
                 return NULL;
             }
@@ -1167,16 +1173,12 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Initialization of classical scalar %s with quantum value",
                          entry->name);
                 free_tree(node);
-                free(qualified_types);
-                free(values);
                 free_symbol_table();
                 return NULL;
             } else {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Initialization of classical array %s with quantum array",
                          entry->name);
                 free_tree(node);
-                free(qualified_types);
-                free(values);
                 free_symbol_table();
                 return NULL;
             }
@@ -1185,16 +1187,12 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Initialization of constant scalar %s with non-constant value",
                          entry->name);
                 free_tree(node);
-                free(qualified_types);
-                free(values);
                 free_symbol_table();
                 return NULL;
             } else {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Initialization of constant array %s with non-constant array",
                          entry->name);
                 free_tree(node);
-                free(qualified_types);
-                free(values);
                 free_symbol_table();
                 return NULL;
             }
@@ -1204,16 +1202,12 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Initialization of scalar %s of type %s with value of type %s",
                          entry->name, type_to_str(entry->type), type_to_str(type_info.type));
                 free_tree(node);
-                free(qualified_types);
-                free(values);
                 free_symbol_table();
                 return NULL;
             } else {
                 snprintf(error_msg, ERROR_MSG_LENGTH, "Initialization of %s-array %s with %s-array",
                          type_to_str(entry->type), entry->name, type_to_str(type_info.type));
                 free_tree(node);
-                free(qualified_types);
-                free(values);
                 free_symbol_table();
                 return NULL;
             }
@@ -1226,9 +1220,12 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
     var_def_node_t *new_node = malloc(sizeof (var_def_node_t));
     if (new_node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for variable declaration node failed");
-        free_tree(node);
-        free(qualified_types);
-        free(values);
+        if (is_init_list) {
+            free(qualified_types);
+            free(values);
+        } else {
+            free_tree(node);
+        }
         free_symbol_table();
         return NULL;
     }
@@ -3254,7 +3251,7 @@ void fprint_const_value(FILE *output_file, type_t type, value_t value) {
 /**
  * \brief                               Write type information to output file
  * \param[out]                          output_file: Output file for type information
- * \param[in]                           type_info: Type information to be written
+ * \param[in]                           type_info: Pointer to type information to be written
  */
 void fprint_type_info(FILE *output_file, const type_info_t *type_info) {
     switch (type_info->qualifier) {
@@ -3288,10 +3285,6 @@ void fprint_node(FILE *output_file, const node_t *node) {
             fprintf(output_file, "Statement list node with %u statements\n", ((stmt_list_node_t *) node)->num_of_stmts);
             break;
         }
-        case FUNC_DEF_NODE_T: {
-            fprintf(output_file, "Function declaration node for %s\n", ((func_def_node_t *) node)->entry->name);
-            break;
-        }
         case VAR_DECL_NODE_T: {
             var_decl_node_t *var_decl_node_view = ((var_decl_node_t *) node);
             fprintf(output_file, "Declaration: ");
@@ -3306,6 +3299,22 @@ void fprint_node(FILE *output_file, const node_t *node) {
             copy_type_info_of_node(&type_info, node);
             fprint_type_info(output_file, &type_info);
             fprintf(output_file, " %s\n", var_def_node_view->entry->name);
+            break;
+        }
+        case FUNC_DEF_NODE_T: {
+            entry_t *func_entry = ((func_def_node_t *) node)->entry;
+            fprintf(output_file, "Definition: ");
+            copy_type_info_of_node(&type_info, node);
+            fprint_type_info(output_file, &type_info);
+            fprintf(output_file, " %s(", func_entry->name);
+            if (func_entry->num_of_pars != 0) {
+                fprint_type_info(output_file, &(func_entry->pars_type_info[0]));
+                for (unsigned i = 1; i < func_entry->num_of_pars; ++i) {
+                    fprintf(output_file, ", ");
+                    fprint_type_info(output_file, &(func_entry->pars_type_info[i]));
+                }
+            }
+            fprintf(output_file, ")\n");
             break;
         }
         case CONST_NODE_T: {

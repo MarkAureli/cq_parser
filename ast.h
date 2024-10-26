@@ -591,7 +591,7 @@ char *assign_op_to_str(assign_op_t assign_op);
 /**
  * \brief                               Copy type information from a node to given address
  * \param[out]                          type_info: Address to copy the type information to
- * \param[out]                          node: Node whose type information is to be copied
+ * \param[in]                           node: Node whose type information is to be copied
  * \return                              Whether copying type information was successful
  */
 bool copy_type_info_of_node(type_info_t *type_info, const node_t *node);

@@ -129,6 +129,13 @@ typedef struct arg_list {
  * =====================================================================================================================
  */
 
+/**
+ * \brief                               Setup type information at a given address with primitive type
+ * \param[in]                           type_info: Address to setup the type information at
+ * \param[in]                           type: Primitive type to setup
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return
+ */
 bool setup_type_info(type_info_t *type_info, type_t type, char error_msg[ERROR_MSG_LENGTH]);
 
 bool append_to_type_info(type_info_t *type_info, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
