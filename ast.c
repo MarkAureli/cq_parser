@@ -46,6 +46,22 @@
 
 /*
  * =====================================================================================================================
+ *                                                type definitions
+ * =====================================================================================================================
+ */
+
+/**
+ * \brief                               Division by zero flag enumeration
+ */
+typedef enum div_by_zero_flag {
+    NO_DIV_BY_ZERO_F,                       /*!< No division by zero */
+    DIV_BY_ZERO_F,                          /*!< Division by zero */
+    MOD_BY_ZERO_F,                          /*!< Modulo by zero */
+} div_by_zero_flag_t;
+
+
+/*
+ * =====================================================================================================================
  *                                                function definitions
  * =====================================================================================================================
  */
@@ -158,6 +174,13 @@ char *assign_op_to_str(assign_op_t assign_op) {
     }
 }
 
+/**
+ * \brief                               Apply logical operation to two inputs and write result to output
+ * \param[in]                           op: Logical operator to be applied
+ * \param[out]                          out: Result of logical operation
+ * \param[in]                           in_1: Left operand of logical operation
+ * \param[in]                           in_2: Right operand of logical operation
+ */
 void apply_logical_op(logical_op_t op, value_t *out, value_t in_1, value_t in_2) {
     switch (op) {
         case LOR_OP: {
@@ -175,6 +198,15 @@ void apply_logical_op(logical_op_t op, value_t *out, value_t in_1, value_t in_2)
     }
 }
 
+/**
+ * \brief                               Apply comparison operation to two inputs and write result to output
+ * \param[in]                           op: Comparison operator to be applied
+ * \param[out]                          out: Result of comparison operation
+ * \param[in]                           in_type_1: Type of left operand of comparison operation
+ * \param[in]                           in_value_1: Value of left operand of comparison operation
+ * \param[in]                           in_type_2: Type of right operand of comparison operation
+ * \param[in]                           in_value_2: Value of right operand of comparison operation
+ */
 void apply_comparison_op(comparison_op_t op, value_t *out, type_t in_type_1,
                          value_t in_value_1, type_t in_type_2, value_t in_value_2) {
     switch (op) {
@@ -213,6 +245,15 @@ void apply_comparison_op(comparison_op_t op, value_t *out, type_t in_type_1,
     }
 }
 
+/**
+ * \brief                               Apply equality operation to two inputs and write result to output
+ * \param[in]                           op: Equality operator to be applied
+ * \param[out]                          out: Result of equality operation
+ * \param[in]                           in_type_1: Type of left operand of equality operation
+ * \param[in]                           in_value_1: Value of left operand of equality operation
+ * \param[in]                           in_type_2: Type of right operand of equality operation
+ * \param[in]                           in_value_2: Value of right operand of equality operation
+ */
 void apply_equality_op(equality_op_t op, value_t *out, type_t in_type_1,
                        value_t in_value_1, type_t in_type_2, value_t in_value_2) {
     if (in_type_1 == BOOL_T) {
@@ -236,7 +277,17 @@ void apply_equality_op(equality_op_t op, value_t *out, type_t in_type_1,
     }
 }
 
-int apply_integer_op(integer_op_t op, value_t *out, type_t in_type_1,
+/**
+ * \brief                               Apply integer operation to two inputs and write result to output
+ * \note                                Returned flag indices whether division or modulo by zero is performed
+ * \param[in]                           op: Integer operator to be applied
+ * \param[out]                          out: Result of integer operation
+ * \param[in]                           in_type_1: Type of left operand of integer operation
+ * \param[in]                           in_value_1: Value of left operand of integer operation
+ * \param[in]                           in_type_2: Type of right operand of integer operation
+ * \param[in]                           in_value_2: Value of right operand of integer operation
+ */
+div_by_zero_flag_t apply_integer_op(integer_op_t op, value_t *out, type_t in_type_1,
                      value_t in_value_1, type_t in_type_2, value_t in_value_2) {
     if (in_type_1 == INT_T && in_type_2 == INT_T) {
         switch (op) {
@@ -250,14 +301,14 @@ int apply_integer_op(integer_op_t op, value_t *out, type_t in_type_1,
             }
             case DIV_OP: {
                 if (in_value_2.i_val == 0) {
-                    return 1;
+                    return DIV_BY_ZERO_F;
                 }
                 out->i_val = in_value_1.i_val / in_value_2.i_val;
                 break;
             }
             case MOD_OP: {
                 if (in_value_2.i_val == 0) {
-                    return 2;
+                    return MOD_BY_ZERO_F;
                 }
                 out->i_val = in_value_1.i_val % in_value_2.i_val;
                 break;
@@ -291,14 +342,14 @@ int apply_integer_op(integer_op_t op, value_t *out, type_t in_type_1,
             }
             case DIV_OP: {
                 if (in_value_2.u_val == 0) {
-                    return 1;
+                    return DIV_BY_ZERO_F;
                 }
                 out->u_val = in_value_1.u_val / in_value_2.u_val;
                 break;
             }
             case MOD_OP: {
                 if (in_value_2.u_val == 0) {
-                    return 2;
+                    return MOD_BY_ZERO_F;
                 }
                 out->u_val = in_value_1.u_val % in_value_2.u_val;
                 break;
@@ -321,15 +372,29 @@ int apply_integer_op(integer_op_t op, value_t *out, type_t in_type_1,
             }
         }
     }
-    return 0;
+    return NO_DIV_BY_ZERO_F;
 }
 
+/**
+ * \brief                               Check whether symbol table entry represents a superposition-creating function
+ * \param[in]                           entry: Entry in symbol table
+ * \return                              Whether symbol table entry represents a superposition-creating function
+ */
 bool is_sp(const entry_t *entry) {
+    if (entry == NULL || !(entry->is_function)) {
+        return false;
+    }
     return (entry->is_quantizable && entry->qualifier == NONE_T && entry->type == BOOL_T && entry->depth == 0
             && entry->num_of_pars == 1 && entry->pars_type_info[0].qualifier == NONE_T
             && entry->pars_type_info[0].depth == 0);
 }
 
+/**
+ * \brief                               Calculate length of an array of the given sizes and depth
+ * \param[in]                           sizes: Array-sizes
+ * \param                               depth: Array-depth
+ * \return                              Array length
+ */
 unsigned get_length_of_array(const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth) {
     unsigned result = 1;
     for (unsigned i = 0; i < depth; ++i) {
@@ -338,7 +403,17 @@ unsigned get_length_of_array(const unsigned sizes[MAX_ARRAY_DEPTH], unsigned dep
     return result;
 }
 
-value_t *get_reduced_array(const value_t *values, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth,
+/**
+ * \brief                               Allocate new array from accessing a given array via indices
+ * \note                                Memory is allocated dynamically and must therefore be freed manually
+ * \param[in]                           values: Unreduced array
+ * \param[in]                           sizes: Sizes of unreduced array
+ * \param[in]                           depth: Depth of unreduced array
+ * \param[in]                           indices: Indices of access to unreduced array
+ * \param[in]                           index_depth: Number of indices of access to unreduced array
+ * \return                              Newly allocated reduced array of values
+ */
+value_t *new_reduced_array(const value_t *values, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth,
                            const unsigned indices[MAX_ARRAY_DEPTH], unsigned index_depth) {
     unsigned out_length = 1;
     for (unsigned i = index_depth; i < depth; ++i) {
@@ -359,11 +434,23 @@ value_t *get_reduced_array(const value_t *values, const unsigned sizes[MAX_ARRAY
     return output;
 }
 
+/**
+ * \brief                               Check whether two qualifiers are matching
+ * \param[in]                           qualifier_1: First qualifier
+ * \param[in]                           qualifier_2: Second qualifier
+ * \return                              Whether both input qualifiers match
+ */
 bool are_matching_qualifier(qualifier_t qualifier_1, qualifier_t qualifier_2) {
     return (qualifier_1 == QUANTUM_T && qualifier_2 == QUANTUM_T)
             || (qualifier_1 != QUANTUM_T && qualifier_2 != QUANTUM_T);
 }
 
+/**
+ * \brief                               Calculate the resulting qualifier of operating on two qualifiers
+ * \param[in]                           qualifier_1: First qualifier
+ * \param[in]                           qualifier_2: Second qualifier
+ * \return                              Result qualifier
+ */
 qualifier_t propagate_qualifier(qualifier_t qualifier_1, qualifier_t qualifier_2) {
     if (qualifier_1 == CONST_T && qualifier_2 == CONST_T) {
         return CONST_T;
@@ -374,6 +461,12 @@ qualifier_t propagate_qualifier(qualifier_t qualifier_1, qualifier_t qualifier_2
     }
 }
 
+/**
+ * \brief                               Check whether two types are matching
+ * \param[in]                           type_1: First type
+ * \param[in]                           type_2: Second type
+ * \return                              Whether both input types match
+ */
 bool are_matching_types(type_t type_1, type_t type_2) {
     switch (type_1) {
         case VOID_T: {
@@ -1283,8 +1376,8 @@ node_t *new_reference_node(entry_t *entry, const bool index_is_const[MAX_ARRAY_D
         for (unsigned i = 0; i < index_depth; ++i) {
             const_indices[i] = indices[i].const_index;
         }
-        value_t *values = get_reduced_array(entry->values, entry->sizes, entry->depth, const_indices,
-                                                index_depth);
+        value_t *values = new_reduced_array(entry->values, entry->sizes, entry->depth, const_indices,
+                                            index_depth);
         if (values == NULL) {
             snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for value extraction of %s failed", entry->name);
             free_symbol_table();
