@@ -181,7 +181,7 @@ char *assign_op_to_str(assign_op_t assign_op) {
  * \param[in]                           in_1: Left operand of logical operation
  * \param[in]                           in_2: Right operand of logical operation
  */
-void apply_logical_op(logical_op_t op, value_t *out, value_t in_1, value_t in_2) {
+static void apply_logical_op(logical_op_t op, value_t *out, value_t in_1, value_t in_2) {
     switch (op) {
         case LOR_OP: {
             out->b_val = in_1.b_val || in_2.b_val;
@@ -207,7 +207,7 @@ void apply_logical_op(logical_op_t op, value_t *out, value_t in_1, value_t in_2)
  * \param[in]                           in_type_2: Type of right operand of comparison operation
  * \param[in]                           in_value_2: Value of right operand of comparison operation
  */
-void apply_comparison_op(comparison_op_t op, value_t *out, type_t in_type_1,
+static void apply_comparison_op(comparison_op_t op, value_t *out, type_t in_type_1,
                          value_t in_value_1, type_t in_type_2, value_t in_value_2) {
     switch (op) {
         case GE_OP: {
@@ -254,7 +254,7 @@ void apply_comparison_op(comparison_op_t op, value_t *out, type_t in_type_1,
  * \param[in]                           in_type_2: Type of right operand of equality operation
  * \param[in]                           in_value_2: Value of right operand of equality operation
  */
-void apply_equality_op(equality_op_t op, value_t *out, type_t in_type_1,
+static void apply_equality_op(equality_op_t op, value_t *out, type_t in_type_1,
                        value_t in_value_1, type_t in_type_2, value_t in_value_2) {
     if (in_type_1 == BOOL_T) {
         if (op == EQ_OP) {
@@ -287,7 +287,7 @@ void apply_equality_op(equality_op_t op, value_t *out, type_t in_type_1,
  * \param[in]                           in_type_2: Type of right operand of integer operation
  * \param[in]                           in_value_2: Value of right operand of integer operation
  */
-div_by_zero_flag_t apply_integer_op(integer_op_t op, value_t *out, type_t in_type_1,
+static div_by_zero_flag_t apply_integer_op(integer_op_t op, value_t *out, type_t in_type_1,
                      value_t in_value_1, type_t in_type_2, value_t in_value_2) {
     if (in_type_1 == INT_T && in_type_2 == INT_T) {
         switch (op) {
@@ -380,7 +380,7 @@ div_by_zero_flag_t apply_integer_op(integer_op_t op, value_t *out, type_t in_typ
  * \param[in]                           entry: Entry in symbol table
  * \return                              Whether symbol table entry represents a superposition-creating function
  */
-bool is_sp(const entry_t *entry) {
+static bool is_sp(const entry_t *entry) {
     if (entry == NULL || !(entry->is_function)) {
         return false;
     }
@@ -395,7 +395,7 @@ bool is_sp(const entry_t *entry) {
  * \param                               depth: Array-depth
  * \return                              Array length
  */
-unsigned get_length_of_array(const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth) {
+static unsigned get_length_of_array(const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth) {
     unsigned result = 1;
     for (unsigned i = 0; i < depth; ++i) {
         result *= sizes[i];
@@ -413,7 +413,7 @@ unsigned get_length_of_array(const unsigned sizes[MAX_ARRAY_DEPTH], unsigned dep
  * \param[in]                           index_depth: Number of indices of access to unreduced array
  * \return                              Newly allocated reduced array of values
  */
-value_t *new_reduced_array(const value_t *values, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth,
+static value_t *new_reduced_array(const value_t *values, const unsigned sizes[MAX_ARRAY_DEPTH], unsigned depth,
                            const unsigned indices[MAX_ARRAY_DEPTH], unsigned index_depth) {
     unsigned out_length = 1;
     for (unsigned i = index_depth; i < depth; ++i) {
@@ -440,7 +440,7 @@ value_t *new_reduced_array(const value_t *values, const unsigned sizes[MAX_ARRAY
  * \param[in]                           qualifier_2: Second qualifier
  * \return                              Whether both input qualifiers match
  */
-bool are_matching_qualifier(qualifier_t qualifier_1, qualifier_t qualifier_2) {
+static bool are_matching_qualifier(qualifier_t qualifier_1, qualifier_t qualifier_2) {
     return (qualifier_1 == QUANTUM_T && qualifier_2 == QUANTUM_T)
             || (qualifier_1 != QUANTUM_T && qualifier_2 != QUANTUM_T);
 }
@@ -451,7 +451,7 @@ bool are_matching_qualifier(qualifier_t qualifier_1, qualifier_t qualifier_2) {
  * \param[in]                           qualifier_2: Second qualifier
  * \return                              Result qualifier
  */
-qualifier_t propagate_qualifier(qualifier_t qualifier_1, qualifier_t qualifier_2) {
+static qualifier_t propagate_qualifier(qualifier_t qualifier_1, qualifier_t qualifier_2) {
     if (qualifier_1 == CONST_T && qualifier_2 == CONST_T) {
         return CONST_T;
     } else if (qualifier_1 == QUANTUM_T || qualifier_2 == QUANTUM_T) {
@@ -467,7 +467,7 @@ qualifier_t propagate_qualifier(qualifier_t qualifier_1, qualifier_t qualifier_2
  * \param[in]                           type_2: Second type
  * \return                              Whether both input types match
  */
-bool are_matching_types(type_t type_1, type_t type_2) {
+static bool are_matching_types(type_t type_1, type_t type_2) {
     switch (type_1) {
         case VOID_T: {
             return false;
@@ -501,7 +501,7 @@ bool are_matching_types(type_t type_1, type_t type_2) {
  * \param[in]                           type_2: Second type
  * \return                              Result type
  */
-type_t propagate_type(op_type_t op_type, type_t type_1, type_t type_2) {
+static type_t propagate_type(op_type_t op_type, type_t type_1, type_t type_2) {
     switch (op_type) {
         case LOGICAL_OP: {
             if (type_1 == BOOL_T && type_2 == BOOL_T) {
@@ -594,7 +594,7 @@ type_t propagate_type(op_type_t op_type, type_t type_1, type_t type_2) {
  * \param[in]                           node: Pointer to node
  * \return                              Result style of node
  */
-return_style_t get_return_style(const node_t *node) {
+static return_style_t get_return_style(const node_t *node) {
     if (node == NULL) {
         return NONE_ST;
     }
@@ -776,7 +776,7 @@ bool is_unitary(const node_t *node) {
  * \param[in]                           node: Symbol table entry whose type information is to be copied
  * \return                              Whether copying type information was successful
  */
-bool copy_type_info_of_entry(type_info_t *type_info, const entry_t *entry) {
+static bool copy_type_info_of_entry(type_info_t *type_info, const entry_t *entry) {
     if (type_info == NULL || entry == NULL) {
         return false;
     }
@@ -876,7 +876,7 @@ bool copy_type_info_of_node(type_info_t *type_info, const node_t *node) {
  * \param[in]                           node: Node whose return type information is to be copied
  * \return                              Whether copying return type information was successful
  */
-bool copy_return_type_info_of_node(type_info_t *type_info, const node_t *node) {
+static bool copy_return_type_info_of_node(type_info_t *type_info, const node_t *node) {
     if (node == NULL) {
         return false;
     }
@@ -3224,7 +3224,7 @@ void free_tree(node_t *root) {
  * \param[in]                           type: Type of constant value to be written
  * \param[in]                           value: Constant value to be written
  */
-void fprint_const_value(FILE *output_file, type_t type, value_t value) {
+static void fprint_const_value(FILE *output_file, type_t type, value_t value) {
     switch (type) {
         case VOID_T: {
             return;
@@ -3253,7 +3253,7 @@ void fprint_const_value(FILE *output_file, type_t type, value_t value) {
  * \param[out]                          output_file: Output file for type information
  * \param[in]                           type_info: Pointer to type information to be written
  */
-void fprint_type_info(FILE *output_file, const type_info_t *type_info) {
+static void fprint_type_info(FILE *output_file, const type_info_t *type_info) {
     switch (type_info->qualifier) {
         case NONE_T: {
             break;

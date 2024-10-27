@@ -12,7 +12,7 @@
 #include "cq_parser.tab.h"
 extern int yylineno;
 
-bool strtob(const char *str, const char **endptr);
+static bool strtob(const char *str, const char **endptr);
 %}
 
 %x COMMENT
@@ -152,7 +152,7 @@ phase				    { return PHASE; }
 
 %%
 
-bool strtob(const char *str, const char **endptr) {
+static bool strtob(const char *str, const char **endptr) {
     size_t len = strlen(str);
     if (len < 4) {
         if (endptr != NULL) {

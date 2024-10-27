@@ -317,11 +317,10 @@ variable_def:
         --type_info_counter;
     }
 	| type_specifier declarator ASSIGN init SEMICOLON {
-	    printf("Here1\n");
 	    if (!set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth, error_msg)) {
 	        yyerror(error_msg);
 	    }
-        printf("Here2\n");
+
         $$ = new_var_def_node($2, $4->is_init_list, $4->node, $4->qualified_types, $4->values, $4->length, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);

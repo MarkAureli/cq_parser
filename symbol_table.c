@@ -118,7 +118,7 @@ void init_symbol_table() {
  * \note                                The pointers to the symbol table entry and to the next entry are not freed
  * \param[in]                           entry: Pointer to symbol table entry
  */
-void free_entry_content(entry_t *entry) {
+static void free_entry_content(entry_t *entry) {
     if (entry == NULL) {
         return;
     }
@@ -159,7 +159,7 @@ void free_symbol_table() {
  * \param[in]                           key: Key as string
  * \return                              Hash value of input key
  */
-unsigned hash(const char *key) {
+static unsigned hash(const char *key) {
     if (key == NULL) {
         return -1;
     }

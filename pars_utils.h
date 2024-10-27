@@ -131,29 +131,64 @@ typedef struct arg_list {
 
 /**
  * \brief                               Setup type information at a given address with primitive type
- * \param[in]                           type_info: Address to setup the type information at
- * \param[in]                           type: Primitive type to setup
+ * \param[out]                          type_info: Address to setup the type information at
+ * \param[in]                           type: Primitive type of type information
  * \param[out]                          error_msg: Message to be written in case of an error
- * \return
+ * \return                              Whether setting up the type information was successful
  */
 bool setup_type_info(type_info_t *type_info, type_t type, char error_msg[ERROR_MSG_LENGTH]);
 
 bool append_to_type_info(type_info_t *type_info, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Setup statement list at a given address with node
+ * \param[out]                          stmt_list: Address to setup the statement list at
+ * \param[in]                           node: Initial statement node
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return                              Whether setting up the statement list was successful
+ */
 bool setup_stmt_list(stmt_list_t *stmt_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
 bool append_to_stmt_list(stmt_list_t *stmt_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Setup empty function information at a given address
+ * \param[out]                          func_info: Address to setup the empty function information at
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return                              Whether setting up the empty function information was successful
+ */
 bool setup_empty_func_info(func_info_t *func_info, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Setup function information at a given address with return type information
+ * \param[out]                          func_info: Address to setup the function information at
+ * \param[in]                           type_info: Return type information
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return                              Whether setting up the function information was successful
+ */
 bool setup_func_info(func_info_t *func_info, type_info_t type_info, char error_msg[ERROR_MSG_LENGTH]);
 
 bool append_to_func_info(func_info_t *func_info, type_info_t type_info, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Setup access information at a given address with symbol table entry
+ * \param[out]                          access_info: Address to setup the access information at
+ * \param[in]                           entry: Symbol table entry of variable that is accessed
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return                              Whether setting up the access information was successful
+ */
 bool setup_access_info(access_info_t *access_info, entry_t *entry, char error_msg[ERROR_MSG_LENGTH]);
 
 bool append_to_access_info(access_info_t *access_info, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Setup initialization information at a given address with node
+ * \param[out]                          init_info: Address to setup the initialization information at
+ * \param[in]                           is_init_list: Whether initialization is given by an initializer list
+ * \param[in]                           node: Node representing first value of initialization
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return                              Whether setting up the initialization information was successful
+ */
 bool setup_init_info(init_info_t *init_info, bool is_init_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
 bool append_to_init_info(init_info_t *init_info, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
