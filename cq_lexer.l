@@ -22,7 +22,6 @@ static bool strtob(const char *str, const char **endptr);
 ID				        [a-zA-Z_][a-zA-Z0-9_]*
 BCONST                  "false"|"true"
 ICONST				    "-"?[0-9]+
-UCONST				    [0-9]+
 
 %%
 
