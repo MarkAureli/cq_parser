@@ -19,26 +19,28 @@ static bool strtob(const char *str, const char **endptr);
 
 %{ /* tokens */
 %}
-ID				        [a-zA-Z_][a-zA-Z0-9_]*
+ID                      [a-zA-Z_][a-zA-Z0-9_]*
 BCONST                  "false"|"true"
-ICONST				    "-"?[0-9]+
+ICONST                  "-"?[0-9]+
 
 %%
 
-%{ /* increase line count */
+%{ /* character to be ignored */
 %}
-"\n"				    {}
-[ \t\r\f]+			    /* ignore whitespace */
+[ \t\r\f\n]+			{ /* ignore whitespace and line breaks */ }
 
 %{ /* comments */
 %}
-
 "/*"				    { BEGIN(COMMENT); }
 <COMMENT>"*/"			{ BEGIN(INITIAL); }
-<COMMENT>[^\*\n]*		{ /* Ignore anything that is not a '*' or '\n' */ }
-<COMMENT>\*+[^/\n]*	    { /* Ignore any sequence of '*' not followed by '/' or '\n' */ }
-<COMMENT>\n			    {}
-"//"[^\n]*\n			{}
+<COMMENT>[^\*]*		    { /* Ignore anything that is not a '*' or '\n' */ }
+<COMMENT>\*+[^/]*	    { /* Ignore any sequence of '*' not followed by '/' */ }
+"//"[^\n]*\n			{ /* single line comment */ }
+
+%{ /* type qualifier */
+%}
+const				    { return CONST; }
+quantum				    { return QUANTUM; }
 
 %{ /* types */
 %}
@@ -46,11 +48,6 @@ bool				    { return BOOL; }
 int				        { return INT; }
 unsigned			    { return UNSIGNED; }
 void				    { return VOID; }
-
-%{ /* type qualifier */
-%}
-const				    { return CONST; }
-quantum				    { return QUANTUM; }
 
 %{ /* classical control flow */
 %}
@@ -142,8 +139,8 @@ phase				    { return PHASE; }
 %}
 
 {BCONST}                { yylval.value.b_val = strtob(yytext, NULL); return BCONST; }
-{ID}				    { yylval.name = malloc(yyleng * sizeof (char)); strcpy(yylval.name, yytext); return ID; }
 {ICONST}			    { yylval.value.i_val = (int) strtol(yytext, NULL, 10); return ICONST; }
+{ID}				    { yylval.name = malloc(yyleng * sizeof (char)); strcpy(yylval.name, yytext); return ID; }
 
 %{ /* match not found */
 %}
