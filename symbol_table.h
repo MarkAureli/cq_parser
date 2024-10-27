@@ -114,7 +114,7 @@ typedef struct q_type {
 typedef struct type_info {
     qualifier_t qualifier;                  /*!< Qualifier of type information */
     type_t type;                            /*!< Type of type information */
-    unsigned sizes[MAX_ARRAY_DEPTH];        /*!< Sizes of type information */
+    unsigned sizes[MAX_ARRAY_DEPTH];        /*!< Arry of sizes of type information */
     unsigned depth;                         /*!< Depth of type information */
 } type_info_t;
 
@@ -124,7 +124,7 @@ typedef struct type_info {
  */
 typedef struct ref_list { 
     unsigned line_num;                      /*!< Line number */
-    struct ref_list *next;                  /*!< Next reference list entry */
+    struct ref_list *next;                  /*!< Pointer to next reference list entry */
 } ref_list_t;
 
 /**
@@ -134,7 +134,7 @@ typedef struct ref_list {
 typedef struct entry {
     char name[MAX_TOKEN_LENGTH];            /*!< Name of entry */
     unsigned scope;                         /*!< Scope of entry */
-    ref_list_t *lines;                      /*!< List of references of entry */
+    ref_list_t *lines;                      /*!< Linked list of references of entry */
     qualifier_t qualifier;                  /*!< Qualifier of entry */
     type_t type;                            /*!< Type of entry */
     unsigned sizes[MAX_ARRAY_DEPTH];        /*!< Sizes of entry */
@@ -146,11 +146,11 @@ typedef struct entry {
         struct {
             bool is_unitary;                /*!< Whether function is unitary */
             bool is_quantizable;            /*!< Whether function can be used for creating a superposition */
-            type_info_t *pars_type_info;    /*!< Type information of function parameters */
+            type_info_t *pars_type_info;    /*!< Array of type information of function parameters */
             unsigned num_of_pars;           /*!< Number of function parameters */
         };
     };
-    struct entry *next;                     /*!< Next symbol table entry */
+    struct entry *next;                     /*!< Pointer to next symbol table entry */
 } entry_t;
 
 
@@ -208,10 +208,10 @@ void incr_scope();
 
 /**
  * \brief                               Set type information of symbol table entry
- * \param[in]                           entry: Symbol table entry
+ * \param[in]                           entry: Pointer to symbol table entry
  * \param[in]                           qualifier: Qualifier to be set
  * \param[in]                           type: Type to be set
- * \param[in]                           sizes: Sizes to be set
+ * \param[in]                           sizes: Array of sizes to be set
  * \param[in]                           depth: Depth to be set
  * \param[out]                          error_msg: Message to be written in case of an error
  * \return                              Whether setting the type information was successful
@@ -222,10 +222,10 @@ bool set_type_info(entry_t *entry, qualifier_t qualifier, type_t type, const uns
 /**
  * \brief                               Set function information of symbol table entry
  * \note                                Also sets \ref is_function of entry to true
- * \param[in]                           entry: Symbol table entry
+ * \param[in]                           entry: Pointer to symbol table entry
  * \param[in]                           is_unitary: Whether function is unitary
  * \param[in]                           is_quantizable: Whether function can be used for creating a superposition
- * \param[in]                           pars_type_info: Type information of function parameters
+ * \param[in]                           pars_type_info: Array of type information of function parameters
  * \param[in]                           num_of_pars: Number of function parameters
  * \param[out]                          error_msg: Message to be written in case of an error
  * \return                              Whether setting the function information was successful
@@ -235,7 +235,7 @@ bool set_func_info(entry_t *entry, bool is_unitary, bool is_quantizable, type_in
 
 /**
  * \brief                               Write symbol table content to output file
- * \param[out]                          output_file: Output file for symbol table
+ * \param[out]                          output_file: Pointer to output file for symbol table
  */
 void fprint_symbol_table(FILE *output_file);
 

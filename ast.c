@@ -177,7 +177,7 @@ char *assign_op_to_str(assign_op_t assign_op) {
 /**
  * \brief                               Apply logical operation to two inputs and write result to output
  * \param[in]                           op: Logical operator to be applied
- * \param[out]                          out: Result of logical operation
+ * \param[out]                          out: Address to write the result of logical operation to
  * \param[in]                           in_1: Left operand of logical operation
  * \param[in]                           in_2: Right operand of logical operation
  */
@@ -201,7 +201,7 @@ static void apply_logical_op(logical_op_t op, value_t *out, value_t in_1, value_
 /**
  * \brief                               Apply comparison operation to two inputs and write result to output
  * \param[in]                           op: Comparison operator to be applied
- * \param[out]                          out: Result of comparison operation
+ * \param[out]                          out: Address to write the result of comparison operation to
  * \param[in]                           in_type_1: Type of left operand of comparison operation
  * \param[in]                           in_value_1: Value of left operand of comparison operation
  * \param[in]                           in_type_2: Type of right operand of comparison operation
@@ -248,7 +248,7 @@ static void apply_comparison_op(comparison_op_t op, value_t *out, type_t in_type
 /**
  * \brief                               Apply equality operation to two inputs and write result to output
  * \param[in]                           op: Equality operator to be applied
- * \param[out]                          out: Result of equality operation
+ * \param[out]                          out: Address to write the result of equality operation to
  * \param[in]                           in_type_1: Type of left operand of equality operation
  * \param[in]                           in_value_1: Value of left operand of equality operation
  * \param[in]                           in_type_2: Type of right operand of equality operation
@@ -281,7 +281,7 @@ static void apply_equality_op(equality_op_t op, value_t *out, type_t in_type_1,
  * \brief                               Apply integer operation to two inputs and write result to output
  * \note                                Returned flag indices whether division or modulo by zero is performed
  * \param[in]                           op: Integer operator to be applied
- * \param[out]                          out: Result of integer operation
+ * \param[out]                          out: Address to write the result of integer operation to
  * \param[in]                           in_type_1: Type of left operand of integer operation
  * \param[in]                           in_value_1: Value of left operand of integer operation
  * \param[in]                           in_type_2: Type of right operand of integer operation
@@ -377,7 +377,7 @@ static div_by_zero_flag_t apply_integer_op(integer_op_t op, value_t *out, type_t
 
 /**
  * \brief                               Check whether symbol table entry represents a superposition-creating function
- * \param[in]                           entry: Entry in symbol table
+ * \param[in]                           entry: Pointer to entry in symbol table
  * \return                              Whether symbol table entry represents a superposition-creating function
  */
 static bool is_sp(const entry_t *entry) {
@@ -391,7 +391,7 @@ static bool is_sp(const entry_t *entry) {
 
 /**
  * \brief                               Calculate length of an array of the given sizes and depth
- * \param[in]                           sizes: Array-sizes
+ * \param[in]                           sizes: Array of array-sizes
  * \param                               depth: Array-depth
  * \return                              Array length
  */
@@ -407,9 +407,9 @@ static unsigned get_length_of_array(const unsigned sizes[MAX_ARRAY_DEPTH], unsig
  * \brief                               Allocate new array from accessing a given array via indices
  * \note                                Memory is allocated dynamically and must therefore be freed manually
  * \param[in]                           values: Unreduced array
- * \param[in]                           sizes: Sizes of unreduced array
+ * \param[in]                           sizes: Array of sizes of unreduced array
  * \param[in]                           depth: Depth of unreduced array
- * \param[in]                           indices: Indices of access to unreduced array
+ * \param[in]                           indices: Array of indices of access to unreduced array
  * \param[in]                           index_depth: Number of indices of access to unreduced array
  * \return                              Newly allocated reduced array of values
  */
@@ -592,7 +592,7 @@ static type_t propagate_type(op_type_t op_type, type_t type_1, type_t type_2) {
 /**
  * \brief                               Get the result style of a node
  * \param[in]                           node: Pointer to node
- * \return                              Result style of node
+ * \return                              Return style of node
  */
 static return_style_t get_return_style(const node_t *node) {
     if (node == NULL) {
@@ -773,7 +773,7 @@ bool is_unitary(const node_t *node) {
 /**
  * \brief                               Copy type information of symbol table entry to given address
  * \param[out]                          type_info: Address to copy the type information to
- * \param[in]                           node: Symbol table entry whose type information is to be copied
+ * \param[in]                           node: Pointer to symbol table entry whose type information is to be copied
  * \return                              Whether copying type information was successful
  */
 static bool copy_type_info_of_entry(type_info_t *type_info, const entry_t *entry) {
@@ -873,7 +873,7 @@ bool copy_type_info_of_node(type_info_t *type_info, const node_t *node) {
 /**
  * \brief                               Copy return type information from a node to given address
  * \param[out]                          type_info: Address to copy the return type information to
- * \param[in]                           node: Node whose return type information is to be copied
+ * \param[in]                           node: Pointer to node whose return type information is to be copied
  * \return                              Whether copying return type information was successful
  */
 static bool copy_return_type_info_of_node(type_info_t *type_info, const node_t *node) {
@@ -3220,7 +3220,7 @@ void free_tree(node_t *root) {
 
 /**
  * \brief                               Write constant value to output file
- * \param[out]                          output_file: Output file for constant value
+ * \param[out]                          output_file: Pointer to output file for constant value
  * \param[in]                           type: Type of constant value to be written
  * \param[in]                           value: Constant value to be written
  */
@@ -3250,7 +3250,7 @@ static void fprint_const_value(FILE *output_file, type_t type, value_t value) {
 
 /**
  * \brief                               Write type information to output file
- * \param[out]                          output_file: Output file for type information
+ * \param[out]                          output_file: Pointer to output file for type information
  * \param[in]                           type_info: Pointer to type information to be written
  */
 static void fprint_type_info(FILE *output_file, const type_info_t *type_info) {

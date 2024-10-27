@@ -185,7 +185,7 @@ typedef enum node_type {
  */
 typedef union index {
     unsigned const_index;                   /*!< Constant index */
-    struct node *node_index;                /*!< Node index */
+    struct node *node_index;                /*!< Pointer to node as index */
 } index_t;
 
 /**
@@ -193,7 +193,7 @@ typedef union index {
  */
 typedef union array_value {
     value_t const_value;                    /*!< Constant value */
-    struct node *node_value;                /*!< Node value */
+    struct node *node_value;                /*!< Node-pointer value */
 } array_value_t;
 
 /**
@@ -202,8 +202,8 @@ typedef union array_value {
  */
 typedef struct node {
     node_type_t node_type;                  /*!< Node type */
-    struct node *left;                      /*!< Left child */
-    struct node *right;                     /*!< Right child */
+    struct node *left;                      /*!< Pointer to left child */
+    struct node *right;                     /*!< Pointer to right child */
 } node_t;
 
 /**
@@ -214,10 +214,10 @@ typedef struct stmt_list_node {
     node_type_t node_type;                  /*!< Node type */
     bool is_quantizable;                    /*!< Whether all statements are quantizable */
     bool is_unitary;                        /*!< Whether all statements are unitary */
-    node_t **stmt_list;                     /*!< List of statements (child nodes) */
+    node_t **stmt_list;                     /*!< List of statements (pointers to child nodes) */
     unsigned num_of_stmts;                  /*!< Number of statements */
-    return_style_t return_style;            /*!< Return style of statements (child nodes) */
-    type_info_t return_type_info;           /*!< Return type information of statements (child nodes) */
+    return_style_t return_style;            /*!< Return style of statements */
+    type_info_t return_type_info;           /*!< Return type information of statements */
 } stmt_list_node_t;
 
 /**
@@ -226,7 +226,7 @@ typedef struct stmt_list_node {
  */
 typedef struct var_decl_node {
     node_type_t node_type;                  /*!< Node type */
-    entry_t *entry;                         /*!< Corresponding entry in the symbol table */
+    entry_t *entry;                         /*!< Pointer to corresponding entry in the symbol table */
 } var_decl_node_t;
 
 /**
@@ -238,13 +238,13 @@ typedef struct var_def_node {
     node_type_t node_type;                  /*!< Node type */
     bool is_quantizable;                    /*!< Whether the variable definition is quantizable */
     bool is_unitary;                        /*!< Whether the variable definition is unitary */
-    entry_t *entry;                         /*!< Corresponding entry in the symbol table */
+    entry_t *entry;                         /*!< Pointer to corresponding entry in the symbol table */
     bool is_init_list;                      /*!< Whether the variable is initialized with an initializer list */
     union {
-        node_t *node;                       /*!< Right-hand side of variable definition (child node) */
+        node_t *node;                       /*!< Pointer to right-hand side of variable definition (child node) */
         struct {
-            q_type_t *q_types;              /*!< Qualified types of initializer list entries */
-            array_value_t *values;          /*!< Initializer list entries (possibly child nodes) */
+            q_type_t *q_types;              /*!< Array of qualified types of initializer list entries */
+            array_value_t *values;          /*!< Array of initializer list entries (possibly child nodes) */
         };
     };
     unsigned length;                        /*!< Length of initializer list */
@@ -256,8 +256,8 @@ typedef struct var_def_node {
  */
 typedef struct func_def_node {
     node_type_t node_type;                  /*!< Node type */
-    entry_t *entry;                         /*!< Corresponding entry in the symbol table */
-    node_t *func_tail;                      /*!< Function tail (child node) */
+    entry_t *entry;                         /*!< Pointer to corresponding entry in the symbol table */
+    node_t *func_tail;                      /*!< Pointer to function tail (child node) */
 } func_def_node_t;
 
 /**
@@ -279,9 +279,9 @@ typedef struct reference_node {
     bool is_quantizable;                    /*!< Whether reference is quantizable */
     bool is_unitary;                        /*!< Whether reference is unitary */
     type_info_t type_info;                  /*!< Type information of reference */
-    bool index_is_const[MAX_ARRAY_DEPTH];   /*!< Whether indices have constant values */
+    bool index_is_const[MAX_ARRAY_DEPTH];   /*!< Array of whether indices have constant values */
     index_t indices[MAX_ARRAY_DEPTH];       /*!< Array of indices (possibly child nodes) */
-    entry_t *entry;                         /*!< Entry of referenced variable in the symbol table */
+    entry_t *entry;                         /*!< Pointer to entry of referenced variable in the symbol table */
 } reference_node_t;
 
 /**
@@ -294,10 +294,10 @@ typedef struct func_call_node {
     bool is_quantizable;                    /*!< Whether function call is quantizable */
     bool is_unitary;                        /*!< Whether function call is unitary */
     type_info_t type_info;                  /*!< Type information of the function's return */
-    entry_t *entry;                         /*!< Entry of called function in the symbol table */
+    entry_t *entry;                         /*!< Pointer to entry of called function in the symbol table */
     bool inverse;                           /*!< Whether the inverted function is called */
     bool sp;                                /*!< Whether it is a superposition-creating function call */
-    node_t **pars;                          /*!< Array of function parameters (child nodes) */
+    node_t **pars;                          /*!< Array of function parameters (pointers to child nodes) */
     unsigned num_of_pars;                   /*!< Number of function parameters */
 } func_call_node_t;
 
@@ -307,7 +307,7 @@ typedef struct func_call_node {
  */
 typedef struct func_sp_node {
     node_type_t node_type;                  /*!< Node type */
-    entry_t *entry;                         /*!< Entry of the superposition-creating function in the symbol table */
+    entry_t *entry;                         /*!< Pointer to entry of the function in the symbol table */
 } func_sp_node_t;
 
 /**
@@ -320,8 +320,8 @@ typedef struct logical_op_node {
     bool is_unitary;                        /*!< Whether logical operation is unitary */
     type_info_t type_info;                  /*!< Type information of the logical operation's result */
     logical_op_t op;                        /*!< Logical operator */
-    node_t *left;                           /*!< Left operand (child node) */
-    node_t *right;                          /*!< Right operand (child node) */
+    node_t *left;                           /*!< Pointer to left operand (child node) */
+    node_t *right;                          /*!< Pointer tp right operand (child node) */
 } logical_op_node_t;
 
 /**
@@ -334,8 +334,8 @@ typedef struct comparison_op_node {
     bool is_unitary;                        /*!< Whether comparison operation is unitary */
     type_info_t type_info;                  /*!< Type information of the comparison operation's result */
     comparison_op_t op;                     /*!< Comparison operator */
-    node_t *left;                           /*!< Left operand (child node) */
-    node_t *right;                          /*!< Right operand (child node) */
+    node_t *left;                           /*!< Pointer to left operand (child node) */
+    node_t *right;                          /*!< Pointer to right operand (child node) */
 } comparison_op_node_t;
 
 /**
@@ -348,8 +348,8 @@ typedef struct equality_op_node {
     bool is_unitary;                        /*!< Whether equality operation is unitary */
     type_info_t type_info;                  /*!< Type information of the equality operation's result */
     equality_op_t op;                       /*!< Equality operator */
-    node_t *left;                           /*!< Left operand (child node) */
-    node_t *right;                          /*!< Right operand (child node) */
+    node_t *left;                           /*!< Pointer to left operand (child node) */
+    node_t *right;                          /*!< Pointer to right operand (child node) */
 } equality_op_node_t;
 
 /**
@@ -361,7 +361,7 @@ typedef struct not_op_node {
     bool is_quantizable;                    /*!< Whether not-operation is quantizable */
     bool is_unitary;                        /*!< Whether not-operation is unitary */
     type_info_t type_info;                  /*!< Type information of the not-operation's result */
-    node_t *child;                          /*!< Operand (child node) */
+    node_t *child;                          /*!< Pointer to operand (child node) */
 } not_op_node_t;
 
 /**
@@ -374,8 +374,8 @@ typedef struct integer_op_node {
     bool is_unitary;                        /*!< Whether integer operation is unitary */
     type_info_t type_info;                  /*!< Type information of the integer operation's result */
     integer_op_t op;                        /*!< Integer operator */
-    node_t *left;                           /*!< Left operand (child node) */
-    node_t *right;                          /*!< Right operand (child node) */
+    node_t *left;                           /*!< Pointer to left operand (child node) */
+    node_t *right;                          /*!< Pointer to right operand (child node) */
 } integer_op_node_t;
 
 /**
@@ -387,7 +387,7 @@ typedef struct invert_op_node {
     bool is_quantizable;                    /*!< Whether invert-operation is quantizable */
     bool is_unitary;                        /*!< Whether invert-operation is unitary */
     type_info_t type_info;                  /*!< Type information of the invert-operation's result */
-    node_t *child;                          /*!< Operand (child node) */
+    node_t *child;                          /*!< Pointer to operand (child node) */
 } invert_op_node_t;
 
 /**
@@ -398,11 +398,11 @@ typedef struct if_node {
     node_type_t node_type;                  /*!< Node type */
     bool is_quantizable;                    /*!< Whether if(-else)-statement is quantizable */
     bool is_unitary;                        /*!< Whether if(-else)-statement is unitary */
-    node_t *condition;                      /*!< If-condition (child node) */
-    node_t *if_branch;                      /*!< If-branch (child node) */
-    node_t **else_ifs;                      /*!< Array of else-ifs (child nodes) */
+    node_t *condition;                      /*!< Pointer to if-condition (child node) */
+    node_t *if_branch;                      /*!< Pointer to if-branch (child node) */
+    node_t **else_ifs;                      /*!< Array of else-ifs (pointers to child nodes) */
     unsigned num_of_else_ifs;               /*!< Number of else-ifs */
-    node_t *else_branch;                    /*!< Optional else-branch (child node) */
+    node_t *else_branch;                    /*!< Optional pointer to else-branch (child node) */
     return_style_t return_style;            /*!< Return style of if(-else)-statement */
     type_info_t return_type_info;           /*!< Return type information of if(-else)-statement */
 } if_node_t;
@@ -415,8 +415,8 @@ typedef struct else_if_node {
     node_type_t node_type;                  /*!< Node type */
     bool is_quantizable;                    /*!< Whether else-if-statement is quantizable */
     bool is_unitary;                        /*!< Whether else-if-statement is unitary */
-    node_t *condition;                      /*!< Else-if-condition (child node) */
-    node_t *else_if_branch;                 /*!< Else-if-branch (child node) */
+    node_t *condition;                      /*!< Pointer to else-if-condition (child node) */
+    node_t *else_if_branch;                 /*!< Pointer to else-if-branch (child node) */
     return_style_t return_style;            /*!< Return style of else-if-statement */
     type_info_t return_type_info;           /*!< Return type information of else-if-statement */
 } else_if_node_t;
@@ -429,8 +429,8 @@ typedef struct switch_node {
     node_type_t node_type;                  /*!< Node type */
     bool is_quantizable;                    /*!< Whether switch-statement is quantizable */
     bool is_unitary;                        /*!< Whether switch-statement is unitary */
-    node_t *expression;                     /*!< Switch-expression (child node) */
-    node_t **cases;                         /*!< Array of cases (child nodes) */
+    node_t *expression;                     /*!< Pointer to switch-expression (child node) */
+    node_t **cases;                         /*!< Array of cases (pointers to child nodes) */
     unsigned num_of_cases;                  /*!< Number of cases */
     return_style_t return_style;            /*!< Return style of switch-statement */
     type_info_t return_type_info;           /*!< Return type information of switch-statement */
@@ -446,7 +446,7 @@ typedef struct case_node {
     bool is_unitary;                        /*!< Whether case is unitary */
     type_t case_const_type;                 /*!< Type of case value */
     value_t case_const_value;               /*!< Case value */
-    node_t *case_branch;                    /*!< Case branch (child node) */
+    node_t *case_branch;                    /*!< Pointer to case branch (child node) */
     return_style_t return_style;            /*!< Return style of case */
     type_info_t return_type_info;           /*!< Return type information of case */
 } case_node_t;
@@ -457,10 +457,10 @@ typedef struct case_node {
  */
 typedef struct for_node {
     node_type_t node_type;                  /*!< Node type */
-    node_t *initialize;                     /*!< For-loop-initialization statement (child node) */
-    node_t *condition;                      /*!< For-loop-condition (child node) */
-    node_t *increment;                      /*!< For-loop-increment (child node) */
-    node_t *for_branch;                     /*!< For-loop-branch (child node) */
+    node_t *initialize;                     /*!< Pointer to for-loop-initialization statement (child node) */
+    node_t *condition;                      /*!< Pointer to for-loop-condition (child node) */
+    node_t *increment;                      /*!< Pointer to for-loop-increment (child node) */
+    node_t *for_branch;                     /*!< Pointer to for-loop-branch (child node) */
 } for_node_t;
 
 /**
@@ -469,8 +469,8 @@ typedef struct for_node {
  */
 typedef struct do_node {
     node_type_t node_type;                  /*!< Node type */
-    node_t *do_branch;                      /*!< Do-while-loop-branch (child node) */
-    node_t *condition;                      /*!< Do-while-loop-condition (child node) */
+    node_t *do_branch;                      /*!< Pointer to do-while-loop-branch (child node) */
+    node_t *condition;                      /*!< Pointer to do-while-loop-condition (child node) */
 } do_node_t;
 
 /**
@@ -479,8 +479,8 @@ typedef struct do_node {
  */
 typedef struct while_node {
     node_type_t node_type;                  /*!< Node type */
-    node_t *condition;                      /*!< While-loop-condition (child node) */
-    node_t *while_branch;                   /*!< While-loop-branch (child node) */
+    node_t *condition;                      /*!< Pointer to while-loop-condition (child node) */
+    node_t *while_branch;                   /*!< Pointer to while-loop-branch (child node) */
 } while_node_t;
 
 /**
@@ -492,8 +492,8 @@ typedef struct assign_node {
     bool is_quantizable;                    /*!< Whether assignment is quantizable */
     bool is_unitary;                        /*!< Whether assignment is unitary */
     assign_op_t op;                         /*!< Assignment operator */
-    node_t *left;                           /*!< Left-hand side of assignment (child node) */
-    node_t *right;                          /*!< Right-hand side of assignment (child node) */
+    node_t *left;                           /*!< Pointer to left-hand side of assignment (child node) */
+    node_t *right;                          /*!< Pointer to right-hand side of assignment (child node) */
 } assign_node_t;
 
 /**
@@ -504,8 +504,8 @@ typedef struct phase_node {
     node_type_t node_type;                  /*!< Node type */
     bool is_unitary;                        /*!< Whether change of phase is unitary */
     bool is_positive;                       /*!< Whether change of phase is positive */
-    node_t *left;                           /*!< Variable whose phase is changed (child node) */
-    node_t *right;                          /*!< Change of phase (child node) */
+    node_t *left;                           /*!< Pointer to variable whose phase is changed (child node) */
+    node_t *right;                          /*!< Pointer to change of phase (child node) */
 } phase_node_t;
 
 /**
@@ -515,7 +515,7 @@ typedef struct phase_node {
 typedef struct measure_node {
     node_type_t node_type;                  /*!< Node type */
     type_info_t type_info;                  /*!< Type information of measurement result */
-    node_t *child;                          /*!< Quantity to be measured */
+    node_t *child;                          /*!< Pointer to quantity to be measured */
 } measure_node_t;
 
 /**
@@ -543,7 +543,7 @@ typedef struct return_node {
     bool is_quantizable;                    /*!< Whether return statement is quantizable */
     bool is_unitary;                        /*!< Whether return statement is unitary */
     type_info_t type_info;                  /*!< Return style */
-    node_t *return_value;                   /*!< Returned quantity (child node) */
+    node_t *return_value;                   /*!< Pointer to returned quantity (child node) */
 } return_node_t;
 
 
@@ -591,21 +591,21 @@ char *assign_op_to_str(assign_op_t assign_op);
 /**
  * \brief                               Copy type information from a node to given address
  * \param[out]                          type_info: Address to copy the type information to
- * \param[in]                           node: Node whose type information is to be copied
+ * \param[in]                           node: Pointer to node whose type information is to be copied
  * \return                              Whether copying type information was successful
  */
 bool copy_type_info_of_node(type_info_t *type_info, const node_t *node);
 
 /**
  * \brief                               Check the quantizable-attribute of a node
- * \param[in]                           node: Node whose quantizable-attribute is to be checked
+ * \param[in]                           node: Pointer to node whose quantizable-attribute is to be checked
  * \return                              Node's Quantizable-attribute
  */
 bool is_quantizable(const node_t *node);
 
 /**
  * \brief                               Check the unitary-attribute of a node
- * \param[in]                           node: Node whose unitary-attribute is to be checked
+ * \param[in]                           node: Pointer to node whose unitary-attribute is to be checked
  * \return                              Node's unitary-attribute
  */
 bool is_unitary(const node_t *node);
@@ -626,7 +626,7 @@ node_t *new_stmt_list_node(bool is_quantizable, bool is_unitary, node_t **stmt_l
 /**
  * \brief                               Allocate new variable-declaration-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           entry: Entry of declared variable in the symbol table
+ * \param[in]                           entry: Pointer to entry of declared variable in the symbol table
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated variable-declaration-node or `NULL` upon failure
  */
@@ -635,11 +635,11 @@ node_t *new_var_decl_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]);
 /**
  * \brief                               Allocate new variable-definition-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           entry: Entry of defined variable in the symbol table
+ * \param[in]                           entry: Pointer to entry of defined variable in the symbol table
  * \param[in]                           is_init_list: Whether variable definition is done via an initializer list
- * \param[in]                           node: Right-hand side of variable definition if no initializer list is given
- * \param[in]                           q_types: Qualified types of values within initializer list
- * \param[in]                           values: Values with initializer list
+ * \param[in]                           node: Pointer to right-hand side of list-free variable definition
+ * \param[in]                           q_types: Array of qualified types of values within initializer list
+ * \param[in]                           values: Array of values with initializer list
  * \param[in]                           length: Length of initializer list
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated variable-definition-node or `NULL` upon failure
@@ -650,8 +650,8 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
 /**
  * \brief                               Allocate new function-definition-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           entry: Entry of defined function in the symbol table
- * \param[in]                           func_tail: Tail of function definition
+ * \param[in]                           entry: Pointer to entry of defined function in the symbol table
+ * \param[in]                           func_tail: Pointer to tail of function definition
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated function-definition-node or `NULL` upon failure
  */
@@ -670,9 +670,9 @@ node_t *new_const_node(type_t type, value_t value, char error_msg[ERROR_MSG_LENG
 /**
  * \brief                               Allocate new reference-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           entry: Entry of referenced variable in the symbol table
- * \param[in]                           index_is_const: Whether indices in reference are constant
- * \param[in]                           indices: Indices of reference
+ * \param[in]                           entry: Pointer to entry of referenced variable in the symbol table
+ * \param[in]                           index_is_const: Array of whether indices in reference are constant
+ * \param[in]                           indices: Array of indices of reference
  * \param[in]                           index_depth: Number of indices in reference
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated reference-node or `NULL` upon failure
@@ -685,7 +685,7 @@ node_t *new_reference_node(entry_t *entry, const bool index_is_const[MAX_ARRAY_D
  * \brief                               Allocate new function-call-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
  * \param[in]                           sp: Whether function is called as a superposition-creating function
- * \param[in]                           entry: Entry of called function in the symbol table
+ * \param[in]                           entry: Pointer to entry of called function in the symbol table
  * \param[in]                           pars: Parameters of function call
  * \param[in]                           num_of_pars: Number of parameters of function call
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
@@ -697,7 +697,7 @@ node_t *new_func_call_node(bool sp, entry_t *entry, node_t **pars, unsigned num_
 /**
  * \brief                               Allocate new function-superposition-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           entry: Entry of called superposition-creating function in the symbol table
+ * \param[in]                           entry: Pointer to entry of called function in the symbol table
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated function-superposition-node or `NULL` upon failure
  */
@@ -706,9 +706,9 @@ node_t *new_func_sp_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]);
 /**
  * \brief                               Allocate new logical-operator-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           left: Left-hand side of logical operation
+ * \param[in]                           left: Pointer to left-hand side of logical operation
  * \param[in]                           op: Logical operator
- * \param[in]                           right: Right-hand side of logical operation
+ * \param[in]                           right: Pointer to right-hand side of logical operation
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated logical-operator-node or `NULL` upon failure
  */
@@ -717,9 +717,9 @@ node_t *new_logical_op_node(node_t *left, logical_op_t op, node_t *right, char e
 /**
  * \brief                               Allocate new comparison-operator-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           left: Left-hand side of comparison operation
+ * \param[in]                           left: Pointer to left-hand side of comparison operation
  * \param[in]                           op: Comparison operator
- * \param[in]                           right: Right-hand side of comparison operation
+ * \param[in]                           right: Pointer to right-hand side of comparison operation
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated comparison-operator-node or `NULL` upon failure
  */
@@ -728,9 +728,9 @@ node_t *new_comparison_op_node(node_t *left, comparison_op_t op, node_t *right, 
 /**
  * \brief                               Allocate new equality-operator-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           left: Left-hand side of equality operation
+ * \param[in]                           left: Pointer to left-hand side of equality operation
  * \param[in]                           op: Equality operator
- * \param[in]                           right: Right-hand side of equality operation
+ * \param[in]                           right: Pointer to right-hand side of equality operation
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated equality-operator-node or `NULL` upon failure
  */
@@ -739,7 +739,7 @@ node_t *new_equality_op_node(node_t *left, equality_op_t op, node_t *right, char
 /**
  * \brief                               Allocate new not-operator-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           child: Operand of not-operation
+ * \param[in]                           child: Pointer to operand of not-operation
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated not-operator-node or `NULL` upon failure
  */
@@ -748,9 +748,9 @@ node_t *new_not_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]);
 /**
  * \brief                               Allocate new integer-operator-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           left: Left-hand side of integer operation
+ * \param[in]                           left: Pointer to left-hand side of integer operation
  * \param[in]                           op: Integer operator
- * \param[in]                           right: Right-hand side of integer operation
+ * \param[in]                           right: Pointer to right-hand side of integer operation
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated integer-operator-node or `NULL` upon failure
  */
@@ -759,7 +759,7 @@ node_t *new_integer_op_node(node_t *left, integer_op_t op, node_t *right, char e
 /**
  * \brief                               Allocate new invert-operator-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           child: Operand of invert-operation
+ * \param[in]                           child: Pointer to operand of invert-operation
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated invert-operator-node or `NULL` upon failure
  */
@@ -768,11 +768,11 @@ node_t *new_invert_op_node(node_t *child, char error_msg[ERROR_MSG_LENGTH]);
 /**
  * \brief                               Allocate new if-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           condition: If-condition
- * \param[in]                           if_branch: If-branch
- * \param[in]                           else_ifs: Else-if-statements
+ * \param[in]                           condition: Pointer to if-condition
+ * \param[in]                           if_branch: Pointer to if-branch
+ * \param[in]                           else_ifs: Pointer to else-if-statements
  * \param[in]                           num_of_else_ifs: Number of else-if-statements
- * \param[in]                           else_branch: Optional else-branch
+ * \param[in]                           else_branch: Optional pointer to else-branch
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated if-node or `NULL` upon failure
  */
@@ -782,8 +782,8 @@ node_t *new_if_node(node_t *condition, node_t *if_branch, node_t **else_ifs, uns
 /**
  * \brief                               Allocate new else-if-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           condition: Else-if-condition
- * \param[in]                           else_if_branch: Else-if-branch
+ * \param[in]                           condition: Pointer to else-if-condition
+ * \param[in]                           else_if_branch: Pointer to else-if-branch
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated else-if-node or `NULL` upon failure
  */
@@ -792,7 +792,7 @@ node_t *new_else_if_node(node_t *condition, node_t *else_if_branch, char error_m
 /**
  * \brief                               Allocate new switch-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           expression: Switch-expression
+ * \param[in]                           expression: Pointer to switch-expression
  * \param[in]                           cases: Cases
  * \param[in]                           num_of_cases: Number of cases
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
@@ -803,8 +803,8 @@ node_t *new_switch_node(node_t *expression, node_t **cases, unsigned num_of_case
 /**
  * \brief                               Allocate new case-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           case_const: Case constant (qualified type and value)
- * \param[in]                           case_branch: Case-branch
+ * \param[in]                           case_const: Pointer to case constant (qualified type and value)
+ * \param[in]                           case_branch: Pointer to case-branch
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated case-node or `NULL` upon failure
  */
@@ -813,10 +813,10 @@ node_t *new_case_node(node_t *case_const, node_t *case_branch, char error_msg[ER
 /**
  * \brief                               Allocate new for-loop-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           initialize: For-loop-initialization statement
- * \param[in]                           condition: For-loop-condition statement
- * \param[in]                           increment: For-loop-increment statement
- * \param[in]                           for_branch: For-loop-branch
+ * \param[in]                           initialize: Pointer to for-loop-initialization statement
+ * \param[in]                           condition: Pointer to for-loop-condition statement
+ * \param[in]                           increment: Pointer to for-loop-increment statement
+ * \param[in]                           for_branch: Pointer to for-loop-branch
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated for-loop-node or `NULL` upon failure
  */
@@ -826,8 +826,8 @@ node_t *new_for_node(node_t *initialize, node_t *condition, node_t *increment, n
 /**
  * \brief                               Allocate new do-while-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           do_branch: Do-while-loop-branch
- * \param[in]                           condition: Do-while-loop-condition
+ * \param[in]                           do_branch: Pointer to do-while-loop-branch
+ * \param[in]                           condition: Pointer to do-while-loop-condition
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated do-while-loop-node or `NULL` upon failure
  */
@@ -836,8 +836,8 @@ node_t *new_do_node(node_t *do_branch, node_t *condition, char error_msg[ERROR_M
 /**
  * \brief                               Allocate new while-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           condition: While-loop-condition
- * \param[in]                           while_branch: While-loop-branch
+ * \param[in]                           condition: Pointer to while-loop-condition
+ * \param[in]                           while_branch: Pointer to while-loop-branch
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated while-loop-node or `NULL` upon failure
  */
@@ -846,9 +846,9 @@ node_t *new_while_node(node_t *condition, node_t *while_branch, char error_msg[E
 /**
  * \brief                               Allocate new assignment-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           left: Left-hand side of assignment
+ * \param[in]                           left: Pointer to left-hand side of assignment
  * \param[in]                           op: Assignment operator
- * \param[in]                           right: Right-hand side of assignment
+ * \param[in]                           right: Pointer to right-hand side of assignment
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated assignment-node or `NULL` upon failure
  */
@@ -857,9 +857,9 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
 /**
  * \brief                               Allocate new phase-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           left: Variable whose phase is changed
+ * \param[in]                           left: Pointer to variable whose phase is changed
  * \param[in]                           positive: Whether change of phase is positive
- * \param[in]                           right: Change of phase
+ * \param[in]                           right: Pointer to change of phase
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated phase-node or `NULL` upon failure
  */
@@ -868,7 +868,7 @@ node_t *new_phase_node(node_t *left, bool is_positive, node_t *right, char error
 /**
  * \brief                               Allocate new measurement-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           child: Quantity to be measured
+ * \param[in]                           child: Pointer to quantity to be measured
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated measurement-node or `NULL` upon failure
  */
@@ -893,7 +893,7 @@ node_t *new_continue_node(char error_msg[ERROR_MSG_LENGTH]);
 /**
  * \brief                               Allocate new return-node and return pointer to it
  * \note                                Memory is allocated dynamically and must therefore be freed manually
- * \param[in]                           return_value: Returned quantity
+ * \param[in]                           return_value: Pointer to returned quantity
  * \param[out]                          error_msg: Message to be written in case of an error or illegal parameters
  * \return                              Pointer to newly allocated return-node or `NULL` upon failure
  */
@@ -901,21 +901,21 @@ node_t *new_return_node(node_t *return_value, char error_msg[ERROR_MSG_LENGTH]);
 
 /**
  * \brief                               Recursively free the tree emerging from a root node
- * \param[in]                           root: Root node of the tree to be freed
+ * \param[in]                           root: Pointer to root node of the tree to be freed
  */
 void free_tree(node_t *root);
 
 /**
  * \brief                               Write node information to output file
- * \param[out]                          output_file: Output file for node information
- * \param[in]                           node: Node whose information is to be written
+ * \param[out]                          output_file: Pointer to output file for node information
+ * \param[in]                           node: Pointer to node whose information is to be written
  */
 void fprint_node(FILE *output_file, const node_t *node);
 
 /**
  * \brief                               Write tree information to output file
- * \param[out]                          output_file: Output file for tree information
- * \param[in]                           root: Root node of the tree whose information is to be written
+ * \param[out]                          output_file: Pointer to output file for tree information
+ * \param[in]                           root: Pointer to root node of the tree whose information is to be written
  */
 void fprint_tree(FILE *output_file, const node_t *root);
 

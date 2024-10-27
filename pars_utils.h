@@ -138,17 +138,31 @@ typedef struct arg_list {
  */
 bool setup_type_info(type_info_t *type_info, type_t type, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Append size to type information at a given address
+ * \param[out]                          type_info: Address of type information
+ * \param[in]                           node: Pointer to node carrying the appended size
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return                              Whether appending size to type information was successful
+ */
 bool append_to_type_info(type_info_t *type_info, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
 /**
  * \brief                               Setup statement list at a given address with node
  * \param[out]                          stmt_list: Address to setup the statement list at
- * \param[in]                           node: Initial statement node
+ * \param[in]                           node: Pointer to initial statement node
  * \param[out]                          error_msg: Message to be written in case of an error
  * \return                              Whether setting up the statement list was successful
  */
 bool setup_stmt_list(stmt_list_t *stmt_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Append statement to statement list at a given address
+ * \param[out]                          stmt_list: Address of statement list
+ * \param[in]                           node: Pointer to appended statement node
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return                              Whether appending statement to statement list was successful
+ */
 bool append_to_stmt_list(stmt_list_t *stmt_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
 /**
@@ -168,45 +182,114 @@ bool setup_empty_func_info(func_info_t *func_info, char error_msg[ERROR_MSG_LENG
  */
 bool setup_func_info(func_info_t *func_info, type_info_t type_info, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Append return type information to function information at a given address
+ * \param[out]                          func_info: Address of function information
+ * \param[in]                           type_info: Appended return type information
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return                              Whether appending return type information to function information was successful
+ */
 bool append_to_func_info(func_info_t *func_info, type_info_t type_info, char error_msg[ERROR_MSG_LENGTH]);
 
 /**
  * \brief                               Setup access information at a given address with symbol table entry
  * \param[out]                          access_info: Address to setup the access information at
- * \param[in]                           entry: Symbol table entry of variable that is accessed
+ * \param[in]                           entry: Pointer to symbol table entry of variable that is accessed
  * \param[out]                          error_msg: Message to be written in case of an error
  * \return                              Whether setting up the access information was successful
  */
 bool setup_access_info(access_info_t *access_info, entry_t *entry, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Append index to access information at a given address
+ * \param[out]                          access_info: Address of access information
+ * \param[in]                           node: Pointer to node representing the access index
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return                              Whether appending index to access information was successful
+ */
 bool append_to_access_info(access_info_t *access_info, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
 /**
  * \brief                               Setup initialization information at a given address with node
  * \param[out]                          init_info: Address to setup the initialization information at
  * \param[in]                           is_init_list: Whether initialization is given by an initializer list
- * \param[in]                           node: Node representing first value of initialization
+ * \param[in]                           node: Pointer to node representing first value of initialization
  * \param[out]                          error_msg: Message to be written in case of an error
  * \return                              Whether setting up the initialization information was successful
  */
 bool setup_init_info(init_info_t *init_info, bool is_init_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Append value to initialization information at a given address
+ * \param[out]                          init_info: Address of initialization information
+ * \param[in]                           node: Pointer to node representing appended value of initialization
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return                              Whether appending value to initialization information was successful
+ */
 bool append_to_init_info(init_info_t *init_info, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Setup else-if list at a given address with node
+ * \param[out]                          else_if_list: Address to setup the else-if list at
+ * \param[in]                           node: Pointer to node representing first else-if
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return                              Whether setting up the else-if list was successful
+ */
 bool setup_else_if_list(else_if_list_t *else_if_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Append else-if to else-if list at a given address
+ * \param[out]                          else_if_list: Address to setup the else-if list at
+ * \param[in]                           node: Pointer to node representing appended else-if
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return                              Whether appending else-if to else-if list was successful
+ */
 bool append_to_else_if_list(else_if_list_t *else_if_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Setup case list at a given address with node
+ * \param[out]                          case_list: Address to setup the case list at
+ * \param[in]                           node: Pointer to node representing first case
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return                              Whether setting up the case list was successful
+ */
 bool setup_case_list(case_list_t *case_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Append case to case list at a given address
+ * \param[out]                          case_list: Address of case list
+ * \param[in]                           node: Pointer to node representing appended case
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return                              Whether appending case to case list was successful
+ */
 bool append_to_case_list(case_list_t *case_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Setup argument list at a given address with node
+ * \param[out]                          arg_list: Address to setup the argument list at
+ * \param[in]                           node: Pointer to node representing first argument
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return                              Whether setting up the argument list was successful
+ */
 bool setup_arg_list(arg_list_t *arg_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Append argument to argument list at a given address
+ * \param[out]                          arg_list: Address of argument list
+ * \param[in]                           node: Pointer to node representing appended argument
+ * \param[out]                          error_msg: Message to be written in case of an error
+ * \return                              Whether appending argument to argument list was successful
+ */
 bool append_to_arg_list(arg_list_t *arg_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]);
 
+/**
+ * \brief                               Increase nested-loop counter
+ */
 void incr_nested_loop_counter();
 
+/**
+ * \brief                               Decrease nested-loop counter
+ */
 void decr_nested_loop_counter();
 
 
