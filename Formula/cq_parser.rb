@@ -1,4 +1,4 @@
-class MyProject < Formula
+class CqParser < Formula
   desc "Lexer and parser for the CQ programming language"
   homepage "https://github.com/MarkAureli/cq_parser"
   url "https://github.com/MarkAureli/cq_parser/archive/v1.0.0.tar.gz"
