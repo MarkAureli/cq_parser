@@ -39,32 +39,32 @@ ICONST                  "-"?[0-9]+
 
 %{ /* type qualifier */
 %}
-const				    { return CONST; }
-quantum				    { return QUANTUM; }
+const				    { return CONST;    }
+quantum				    { return QUANTUM;  }
 
 %{ /* types */
 %}
-bool				    { return BOOL; }
-int				        { return INT; }
+bool				    { return BOOL;     }
+int				        { return INT;      }
 unsigned			    { return UNSIGNED; }
-void				    { return VOID; }
+void				    { return VOID;     }
 
 %{ /* classical control flow */
 %}
-break				    { return BREAK; }
+break				    { return BREAK;    }
 continue			    { return CONTINUE; }
-do				        { return DO; }
-for				        { return FOR; }
-return				    { return RETURN; }
-while				    { return WHILE; }
+do				        { return DO;       }
+for				        { return FOR;      }
+return				    { return RETURN;   }
+while				    { return WHILE;    }
 
 %{ /* hybrid control flow */
 %}
-case				    { return CASE; }
+case				    { return CASE;    }
 default				    { return DEFAULT; }
-else				    { return ELSE; }
-if				        { return IF; }
-switch				    { return SWITCH; }
+else				    { return ELSE;    }
+if				        { return IF;      }
+switch				    { return SWITCH;  }
 
 %{ /* measure */
 %}
@@ -125,22 +125,22 @@ phase				    { return PHASE; }
 
 %{ /* delimiters */
 %}
-":"				        { return COLON; }
-","				        { return COMMA; }
-"{"				        { return LBRACE; }
-"["				        { return LBRACKET; }
-"("				        { return LPAREN; }
-"}"				        { return RBRACE; }
-"]"				        { return RBRACKET; }
-")"				        { return RPAREN; }
+":"				        { return COLON;     }
+","				        { return COMMA;     }
+"{"				        { return LBRACE;    }
+"["				        { return LBRACKET;  }
+"("				        { return LPAREN;    }
+"}"				        { return RBRACE;    }
+"]"				        { return RBRACKET;  }
+")"				        { return RPAREN;    }
 ";"				        { return SEMICOLON; }
 
 %{ /* token actions */
 %}
 
-{BCONST}                { yylval.value.b_val = strtob(yytext, NULL); return BCONST; }
-{ICONST}			    { yylval.value.i_val = (int) strtol(yytext, NULL, 10); return ICONST; }
-{ID}				    { yylval.name = malloc(yyleng * sizeof (char)); strcpy(yylval.name, yytext); return ID; }
+{BCONST}                { yylval.value.b_val = strtob(yytext, NULL);                                 return BCONST; }
+{ICONST}			    { yylval.value.i_val = (int) strtol(yytext, NULL, 10);                       return ICONST; }
+{ID}				    { yylval.name = malloc(yyleng * sizeof (char)); strcpy(yylval.name, yytext); return ID;     }
 
 %{ /* match not found */
 %}
