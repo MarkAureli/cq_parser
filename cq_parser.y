@@ -88,9 +88,9 @@ static case_list_t case_list_array[MAX_NUM_OF_CASE_LISTS];
 
 %type <node> program func_tail sub_program res_sub_program
 %type <node> decl stmt decl_stmt res_stmt
-%type <node> variable_decl variable_def func_def const primary_expr postfix_expr unary_expr mul_expr add_expr
-%type <node> logical_or_expr logical_xor_expr logical_and_expr comparison_expr equality_expr or_expr xor_expr and_expr
-%type <node> array_access_expr func_call assign_expr
+%type <node> var_decl var_def func_def const_val primary_expr postfix_expr unary_expr mul_expr add_expr
+%type <node> lor_expr lxor_expr land_expr comparison_expr equality_expr or_expr xor_expr and_expr
+%type <node> ref_expr func_call assign_expr
 %type <node> assign_stmt phase_stmt measure_stmt func_call_stmt
 %type <node> if_stmt switch_stmt do_stmt while_stmt for_stmt for_first
 %type <node> break_stmt continue_stmt return_stmt
@@ -100,8 +100,8 @@ static case_list_t case_list_array[MAX_NUM_OF_CASE_LISTS];
 %type <entry> declarator
 %type <func_info> par_l func_head
 %type <init_info> init init_elem_l
-%type <access_info> array_access
-%type <arg_list> argument_expr_l
+%type <access_info> ref
+%type <arg_list> arg_expr_l
 %type <else_if_list> else_if
 %type <case_list> case_stmt_l
 
@@ -141,15 +141,80 @@ decl_l:
 	;
 
 decl:
-    variable_decl {
+    var_decl {
         $$ = $1;
     }
-	| variable_def {
+	| var_def {
 	    $$ = $1;
 	}
 	| func_def {
 	    $$ = $1;
 	}
+	;
+
+var_decl:
+    QUANTUM type_specifier declarator SEMICOLON {
+        if (!set_type_info($3, QUANTUM_T, $2->type, $2->sizes, $2->depth, error_msg)) {
+            yyerror(error_msg);
+        }
+
+        $$ = new_var_decl_node($3, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+        --type_info_counter;
+    }
+    | type_specifier declarator SEMICOLON {
+        if (!set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth, error_msg)) {
+            yyerror(error_msg);
+        }
+
+        $$ = new_var_decl_node($2, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+
+        --type_info_counter;
+    }
+    ;
+
+var_def:
+    QUANTUM type_specifier declarator ASSIGN init SEMICOLON {
+	    if (!set_type_info($3, QUANTUM_T, $2->type, $2->sizes, $2->depth, error_msg)) {
+	        yyerror(error_msg);
+	    }
+
+	    $$ = new_var_def_node($3, $5->is_init_list, $5->node, $5->qualified_types, $5->values, $5->length, error_msg);
+	    if ($$ == NULL) {
+	        yyerror(error_msg);
+	    }
+
+	    --type_info_counter;
+	}
+	| CONST type_specifier declarator ASSIGN init SEMICOLON {
+	    if (!set_type_info($3, CONST_T, $2->type, $2->sizes, $2->depth, error_msg)) {
+	        yyerror(error_msg);
+	    }
+
+	    $$ = new_var_def_node($3, $5->is_init_list, $5->node, $5->qualified_types, $5->values, $5->length, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+
+        --type_info_counter;
+    }
+	| type_specifier declarator ASSIGN init SEMICOLON {
+	    if (!set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth, error_msg)) {
+	        yyerror(error_msg);
+	    }
+
+        $$ = new_var_def_node($2, $4->is_init_list, $4->node, $4->qualified_types, $4->values, $4->length, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+
+        --type_info_counter;
+    }
 	;
 
 func_def:
@@ -209,6 +274,77 @@ func_def:
 	}
 	;
 
+init:
+    lor_expr {
+        $$ = &init_info;
+        if (!setup_init_info($$, false, $1, error_msg)) {
+            yyerror(error_msg);
+        }
+    }
+    | LBRACKET ID RBRACKET {
+        entry_t *entry = insert($2, strlen($2), yylineno, false, error_msg);
+        if (entry == NULL) {
+            yyerror(error_msg);
+        }
+        node_t *func_sp_node = new_func_sp_node(entry, error_msg);
+        if (func_sp_node == NULL) {
+            yyerror(error_msg);
+        }
+
+        $$ = &init_info;
+        if (!setup_init_info($$, false, func_sp_node, error_msg)) {
+            yyerror(error_msg);
+        }
+    }
+    | LBRACE init_elem_l RBRACE {
+        $$ = $2;
+    }
+    ;
+
+init_elem_l:
+    lor_expr {
+        $$ = &init_info;
+        if (!setup_init_info($$, true, $1, error_msg)) {
+            yyerror(error_msg);
+        }
+    }
+    | LBRACKET ID RBRACKET {
+        entry_t *entry = insert($2, strlen($2), yylineno, false, error_msg);
+        if (entry == NULL) {
+            yyerror(error_msg);
+        }
+        node_t *func_sp_node = new_func_sp_node(entry, error_msg);
+        if (func_sp_node == NULL) {
+            yyerror(error_msg);
+        }
+
+        $$ = &init_info;
+        if (!setup_init_info($$, true, func_sp_node, error_msg)) {
+            yyerror(error_msg);
+        }
+    }
+    | init_elem_l COMMA LBRACKET ID RBRACKET {
+        entry_t *entry = insert($4, strlen($4), yylineno, false, error_msg);
+        node_t *func_sp_node = new_func_sp_node(entry, error_msg);
+        if (entry == NULL) {
+            yyerror(error_msg);
+        }
+        if (func_sp_node == NULL) {
+            yyerror(error_msg);
+        }
+        $$ = $1;
+        if (!append_to_init_info($$, func_sp_node, error_msg)) {
+            yyerror(error_msg);
+        }
+    }
+    | init_elem_l COMMA lor_expr {
+        $$ = $1;
+        if (!append_to_init_info($$, $3, error_msg)) {
+            yyerror(error_msg);
+        }
+    }
+    ;
+
 func_head:
     LPAREN par_l RPAREN {
         $$ = $2;
@@ -265,151 +401,6 @@ func_tail:
     }
     ;
 
-variable_decl:
-    QUANTUM type_specifier declarator SEMICOLON {
-        if (!set_type_info($3, QUANTUM_T, $2->type, $2->sizes, $2->depth, error_msg)) {
-            yyerror(error_msg);
-        }
-
-        $$ = new_var_decl_node($3, error_msg);
-        if ($$ == NULL) {
-            yyerror(error_msg);
-        }
-        --type_info_counter;
-    }
-    | type_specifier declarator SEMICOLON {
-        if (!set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth, error_msg)) {
-            yyerror(error_msg);
-        }
-
-        $$ = new_var_decl_node($2, error_msg);
-        if ($$ == NULL) {
-            yyerror(error_msg);
-        }
-
-        --type_info_counter;
-    }
-    ;
-
-variable_def:
-    QUANTUM type_specifier declarator ASSIGN init SEMICOLON {
-	    if (!set_type_info($3, QUANTUM_T, $2->type, $2->sizes, $2->depth, error_msg)) {
-	        yyerror(error_msg);
-	    }
-
-	    $$ = new_var_def_node($3, $5->is_init_list, $5->node, $5->qualified_types, $5->values, $5->length, error_msg);
-	    if ($$ == NULL) {
-	        yyerror(error_msg);
-	    }
-
-	    --type_info_counter;
-	}
-	| CONST type_specifier declarator ASSIGN init SEMICOLON {
-	    if (!set_type_info($3, CONST_T, $2->type, $2->sizes, $2->depth, error_msg)) {
-	        yyerror(error_msg);
-	    }
-
-	    $$ = new_var_def_node($3, $5->is_init_list, $5->node, $5->qualified_types, $5->values, $5->length, error_msg);
-        if ($$ == NULL) {
-            yyerror(error_msg);
-        }
-
-        --type_info_counter;
-    }
-	| type_specifier declarator ASSIGN init SEMICOLON {
-	    if (!set_type_info($2, NONE_T, $1->type, $1->sizes, $1->depth, error_msg)) {
-	        yyerror(error_msg);
-	    }
-
-        $$ = new_var_def_node($2, $4->is_init_list, $4->node, $4->qualified_types, $4->values, $4->length, error_msg);
-        if ($$ == NULL) {
-            yyerror(error_msg);
-        }
-
-        --type_info_counter;
-    }
-	;
-
-declarator:
-	ID {
-	    $$ = insert($1, strlen($1), yylineno, true, error_msg);
-	    if ($$ == NULL) {
-	        yyerror(error_msg);
-	    }
-	}
-	;
-
-init:
-    logical_or_expr {
-        $$ = &init_info;
-        if (!setup_init_info($$, false, $1, error_msg)) {
-            yyerror(error_msg);
-        }
-    }
-    | LBRACKET ID RBRACKET {
-        entry_t *entry = insert($2, strlen($2), yylineno, false, error_msg);
-        if (entry == NULL) {
-            yyerror(error_msg);
-        }
-        node_t *func_sp_node = new_func_sp_node(entry, error_msg);
-        if (func_sp_node == NULL) {
-            yyerror(error_msg);
-        }
-
-        $$ = &init_info;
-        if (!setup_init_info($$, false, func_sp_node, error_msg)) {
-            yyerror(error_msg);
-        }
-    }
-    | LBRACE init_elem_l RBRACE {
-        $$ = $2;
-    }
-    ;
-
-init_elem_l:
-    logical_or_expr {
-        $$ = &init_info;
-        if (!setup_init_info($$, true, $1, error_msg)) {
-            yyerror(error_msg);
-        }
-    }
-    | LBRACKET ID RBRACKET {
-        entry_t *entry = insert($2, strlen($2), yylineno, false, error_msg);
-        if (entry == NULL) {
-            yyerror(error_msg);
-        }
-        node_t *func_sp_node = new_func_sp_node(entry, error_msg);
-        if (func_sp_node == NULL) {
-            yyerror(error_msg);
-        }
-
-        $$ = &init_info;
-        if (!setup_init_info($$, true, func_sp_node, error_msg)) {
-            yyerror(error_msg);
-        }
-    }
-    | init_elem_l COMMA LBRACKET ID RBRACKET {
-        entry_t *entry = insert($4, strlen($4), yylineno, false, error_msg);
-        node_t *func_sp_node = new_func_sp_node(entry, error_msg);
-        if (entry == NULL) {
-            yyerror(error_msg);
-        }
-        if (func_sp_node == NULL) {
-            yyerror(error_msg);
-        }
-        $$ = $1;
-        if (!append_to_init_info($$, func_sp_node, error_msg)) {
-            yyerror(error_msg);
-        }
-    }
-    | init_elem_l COMMA logical_or_expr {
-        $$ = $1;
-        if (!append_to_init_info($$, $3, error_msg)) {
-            yyerror(error_msg);
-        }
-    }
-    ;
-
 type_specifier:
 	BOOL {
 	    $$ = type_info_array + type_info_counter;
@@ -438,6 +429,15 @@ type_specifier:
 	| type_specifier LBRACKET or_expr RBRACKET {
 	    $$ = $1;
 	    if (!append_to_type_info($$, $3, error_msg)) {
+	        yyerror(error_msg);
+	    }
+	}
+	;
+
+declarator:
+	ID {
+	    $$ = insert($1, strlen($1), yylineno, true, error_msg);
+	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
 	}
@@ -481,10 +481,10 @@ stmt:
 	;
 
 decl_stmt:
-    variable_decl {
+    var_decl {
         $$ = $1;
     }
-    | variable_def {
+    | var_def {
         $$ = $1;
     }
     ;
@@ -556,20 +556,14 @@ res_stmt:
 	}
 	;
 
-assign_stmt:
-	assign_expr SEMICOLON {
-	    $$ = $1;
-	}
-	;
-
 phase_stmt:
-    PHASE LPAREN array_access_expr RPAREN ASSIGN_ADD logical_or_expr SEMICOLON {
+    PHASE LPAREN ref_expr RPAREN ASSIGN_ADD lor_expr SEMICOLON {
 	    $$ = new_phase_node($3, true, $6, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
     }
-    | PHASE LPAREN array_access_expr RPAREN ASSIGN_SUB logical_or_expr SEMICOLON {
+    | PHASE LPAREN ref_expr RPAREN ASSIGN_SUB lor_expr SEMICOLON {
 	    $$ = new_phase_node($3, false, $6, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -578,7 +572,7 @@ phase_stmt:
     ;
 
 measure_stmt:
-    MEASURE LPAREN logical_or_expr RPAREN SEMICOLON {
+    MEASURE LPAREN lor_expr RPAREN SEMICOLON {
         $$ = new_measure_node($3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -606,14 +600,71 @@ func_call_stmt:
     }
     ;
 
+func_call:
+	ID LPAREN arg_expr_l RPAREN {
+        entry_t *entry = insert($1, strlen($1), yylineno, false, error_msg);
+        if (entry == NULL) {
+            yyerror(error_msg);
+        }
+
+        $$ = new_func_call_node(false, entry, $3->args, $3->num_of_args, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+
+        --arg_list_counter;
+	}
+	| ID LPAREN RPAREN {
+        entry_t *entry = insert($1, strlen($1), yylineno, false, error_msg);
+        if (entry == NULL) {
+            yyerror(error_msg);
+        }
+
+	    $$ = new_func_call_node(false, entry, NULL, 0, error_msg);
+        if ($$ == NULL) {
+            yyerror(error_msg);
+        }
+	}
+	| LBRACKET ID RBRACKET LPAREN arg_expr_l RPAREN {
+        entry_t *entry = insert($2, strlen($2), yylineno, false, error_msg);
+        if (entry == NULL) {
+            yyerror(error_msg);
+        }
+
+	    $$ = new_func_call_node(true, entry, $5->args, $5->num_of_args, error_msg);
+	    if ($$ == NULL) {
+	        yyerror(error_msg);
+	    }
+
+	    --arg_list_counter;
+	}
+	;
+
+arg_expr_l:
+	lor_expr {
+	    $$ = arg_list_array + arg_list_counter;
+	    if (!setup_arg_list($$, $1, error_msg)) {
+	        yyerror(error_msg);
+	    }
+
+	    ++arg_list_counter;
+	}
+	| arg_expr_l COMMA lor_expr {
+	    $$ = $1;
+	    if (!append_to_arg_list($$, $3, error_msg)) {
+	        yyerror(error_msg);
+	    }
+	}
+	;
+
 if_stmt:
-	IF LPAREN logical_or_expr RPAREN LBRACE res_sub_program RBRACE optional_else {
+	IF LPAREN lor_expr RPAREN LBRACE res_sub_program RBRACE optional_else {
 	    $$ = new_if_node($3, $6, NULL, 0, $8, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
 	    }
 	}
-	| IF LPAREN logical_or_expr RPAREN LBRACE res_sub_program RBRACE else_if optional_else {
+	| IF LPAREN lor_expr RPAREN LBRACE res_sub_program RBRACE else_if optional_else {
 	    $$ = new_if_node($3, $6, $8->else_if_nodes, $8->num_of_else_ifs, $9, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
@@ -624,7 +675,7 @@ if_stmt:
 	;
 
 else_if:
-    ELSE IF LPAREN logical_or_expr RPAREN LBRACE res_sub_program RBRACE {
+    ELSE IF LPAREN lor_expr RPAREN LBRACE res_sub_program RBRACE {
         node_t *else_if_node = new_else_if_node($4, $7, error_msg);
         if (else_if_node == NULL) {
             yyerror(error_msg);
@@ -637,7 +688,7 @@ else_if:
 
         ++else_if_list_counter;
     }
-    | else_if ELSE IF LPAREN logical_or_expr RPAREN LBRACE res_sub_program RBRACE {
+    | else_if ELSE IF LPAREN lor_expr RPAREN LBRACE res_sub_program RBRACE {
         node_t *else_if_node = new_else_if_node($5, $8, error_msg);
         if (else_if_node == NULL) {
             yyerror(error_msg);
@@ -660,7 +711,7 @@ optional_else:
     ;
 
 switch_stmt:
-	SWITCH LPAREN logical_or_expr RPAREN LBRACE case_stmt_l RBRACE {
+	SWITCH LPAREN lor_expr RPAREN LBRACE case_stmt_l RBRACE {
 	    $$ = new_switch_node($3, $6->case_nodes, $6->num_of_cases, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
@@ -688,7 +739,7 @@ case_stmt_l:
     ;
 
 case_stmt:
-	CASE const COLON res_sub_program {
+	CASE const_val COLON res_sub_program {
 	    $$ = new_case_node($2, $4, error_msg);
 	    if ($$ == NULL) {
 	        yyerror(error_msg);
@@ -709,7 +760,7 @@ do_stmt:
 	} LBRACE sub_program RBRACE {
 	    decr_nested_loop_counter();
 	    hide_scope();
-	} WHILE LPAREN logical_or_expr RPAREN SEMICOLON {
+	} WHILE LPAREN lor_expr RPAREN SEMICOLON {
 	    $$ = new_do_node($4, $9, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -718,7 +769,7 @@ do_stmt:
     ;
 
 while_stmt:
-    WHILE LPAREN logical_or_expr RPAREN {
+    WHILE LPAREN lor_expr RPAREN {
         incr_scope();
         incr_nested_loop_counter();
     } LBRACE sub_program RBRACE {
@@ -735,7 +786,7 @@ for_stmt:
     FOR {
         incr_scope();
         incr_nested_loop_counter();
-    } LPAREN for_first logical_or_expr SEMICOLON assign_expr RPAREN LBRACE sub_program RBRACE {
+    } LPAREN for_first lor_expr SEMICOLON assign_expr RPAREN LBRACE sub_program RBRACE {
         $$ = new_for_node($4, $5, $7, $10, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -747,7 +798,7 @@ for_stmt:
     ;
 
 for_first:
-    variable_def {
+    var_def {
         $$ = $1;
     }
     | assign_stmt {
@@ -780,7 +831,7 @@ return_stmt:
             yyerror(error_msg);
         }
     }
-    | RETURN logical_or_expr SEMICOLON {
+    | RETURN lor_expr SEMICOLON {
         $$ = new_return_node($2, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -788,56 +839,62 @@ return_stmt:
     }
     ;
 
+assign_stmt:
+	assign_expr SEMICOLON {
+	    $$ = $1;
+	}
+	;
+
 assign_expr:
-	array_access_expr ASSIGN logical_or_expr {
+	ref_expr ASSIGN lor_expr {
 	    $$ = new_assign_node($1, ASSIGN_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
-	| array_access_expr ASSIGN_OR logical_or_expr {
+	| ref_expr ASSIGN_OR lor_expr {
 	    $$ = new_assign_node($1, ASSIGN_OR_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
-	| array_access_expr ASSIGN_XOR logical_or_expr {
+	| ref_expr ASSIGN_XOR lor_expr {
 	    $$ = new_assign_node($1, ASSIGN_XOR_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
-	| array_access_expr ASSIGN_AND logical_or_expr {
+	| ref_expr ASSIGN_AND lor_expr {
 	    $$ = new_assign_node($1, ASSIGN_AND_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
-	| array_access_expr ASSIGN_ADD logical_or_expr {
+	| ref_expr ASSIGN_ADD lor_expr {
 	    $$ = new_assign_node($1, ASSIGN_ADD_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
-	| array_access_expr ASSIGN_SUB logical_or_expr {
+	| ref_expr ASSIGN_SUB lor_expr {
 	    $$ = new_assign_node($1, ASSIGN_SUB_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
-	| array_access_expr ASSIGN_MUL logical_or_expr {
+	| ref_expr ASSIGN_MUL lor_expr {
 	    $$ = new_assign_node($1, ASSIGN_MUL_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
-	| array_access_expr ASSIGN_DIV logical_or_expr {
+	| ref_expr ASSIGN_DIV lor_expr {
 	    $$ = new_assign_node($1, ASSIGN_DIV_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
         }
 	}
-	| array_access_expr ASSIGN_MOD logical_or_expr {
+	| ref_expr ASSIGN_MOD lor_expr {
 	    $$ = new_assign_node($1, ASSIGN_MOD_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -845,11 +902,11 @@ assign_expr:
 	}
 	;
 
-logical_or_expr:
-	logical_xor_expr {
+lor_expr:
+	lxor_expr {
 	    $$ = $1;
 	}
-	| logical_or_expr LOR logical_xor_expr {
+	| lor_expr LOR lxor_expr {
 	    $$ = new_logical_op_node($1, LOR_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -857,11 +914,11 @@ logical_or_expr:
 	}
 	;
 
-logical_xor_expr:
-	logical_and_expr {
+lxor_expr:
+	land_expr {
 	    $$ = $1;
 	}
-	| logical_xor_expr LXOR logical_and_expr {
+	| lxor_expr LXOR land_expr {
 	    $$ = new_logical_op_node($1, LXOR_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -869,11 +926,11 @@ logical_xor_expr:
 	}
 	;
 
-logical_and_expr:
+land_expr:
 	comparison_expr {
 	    $$ = $1;
 	}
-	| logical_and_expr LAND comparison_expr {
+	| land_expr LAND comparison_expr {
 	    $$ = new_logical_op_node($1, LAND_OP, $3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -1038,13 +1095,13 @@ postfix_expr:
     | func_call {
         $$ = $1;
     }
-    | array_access_expr {
+    | ref_expr {
         $$ = $1;
     }
     ;
 
-array_access_expr:
-	array_access {
+ref_expr:
+	ref {
         $$ = new_reference_node($1->entry, $1->index_is_const, $1->indices, $1->index_depth, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);
@@ -1054,7 +1111,7 @@ array_access_expr:
 	}
 	;
 
-array_access:
+ref:
     ID {
         entry_t *entry = insert($1, strlen($1), yylineno, false, error_msg);
         if (entry == NULL) {
@@ -1068,7 +1125,7 @@ array_access:
 
         ++access_info_counter;
     }
-    | array_access LBRACKET or_expr RBRACKET {
+    | ref LBRACKET or_expr RBRACKET {
         $$ = $1;
         if (!append_to_access_info($$, $3, error_msg)) {
             yyerror(error_msg);
@@ -1077,15 +1134,15 @@ array_access:
     ;
 
 primary_expr:
-	const {
+	const_val {
 	    $$ = $1;
 	}
-	| LPAREN logical_or_expr RPAREN {
+	| LPAREN lor_expr RPAREN {
 	    $$ = $2;
 	}
 	;
 
-const:
+const_val:
     BCONST {
         $$ = new_const_node(BOOL_T, $1, error_msg);
         if ($$ == NULL) {
@@ -1100,62 +1157,6 @@ const:
     }
 	;
 
-func_call:
-	ID LPAREN argument_expr_l RPAREN {
-        entry_t *entry = insert($1, strlen($1), yylineno, false, error_msg);
-        if (entry == NULL) {
-            yyerror(error_msg);
-        }
-
-        $$ = new_func_call_node(false, entry, $3->args, $3->num_of_args, error_msg);
-        if ($$ == NULL) {
-            yyerror(error_msg);
-        }
-
-        --arg_list_counter;
-	}
-	| ID LPAREN RPAREN {
-        entry_t *entry = insert($1, strlen($1), yylineno, false, error_msg);
-        if (entry == NULL) {
-            yyerror(error_msg);
-        }
-
-	    $$ = new_func_call_node(false, entry, NULL, 0, error_msg);
-        if ($$ == NULL) {
-            yyerror(error_msg);
-        }
-	}
-	| LBRACKET ID RBRACKET LPAREN argument_expr_l RPAREN {
-        entry_t *entry = insert($2, strlen($2), yylineno, false, error_msg);
-        if (entry == NULL) {
-            yyerror(error_msg);
-        }
-
-	    $$ = new_func_call_node(true, entry, $5->args, $5->num_of_args, error_msg);
-	    if ($$ == NULL) {
-	        yyerror(error_msg);
-	    }
-
-	    --arg_list_counter;
-	}
-	;
-
-argument_expr_l:
-	logical_or_expr {
-	    $$ = arg_list_array + arg_list_counter;
-	    if (!setup_arg_list($$, $1, error_msg)) {
-	        yyerror(error_msg);
-	    }
-
-	    ++arg_list_counter;
-	}
-	| argument_expr_l COMMA logical_or_expr {
-	    $$ = $1;
-	    if (!append_to_arg_list($$, $3, error_msg)) {
-	        yyerror(error_msg);
-	    }
-	}
-	;
 
 %%
 
