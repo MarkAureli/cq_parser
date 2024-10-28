@@ -2,7 +2,7 @@ class CqParser < Formula
   desc "Lexer and parser for the CQ programming language"
   homepage "https://github.com/MarkAureli/cq_parser"
   url "https://github.com/MarkAureli/cq_parser/archive/refs/tags/v1.0.0.tar.gz"
-  sha256 "0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5"
+  sha256 "29c35b1ca079ecf61ebf3d4627031353ca7f47bc0974a48f9905afe54612af0f"
 
   # Specify dependencies
   depends_on "flex"
