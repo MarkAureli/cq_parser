@@ -226,8 +226,8 @@ func_def:
 	        yyerror(error_msg);
 	    }
 
-	    if (!set_func_info($3, $5->is_unitary && is_unitary($6), false, $5->pars_type_info, $5->num_of_pars,
-	        error_msg)) {
+	    if (!set_func_info($3, false, $5->is_unitary && is_unitary($6), $5->pars_type_info, $5->num_of_pars,
+	                       error_msg)) {
 	        yyerror(error_msg);
 	    }
 
@@ -245,7 +245,7 @@ func_def:
 	    }
 
 	    if (!set_func_info($2, false, $4->is_quantizable && is_quantizable($5), $4->pars_type_info, $4->num_of_pars,
-	        error_msg)) {
+	                       error_msg)) {
 	        yyerror(error_msg);
 	    }
 
@@ -261,9 +261,8 @@ func_def:
 	    if (!set_type_info($2, NONE_T, VOID_T, NULL, 0, error_msg)) {
 	        yyerror(error_msg);
 	    }
-
-	    if (!set_func_info($2, $4->is_unitary && is_unitary($5), $4->is_quantizable && is_quantizable($5),
-	                  $4->pars_type_info, $4->num_of_pars, error_msg)) {
+	    if (!set_func_info($2, $4->is_quantizable && is_quantizable($5), $4->is_unitary && is_unitary($5),
+	                       $4->pars_type_info, $4->num_of_pars, error_msg)) {
 	        yyerror(error_msg);
 	    }
 
@@ -1166,7 +1165,6 @@ int yyerror(const char *message) {
 }
 
 int main(int argc, char **argv) {
-    // determine and open input file
     if (argc > 1 && strncmp(argv[1], "--dump", 7) != 0) {
         yyin = fopen(argv[1], "r");
         if (!yyin) {

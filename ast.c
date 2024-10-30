@@ -1259,7 +1259,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
 
 /* See header for documentation */
 node_t *new_func_def_node(entry_t *entry, node_t *func_tail, char error_msg[ERROR_MSG_LENGTH]) {
-    if (!entry->is_function) {
+    if (!(entry->is_function)) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "%s is not a function", entry->name);
         free_tree(func_tail);
         free_symbol_table();

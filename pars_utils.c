@@ -76,7 +76,7 @@ bool setup_type_info(type_info_t *type_info, type_t type, char error_msg[ERROR_M
 
 /* See header for documentation */
 bool append_to_type_info(type_info_t *type_info, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
-    if (type_info == NULL) {
+    if (type_info == NULL || node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for type information failed");
         return false;
     } else if (type_info->depth == MAX_ARRAY_DEPTH) {
@@ -109,7 +109,7 @@ bool append_to_type_info(type_info_t *type_info, node_t *node, char error_msg[ER
 
 /* See header for documentation */
 bool setup_stmt_list(stmt_list_t *stmt_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
-    if (stmt_list == NULL) {
+    if (stmt_list == NULL || node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for statement list failed");
         return false;
     } else if (nested_loop_counter == 0 && node->node_type == BREAK_NODE_T) {
@@ -135,7 +135,7 @@ bool setup_stmt_list(stmt_list_t *stmt_list, node_t *node, char error_msg[ERROR_
 
 /* See header for documentation */
 bool append_to_stmt_list(stmt_list_t *stmt_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
-    if (stmt_list == NULL) {
+    if (stmt_list == NULL || node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for statement list failed");
         return false;
     } else if (nested_loop_counter == 0 && node->node_type == BREAK_NODE_T) {
@@ -217,7 +217,7 @@ bool append_to_func_info(func_info_t *func_info, type_info_t type_info, char err
 
 /* See header for documentation */
 bool setup_init_info(init_info_t *init_info, bool is_init_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
-    if (init_info == NULL) {
+    if (init_info == NULL || node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for initialization information failed");
         return false;
     }
@@ -258,7 +258,7 @@ bool setup_init_info(init_info_t *init_info, bool is_init_list, node_t *node, ch
 
 /* See header for documentation */
 bool append_to_init_info(init_info_t *init_info, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
-    if (init_info == NULL) {
+    if (init_info == NULL || node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Accessing memory for initialization information failed");
         return false;
     }
@@ -300,7 +300,7 @@ bool append_to_init_info(init_info_t *init_info, node_t *node, char error_msg[ER
 
 /* See header for documentation */
 bool setup_access_info(access_info_t *access_info, entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
-    if (access_info == NULL) {
+    if (access_info == NULL || entry == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for access information failed");
         return false;
     } else if (entry->is_function) {
@@ -315,7 +315,7 @@ bool setup_access_info(access_info_t *access_info, entry_t *entry, char error_ms
 
 /* See header for documentation */
 bool append_to_access_info(access_info_t *access_info, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
-    if (access_info == NULL) {
+    if (access_info == NULL || node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Accessing memory for access information failed");
         return false;
     } else if (access_info->entry->depth == 0) {
@@ -357,7 +357,7 @@ bool append_to_access_info(access_info_t *access_info, node_t *node, char error_
 
 /* See header for documentation */
 bool setup_else_if_list(else_if_list_t *else_if_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
-    if (else_if_list == NULL) {
+    if (else_if_list == NULL || node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for else-if list failed");
         return false;
     }
@@ -375,7 +375,7 @@ bool setup_else_if_list(else_if_list_t *else_if_list, node_t *node, char error_m
 
 /* See header for documentation */
 bool append_to_else_if_list(else_if_list_t *else_if_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
-    if (else_if_list == NULL) {
+    if (else_if_list == NULL || node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Accessing memory for else-if list failed");
         return false;
     }
@@ -395,7 +395,7 @@ bool append_to_else_if_list(else_if_list_t *else_if_list, node_t *node, char err
 
 /* See header for documentation */
 bool setup_case_list(case_list_t *case_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
-    if (case_list == NULL) {
+    if (case_list == NULL || node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for case list failed");
         return false;
     }
@@ -413,7 +413,7 @@ bool setup_case_list(case_list_t *case_list, node_t *node, char error_msg[ERROR_
 
 /* See header for documentation */
 bool append_to_case_list(case_list_t *case_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
-    if (case_list == NULL) {
+    if (case_list == NULL || node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Accessing memory for case list failed");
         return false;
     }
@@ -433,7 +433,7 @@ bool append_to_case_list(case_list_t *case_list, node_t *node, char error_msg[ER
 
 /* See header for documentation */
 bool setup_arg_list(arg_list_t *arg_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
-    if (arg_list == NULL) {
+    if (arg_list == NULL || node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for argument list failed");
         return false;
     }
@@ -451,7 +451,7 @@ bool setup_arg_list(arg_list_t *arg_list, node_t *node, char error_msg[ERROR_MSG
 
 /* See header for documentation */
 bool append_to_arg_list(arg_list_t *arg_list, node_t *node, char error_msg[ERROR_MSG_LENGTH]) {
-    if (arg_list == NULL) {
+    if (arg_list == NULL || node == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for argument list failed");
         return false;
     }
