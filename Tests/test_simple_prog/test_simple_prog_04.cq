@@ -1,0 +1,5 @@
+const unsigned A = 201;
+
+void main() {
+    bool a = 402 >= A;
+}

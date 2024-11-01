@@ -16,34 +16,22 @@ example:
 	@cat symbol_table_dump.out
 
 test:
-	@echo "Running tests..."; \
+	@printf "Running tests...\n"; \
 
-	@for file in $(TEST_DIR)/test_decl_*.cq; do \
-		./$(PARSER) $$file; \
-		if [ $$? -ne 0 ]; then \
-			echo "$(PARSER) returned 1 for file $$(basename $$file)"; \
-			exit 1; \
+	@for dir in $(TEST_DIR)/*/; do \
+  		if [ -d "$$dir" ]; then \
+  			for file in "$$dir"*; do \
+  				if [ -f "$$file" ]; then \
+					./$(PARSER) $$file; \
+					if [ $$? -ne 0 ]; then \
+						echo "$(PARSER) returned 1 for file $$(basename $$file)"; \
+					exit 1; \
+					fi; \
+				fi; \
+			done; \
+			printf "|- %s passed.\n" "$$dir"; \
 		fi; \
 	done; \
-	echo "- Declarations passed."; \
-
-	@for file in $(TEST_DIR)/test_def_*.cq; do \
-		./$(PARSER) $$file; \
-		if [ $$? -ne 0 ]; then \
-			echo "$(PARSER) returned 1 for file $$(basename $$file)"; \
-			exit 1; \
-		fi; \
-	done; \
-	echo "- Definitions passed."
-
-	@for file in $(TEST_DIR)/test_grover*.cq; do \
-		./$(PARSER) $$file; \
-		if [ $$? -ne 0 ]; then \
-			echo "$(PARSER) returned 1 for file $$(basename $$file)"; \
-			exit 1; \
-		fi; \
-	done; \
-	echo "- Grover passed."
 
 clean:
 	@rm -f $(PARSER) $(PARSER).output symtab_dump.out $(PARSER).tab.c $(PARSER).tab.h $(LEXER).yy.c

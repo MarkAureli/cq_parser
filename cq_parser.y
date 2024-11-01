@@ -1165,12 +1165,17 @@ int yyerror(const char *message) {
 }
 
 int main(int argc, char **argv) {
-    if (argc > 1 && strncmp(argv[1], "--dump", 7) != 0) {
+    if (argc > 1 && strncmp(argv[1], "--dump", 7) != 0 && strncmp(argv[1], "--version", 10) != 0) {
         yyin = fopen(argv[1], "r");
         if (!yyin) {
             fprintf(stderr, "Could not open %s\n", argv[1]);
             return 1;
         }
+    }
+
+    if (argc == 2 && strncmp(argv[1], "--version", 10) == 0) {
+        printf("1.0.0\n");
+        return 0;
     }
 
     bool dump = (argc == 2 && strncmp(argv[1], "--dump", 7) == 0) || (argc == 3 && strncmp(argv[2], "--dump", 7) == 0);
