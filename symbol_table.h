@@ -142,7 +142,10 @@ typedef struct entry {
     unsigned length;                        /*!< Length of flattened array of entry's values */
     bool is_function;                       /*!< Whether entry is a function */
     union {
-        value_t *values;                    /*!< Array of entry's values */
+        struct {
+            bool has_been_initialized;      /*!< Whether variable has been initialized */
+            value_t *values;                /*!< Array of entry's values */
+        };
         struct {
             bool is_unitary;                /*!< Whether function is unitary */
             bool is_quantizable;            /*!< Whether function can be used for creating a superposition */

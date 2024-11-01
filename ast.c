@@ -1011,6 +1011,7 @@ node_t *new_var_decl_node(entry_t *entry, char error_msg[ERROR_MSG_LENGTH]) {
 
     new_node->node_type = VAR_DECL_NODE_T;
     new_node->entry = entry;
+    new_node->entry->has_been_initialized = false;
     return (node_t *) new_node;
 }
 
@@ -1242,6 +1243,7 @@ node_t *new_var_def_node(entry_t *entry, bool is_init_list, node_t *node, q_type
         new_node->node = node;
     }
     new_node->length = length;
+    new_node->entry->has_been_initialized = true;
 
     if (entry->qualifier == CONST_T) {
         if (is_init_list) {
@@ -2749,6 +2751,14 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
                 free_tree(right);
                 free_symbol_table();
                 return NULL;
+            } else if (left_type_info.qualifier == QUANTUM_T
+                       && ((reference_node_t *) left)->entry->has_been_initialized) {
+                snprintf(error_msg, ERROR_MSG_LENGTH, "Quantum variable %s has been previously initialized",
+                         ((reference_node_t *) left)->entry->name);
+                free_tree(left);
+                free_tree(right);
+                free_symbol_table();
+                return NULL;
             }
             break;
         }
@@ -2870,6 +2880,7 @@ node_t *new_assign_node(node_t *left, assign_op_t op, node_t *right, char error_
     new_node->op = op;
     new_node->left = left;
     new_node->right = right;
+    ((reference_node_t *) left)->entry->has_been_initialized = true;
     return (node_t *) new_node;
 }
 

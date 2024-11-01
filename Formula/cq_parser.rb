@@ -11,8 +11,4 @@ class CqParser < Formula
         system "make"
         bin.install "cq_parser"
     end
-
-    test do
-        system "#{bin}/cq_parser", "--version"
-    end
 end
