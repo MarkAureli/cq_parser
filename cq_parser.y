@@ -1174,7 +1174,7 @@ int main(int argc, char **argv) {
     }
 
     if (argc == 2 && strncmp(argv[1], "--version", 10) == 0) {
-        printf("1.0.0\n");
+        printf("1.0.1\n");
         return 0;
     }
 
