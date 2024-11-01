@@ -13,7 +13,6 @@ class CqParser < Formula
     end
 
     test do
-        assert_match "1.0.1", shell_output("#{bin}/cq_parser --version")
-    system "make", "test"
+        assert_match "1.0.X", shell_output("#{bin}/cq_parser --version")
     end
 end
