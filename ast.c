@@ -637,9 +637,6 @@ bool is_quantizable(const node_t *node) {
         case FUNC_SP_NODE_T: {
             return true;
         }
-        case VAR_DECL_NODE_T: {
-            return ((var_decl_node_t *) node)->entry->qualifier != QUANTUM_T;
-        }
         case VAR_DEF_NODE_T: {
             return ((var_def_node_t *) node)->is_quantizable;
         }
@@ -706,9 +703,6 @@ bool is_unitary(const node_t *node) {
     switch (node->node_type) {
         case STMT_LIST_NODE_T: {
             return ((stmt_list_node_t *) node)->is_unitary;
-        }
-        case VAR_DECL_NODE_T: {
-            return ((var_decl_node_t *) node)->entry->qualifier == QUANTUM_T;
         }
         case VAR_DEF_NODE_T: {
             return ((var_def_node_t *) node)->is_unitary;

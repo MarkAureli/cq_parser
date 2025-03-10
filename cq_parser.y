@@ -571,7 +571,7 @@ phase_stmt:
     ;
 
 measure_stmt:
-    MEASURE LPAREN lor_expr RPAREN SEMICOLON {
+    MEASURE LPAREN ref_expr RPAREN SEMICOLON {
         $$ = new_measure_node($3, error_msg);
         if ($$ == NULL) {
             yyerror(error_msg);

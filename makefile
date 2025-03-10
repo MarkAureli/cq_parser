@@ -7,7 +7,7 @@ PARSER := cq_parser
 all: $(LEXER).l $(PARSER).y symbol_table.c ast.c pars_utils.c
 	bison -d $(PARSER).y
 	flex -o $(LEXER).yy.c $(LEXER).l
-	clang -o $(PARSER) $(PARSER).tab.c symbol_table.c ast.c pars_utils.c $(LEXER).yy.c -ll
+	clang -o $(PARSER) $(PARSER).tab.c symbol_table.c ast.c pars_utils.c $(LEXER).yy.c
 	@rm $(LEXER).yy.c $(PARSER).tab.c $(PARSER).tab.h
 
 example:

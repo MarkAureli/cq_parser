@@ -183,7 +183,7 @@ bool setup_func_info(func_info_t *func_info, type_info_t type_info, char error_m
     }
 
     func_info->is_unitary = true;
-    func_info->is_quantizable = true,
+    func_info->is_quantizable = type_info.qualifier != QUANTUM_T,
     func_info->pars_type_info = malloc(sizeof (type_info_t));
     if (func_info->pars_type_info == NULL) {
         snprintf(error_msg, ERROR_MSG_LENGTH, "Allocating memory for function information failed");
@@ -209,7 +209,7 @@ bool append_to_func_info(func_info_t *func_info, type_info_t type_info, char err
         free(func_info->pars_type_info);
         return false;
     }
-
+    func_info->is_quantizable = func_info->is_quantizable && type_info.qualifier != QUANTUM_T;
     func_info->pars_type_info = temp;
     func_info->pars_type_info[current_num_of_pars] = type_info;
     return true;
