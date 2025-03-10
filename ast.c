@@ -3559,25 +3559,28 @@ void fprint_node(FILE *output_file, const node_t *node) {
 }
 
 /* See header for documentation */
-void fprint_tree(FILE *output_file, const node_t *root) {
+void fprint_tree(FILE *output_file, const node_t *root, size_t depth) {
     if (root == NULL) {
         return;
+    }
+    for (size_t i = 0; i < 2 * depth; ++i) {
+        fprintf(output_file, " ");
     }
     fprint_node(output_file, root);
     switch (root->node_type) {
         case BASIC_NODE_T: {
-            fprint_tree(output_file, root->left);
-            fprint_tree(output_file, root->right);
+            fprint_tree(output_file, root->left, depth + 1);
+            fprint_tree(output_file, root->right, depth + 1);
             break;
         }
         case STMT_LIST_NODE_T: {
             for (unsigned i = 0; i < ((stmt_list_node_t *) root)->num_of_stmts; ++i) {
-                fprint_tree(output_file, ((stmt_list_node_t *) root)->stmt_list[i]);
+                fprint_tree(output_file, ((stmt_list_node_t *) root)->stmt_list[i], depth + 1);
             }
             break;
         }
         case FUNC_DEF_NODE_T: {
-            fprint_tree(output_file, ((func_def_node_t *) root)->func_tail);
+            fprint_tree(output_file, ((func_def_node_t *) root)->func_tail, depth + 1);
             break;
         }
         case VAR_DEF_NODE_T: {
@@ -3585,106 +3588,106 @@ void fprint_tree(FILE *output_file, const node_t *root) {
                 for (unsigned i = 0; i < get_length_of_array(((var_def_node_t *) root)->entry->sizes,
                                                              ((var_def_node_t *) root)->entry->depth); ++i) {
                     if ((((var_def_node_t *) root)->q_types[i].qualifier != CONST_T)) {
-                        fprint_tree(output_file, ((var_def_node_t *) root)->values[i].node_value);
+                        fprint_tree(output_file, ((var_def_node_t *) root)->values[i].node_value, depth + 1);
                     }
                 }
             } else {
-                fprint_tree(output_file, ((var_def_node_t *) root)->node);
+                fprint_tree(output_file, ((var_def_node_t *) root)->node, depth + 1);
             }
             break;
         }
         case LOGICAL_OP_NODE_T: {
-            fprint_tree(output_file, ((logical_op_node_t *) root)->left);
-            fprint_tree(output_file, ((logical_op_node_t *) root)->right);
+            fprint_tree(output_file, ((logical_op_node_t *) root)->left, depth + 1);
+            fprint_tree(output_file, ((logical_op_node_t *) root)->right, depth + 1);
             break;
         }
         case COMPARISON_OP_NODE_T: {
-            fprint_tree(output_file, ((comparison_op_node_t *) root)->left);
-            fprint_tree(output_file, ((comparison_op_node_t *) root)->right);
+            fprint_tree(output_file, ((comparison_op_node_t *) root)->left, depth + 1);
+            fprint_tree(output_file, ((comparison_op_node_t *) root)->right, depth + 1);
             break;
         }
         case EQUALITY_OP_NODE_T: {
-            fprint_tree(output_file, ((equality_op_node_t *) root)->left);
-            fprint_tree(output_file, ((equality_op_node_t *) root)->right);
+            fprint_tree(output_file, ((equality_op_node_t *) root)->left, depth + 1);
+            fprint_tree(output_file, ((equality_op_node_t *) root)->right, depth + 1);
             break;
         }
         case NOT_OP_NODE_T: {
-            fprint_tree(output_file, ((not_op_node_t *) root)->child);
+            fprint_tree(output_file, ((not_op_node_t *) root)->child, depth + 1);
             break;
         }
         case INTEGER_OP_NODE_T: {
-            fprint_tree(output_file, ((integer_op_node_t *) root)->left);
-            fprint_tree(output_file, ((integer_op_node_t *) root)->right);
+            fprint_tree(output_file, ((integer_op_node_t *) root)->left, depth + 1);
+            fprint_tree(output_file, ((integer_op_node_t *) root)->right, depth + 1);
             break;
         }
         case INVERT_OP_NODE_T: {
-            fprint_tree(output_file, ((invert_op_node_t *) root)->child);
+            fprint_tree(output_file, ((invert_op_node_t *) root)->child, depth + 1);
             break;
         }
         case FUNC_CALL_NODE_T: {
             for (unsigned i = 0; i < ((func_call_node_t *) root)->num_of_pars; ++i) {
-                fprint_tree(output_file, ((func_call_node_t *) root)->pars[i]);
+                fprint_tree(output_file, ((func_call_node_t *) root)->pars[i], depth + 1);
             }
             break;
         }
         case IF_NODE_T: {
-            fprint_tree(output_file, ((if_node_t *) root)->condition);
-            fprint_tree(output_file, ((if_node_t *) root)->if_branch);
+            fprint_tree(output_file, ((if_node_t *) root)->condition, depth + 1);
+            fprint_tree(output_file, ((if_node_t *) root)->if_branch, depth + 1);
             for (unsigned i = 0; i < ((if_node_t *) root)->num_of_else_ifs; ++i) {
-                fprint_tree(output_file, ((if_node_t *) root)->else_ifs[i]);
+                fprint_tree(output_file, ((if_node_t *) root)->else_ifs[i], depth + 1);
             }
-            fprint_tree(output_file, ((if_node_t *) root)->else_branch);
+            fprint_tree(output_file, ((if_node_t *) root)->else_branch, depth + 1);
             break;
         }
         case ELSE_IF_NODE_T: {
-            fprint_tree(output_file, ((else_if_node_t *) root)->condition);
-            fprint_tree(output_file, ((else_if_node_t *) root)->else_if_branch);
+            fprint_tree(output_file, ((else_if_node_t *) root)->condition, depth + 1);
+            fprint_tree(output_file, ((else_if_node_t *) root)->else_if_branch, depth + 1);
             break;
         }
         case SWITCH_NODE_T: {
-            fprint_tree(output_file, ((switch_node_t *) root)->expression);
+            fprint_tree(output_file, ((switch_node_t *) root)->expression, depth + 1);
             for (unsigned i = 0; i < ((switch_node_t *) root)->num_of_cases; ++i) {
-                fprint_tree(output_file, ((switch_node_t *) root)->cases[i]);
+                fprint_tree(output_file, ((switch_node_t *) root)->cases[i], depth + 1);
             }
             break;
         }
         case CASE_NODE_T: {
-            fprint_tree(output_file, ((case_node_t *) root)->case_branch);
+            fprint_tree(output_file, ((case_node_t *) root)->case_branch, depth + 1);
             break;
         }
         case FOR_NODE_T: {
-            fprint_tree(output_file, ((for_node_t *) root)->initialize);
-            fprint_tree(output_file, ((for_node_t *) root)->condition);
-            fprint_tree(output_file, ((for_node_t *) root)->increment);
-            fprint_tree(output_file, ((for_node_t *) root)->for_branch);
+            fprint_tree(output_file, ((for_node_t *) root)->initialize, depth + 1);
+            fprint_tree(output_file, ((for_node_t *) root)->condition, depth + 1);
+            fprint_tree(output_file, ((for_node_t *) root)->increment, depth + 1);
+            fprint_tree(output_file, ((for_node_t *) root)->for_branch, depth + 1);
             break;
         }
         case DO_NODE_T: {
-            fprint_tree(output_file, ((do_node_t *) root)->do_branch);
-            fprint_tree(output_file, ((do_node_t *) root)->condition);
+            fprint_tree(output_file, ((do_node_t *) root)->do_branch, depth + 1);
+            fprint_tree(output_file, ((do_node_t *) root)->condition, depth + 1);
             break;
         }
         case WHILE_NODE_T: {
-            fprint_tree(output_file, ((while_node_t *) root)->condition);
-            fprint_tree(output_file, ((while_node_t *) root)->while_branch);
+            fprint_tree(output_file, ((while_node_t *) root)->condition, depth + 1);
+            fprint_tree(output_file, ((while_node_t *) root)->while_branch, depth + 1);
             break;
         }
         case ASSIGN_NODE_T: {
-            fprint_tree(output_file, ((assign_node_t *) root)->left);
-            fprint_tree(output_file, ((assign_node_t *) root)->right);
+            fprint_tree(output_file, ((assign_node_t *) root)->left, depth + 1);
+            fprint_tree(output_file, ((assign_node_t *) root)->right, depth + 1);
             break;
         }
         case PHASE_NODE_T: {
-            fprint_tree(output_file, ((phase_node_t *) root)->left);
-            fprint_tree(output_file, ((phase_node_t *) root)->right);
+            fprint_tree(output_file, ((phase_node_t *) root)->left, depth + 1);
+            fprint_tree(output_file, ((phase_node_t *) root)->right, depth + 1);
             break;
         }
         case MEASURE_NODE_T: {
-            fprint_tree(output_file, ((measure_node_t *) root)->child);
+            fprint_tree(output_file, ((measure_node_t *) root)->child, depth + 1);
             break;
         }
         case RETURN_NODE_T: {
-            fprint_tree(output_file, ((return_node_t *) root)->return_value);
+            fprint_tree(output_file, ((return_node_t *) root)->return_value, depth + 1);
             break;
         }
         default: {

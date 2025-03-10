@@ -1211,7 +1211,7 @@ int main(int argc, char **argv) {
             fprintf(stderr, "%s\n", tree_dump_file);
             return 1;
         }
-        fprint_tree(yyout, root);
+        fprint_tree(yyout, root, 0);
         fclose(yyout);
     }
 

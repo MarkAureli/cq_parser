@@ -916,8 +916,9 @@ void fprint_node(FILE *output_file, const node_t *node);
  * \brief                               Write tree information to output file
  * \param[out]                          output_file: Pointer to output file for tree information
  * \param[in]                           root: Pointer to root node of the tree whose information is to be written
+ * \param[in]                           depth: Current layer depth
  */
-void fprint_tree(FILE *output_file, const node_t *root);
+void fprint_tree(FILE *output_file, const node_t *root, size_t depth);
 
 
 /*
