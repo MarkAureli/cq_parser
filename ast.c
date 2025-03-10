@@ -797,6 +797,10 @@ bool copy_type_info_of_node(type_info_t *type_info, const node_t *node) {
             copy_type_info_of_entry(type_info, ((var_def_node_t *) node)->entry);
             return true;
         }
+        case FUNC_DEF_NODE_T: {
+            copy_type_info_of_entry(type_info, ((func_def_node_t *) node)->entry);
+            return true;
+        }
         case CONST_NODE_T: {
             memcpy(type_info, &(((const_node_t *) node)->type_info), sizeof (type_info_t));
             return true;
